@@ -1,35 +1,38 @@
-import { useState } from 'react'
-import { Outlet, Navigate } from 'react-router-dom'
-import Sidebar from '../components/layout/Sidebar'
-import Header from '../components/layout/Header'
-import { useAuth } from '../context/AuthContext'
+import { useState } from 'react';
+import { Outlet, Navigate } from 'react-router-dom';
+import Sidebar from '../components/layout/Sidebar';
+import Header from '../components/layout/Header';
+import { useAuth } from '../context/AuthContext';
 
 function Dashboard() {
-	const { currentUser, loading } = useAuth()
-	const [isMinimized, setIsMinimized] = useState(false)
-	const [isMobileOpen, setIsMobileOpen] = useState(false)
+	const { currentUser, loading } = useAuth();
+	const [isMinimized, setIsMinimized] = useState(false);
+	const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+	// 1. Mostrar el estado de carga mientras el context está verificando.
 	if (loading) {
         return <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">Verificando sesión...</div>;
     }
-	console.log(currentUser);
 	
+	// 2. Cuando la carga termina, si no hay usuario, redirigir a login.
     if (!currentUser) {
         return <Navigate to="/login" replace />;
     }
     
+	// 3. Si hay usuario, pero no ha cambiado su contraseña, redirigir.
     if (currentUser.passwordChanged === false) {
         return <Navigate to="/change-password" replace />;
     }
 
 	const toggleMinimize = () => {
-		setIsMinimized(prev => !prev)
-	}
+		setIsMinimized(prev => !prev);
+	};
 
 	const toggleMobileMenu = () => {
-		setIsMobileOpen(prev => !prev)
-	}
+		setIsMobileOpen(prev => !prev);
+	};
 
+	// 4. Si todo es correcto, mostrar el Dashboard.
 	return (
 		<div className="relative min-h-screen lg:flex bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
 			<Sidebar
@@ -54,7 +57,7 @@ function Dashboard() {
 				</main>
 			</div>
 		</div>
-	)
+	);
 }
 
-export default Dashboard
+export default Dashboard;

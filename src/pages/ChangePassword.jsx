@@ -46,6 +46,7 @@ function ChangePassword() {
             await updateDoc(userDocRef, { passwordChanged: true });
             
             navigate('/');
+            window.location.reload();
 
         } catch (err) {
             if (err.code === 'auth/wrong-password') {

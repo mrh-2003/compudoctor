@@ -1,9 +1,12 @@
-import { useState, useContext } from 'react';
+
+import { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../services/firebase';
 import { ThemeContext } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import logo from '../../assets/images/compudoctor-logo.png';
+import { FiSun, FiMoon } from 'react-icons/fi';
 
 function Login() {
     const { toggleTheme, theme } = useContext(ThemeContext);
@@ -12,6 +15,19 @@ function Login() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+    const { currentUser, loading } = useAuth();
+    const [loginRequested, setLoginRequested] = useState(false);
+
+    useEffect(() => {
+        if (loginRequested && !loading && currentUser) {
+            // Si el usuario acaba de loguearse y su email es igual a su password, forzar cambio de contraseña
+            if (email === password) {
+                navigate('/change-password', { replace: true });
+            } else {
+                navigate('/', { replace: true });
+            }
+        }
+    }, [loginRequested, loading, currentUser, email, password, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -19,11 +35,7 @@ function Login() {
         setError('');
         try {
             await signInWithEmailAndPassword(auth, email, password);
-            if (email === password) {
-                navigate('/change-password', { replace: true });
-            } else {
-                navigate('/', { replace: true });
-            }
+            setLoginRequested(true);
         } catch (err) {
             setError('Correo o contraseña incorrectos.');
             setIsLoading(false);
@@ -32,6 +44,15 @@ function Login() {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+            <div className="absolute top-4 right-4">
+                            <button
+                                onClick={toggleTheme}
+                                className="p-2 rounded-full text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                title="Cambiar tema"
+                            >
+                                {theme === 'light' ? <FiMoon size={20} /> : <FiSun size={20} />}
+                            </button>
+                        </div>
             <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md border dark:border-gray-700">
                 <div className="flex flex-col items-center mb-6">
                     <img src={logo} alt="CompuDoctor Logo" className="h-24 w-auto mb-2" />

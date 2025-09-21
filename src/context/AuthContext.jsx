@@ -22,6 +22,7 @@ export function AuthProvider({ children }) {
                             ...userDocSnap.data()
                         });
                     } else {
+                        // Si el usuario existe en Auth pero no en Firestore, lo deslogueamos.
                         setCurrentUser(null);
                     }
                 } else {
@@ -31,6 +32,8 @@ export function AuthProvider({ children }) {
                 console.error("Error al obtener datos del usuario:", error);
                 setCurrentUser(null);
             } finally {
+                // crucial: setLoading(false) solo se llama después de que todas las
+                // operaciones asíncronas (incluida la de Firestore) hayan terminado.
                 setLoading(false);
             }
         });
