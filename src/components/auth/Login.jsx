@@ -1,8 +1,7 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../services/firebase';
-import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../context/ThemeContext';
 import logo from '../../assets/images/compudoctor-logo.png';
 
@@ -13,13 +12,6 @@ function Login() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
-    const { currentUser, loading } = useAuth();
-
-    useEffect(() => {
-        if (!loading && currentUser) {
-            navigate('/', { replace: true });
-        }
-    }, [currentUser, loading, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -27,6 +19,11 @@ function Login() {
         setError('');
         try {
             await signInWithEmailAndPassword(auth, email, password);
+            if (email === password) {
+                navigate('/change-password', { replace: true });
+            } else {
+                navigate('/', { replace: true });
+            }
         } catch (err) {
             setError('Correo o contraseña incorrectos.');
             setIsLoading(false);

@@ -1,53 +1,33 @@
-import { useState } from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
-import Sidebar from '../layout/Sidebar';
-import Header from '../layout/Header';
-import { useAuth } from '../../context/AuthContext';
+import { useContext } from 'react'
+import { ThemeContext } from '../../context/ThemeContext'
+import { FiMenu, FiSun, FiMoon } from 'react-icons/fi'
 
-function Dashboard() {
-    const { currentUser, loading } = useAuth();
-    const [isDesktopMinimized, setIsDesktopMinimized] = useState(false);
-    const [isMobileOpen, setIsMobileOpen] = useState(false);
+function Header({ openMobileMenu }) {
+	const { toggleTheme, theme } = useContext(ThemeContext)
 
-    if (loading) {
-        return <div className="flex items-center justify-center min-h-screen">Cargando...</div>;
-    }
+	return (
+		<header className="bg-white dark:bg-gray-800 shadow-sm p-4 h-16 flex items-center justify-between sticky top-0 z-20 transition-colors duration-300">
+			<button
+				onClick={openMobileMenu}
+				className="p-2 rounded-full text-gray-600 dark:text-gray-300 lg:hidden"
+				aria-label="Abrir menú"
+			>
+				<FiMenu size={24} />
+			</button>
 
-    if (!currentUser) {
-        return <Navigate to="/login" replace />;
-    }
-    
-    if (currentUser.passwordChanged === false) {
-        return <Navigate to="/change-password" replace />;
-    }
+			<div className="flex-1"></div>
 
-    const toggleDesktopMinimize = () => setIsDesktopMinimized(prev => !prev);
-    const toggleMobileOpen = () => setIsMobileOpen(prev => !prev);
-
-    return (
-        <div className="flex min-h-screen w-full bg-gray-100 dark:bg-gray-900">
-            <Sidebar
-                isDesktopMinimized={isDesktopMinimized}
-                isMobileOpen={isMobileOpen}
-                onToggleDesktop={toggleDesktopMinimize}
-                onToggleMobile={toggleMobileOpen}
-            />
-
-            {isMobileOpen && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-                    onClick={toggleMobileOpen}
-                ></div>
-            )}
-
-            <div className="flex flex-col flex-1 min-w-0">
-                <Header onToggleMobile={toggleMobileOpen} />
-                <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
-                    <Outlet />
-                </main>
-            </div>
-        </div>
-    );
+			<div className="flex items-center space-x-4">
+				<button
+					onClick={toggleTheme}
+					className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+					title="Cambiar tema"
+				>
+					{theme === 'light' ? <FiMoon size={20} /> : <FiSun size={20} />}
+				</button>
+			</div>
+		</header>
+	)
 }
 
-export default Dashboard;
+export default Header
