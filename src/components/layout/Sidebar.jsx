@@ -52,7 +52,7 @@ function Sidebar({ isDesktopMinimized, isMobileOpen, onToggleDesktop, onToggleMo
         if (isMobileOpen) {
             onToggleMobile();
         }
-    }
+    };
 
     return (
         <aside className={`fixed top-0 left-0 h-full shadow-xl z-40 transition-transform duration-300 ease-in-out bg-white dark:bg-gray-800 flex flex-col lg:static lg:translate-x-0 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} ${isDesktopMinimized ? 'lg:w-20' : 'lg:w-64'}`}>
@@ -66,8 +66,8 @@ function Sidebar({ isDesktopMinimized, isMobileOpen, onToggleDesktop, onToggleMo
 
                 <nav className="flex-1 overflow-y-auto px-2 py-4">
                     <ul className="space-y-1">
-                        {visibleNavItems.map((item, idx) => (
-                            <li key={idx}>
+                        {visibleNavItems.map((item) => (
+                            <li key={item.id}>
                                 {item.subItems ? (
                                     <>
                                         <button onClick={() => setIsReportsOpen(prev => !prev)} className={`w-full flex items-center p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 ${isDesktopMinimized ? 'justify-center' : ''}`}>
@@ -77,8 +77,8 @@ function Sidebar({ isDesktopMinimized, isMobileOpen, onToggleDesktop, onToggleMo
                                         </button>
                                         {isReportsOpen && !isDesktopMinimized && (
                                             <ul className="pl-10 mt-1 space-y-1">
-                                                {item.subItems.map((sub, subIdx) => (
-                                                    <li key={subIdx}>
+                                                {item.subItems.map((sub) => (
+                                                    <li key={sub.id}>
                                                         <NavLink to={sub.path} onClick={handleLinkClick} className={({ isActive }) => `block px-3 py-2 rounded-lg text-sm ${isActive ? 'bg-blue-500 text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
                                                             {sub.name}
                                                         </NavLink>
