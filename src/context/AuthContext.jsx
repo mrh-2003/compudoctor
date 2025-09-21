@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 
 export const AuthContext = createContext();
@@ -10,34 +10,41 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            try {
-                if (user) {
-                    const userDocRef = doc(db, 'users', user.uid);
-                    const userDocSnap = await getDoc(userDocRef);
-                    if (userDocSnap.exists()) {
+        let unsubscribeFirestore = () => {};
+
+        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            unsubscribeFirestore();
+
+            if (user) {
+                const userDocRef = doc(db, 'users', user.uid);
+                
+                unsubscribeFirestore = onSnapshot(userDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
                         setCurrentUser({
                             uid: user.uid,
                             email: user.email,
-                            ...userDocSnap.data()
+                            ...docSnap.data()
                         });
                     } else {
-                        // Si el usuario existe en Auth pero no en Firestore, lo deslogueamos.
                         setCurrentUser(null);
                     }
-                } else {
+                    setLoading(false);
+                }, (error) => {
+                    console.error("Error al escuchar datos del usuario:", error);
                     setCurrentUser(null);
-                }
-            } catch (error) {
-                console.error("Error al obtener datos del usuario:", error);
+                    setLoading(false);
+                });
+
+            } else {
                 setCurrentUser(null);
-            } finally {
-                // crucial: setLoading(false) solo se llama después de que todas las
-                // operaciones asíncronas (incluida la de Firestore) hayan terminado.
                 setLoading(false);
             }
         });
-        return unsubscribe;
+
+        return () => {
+            unsubscribeAuth();
+            unsubscribeFirestore();
+        };
     }, []);
 
     const value = useMemo(() => ({

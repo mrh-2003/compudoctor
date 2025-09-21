@@ -69,20 +69,26 @@ function Usuarios() {
         setEditingUser(null);
     };
 
-    const handleSaveUser = async (userData) => {
-        try {
-            if (editingUser && editingUser.id) {
-                await updateUser(editingUser.id, userData);
-                showNotification('Usuario actualizado con éxito', 'success');
-            } else {
-                await createUser(userData);
-                showNotification('Usuario creado con éxito', 'success');
+    const handleSaveUser = (userData) => {
+        const userToUpdate = { ...editingUser };
+        handleCloseModal();
+    
+        const performSave = async () => {
+            try {
+                if (userToUpdate && userToUpdate.id) {
+                    await updateUser(userToUpdate.id, userData);
+                    showNotification('Usuario actualizado con éxito', 'success');
+                } else {
+                    await createUser(userData);
+                    showNotification('Usuario creado con éxito', 'success');
+                }
+                fetchUsers();
+            } catch (error) {
+                showNotification(error.message, 'error');
             }
-            fetchUsers();
-            handleCloseModal();
-        } catch (error) {
-            showNotification(error.message, 'error');
-        }
+        };
+    
+        performSave();
     };
 
     const handleDeleteRequest = (user) => {

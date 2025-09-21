@@ -24,13 +24,49 @@ function App() {
                 
                 <Route path="/" element={<Dashboard />}>
                     <Route index element={<Home />} />
-                    <Route path="clientes" element={<Clientes />} />
-                    <Route path="diagnostico" element={<Diagnostico />} />
-                    <Route path="ver-estado" element={<VerEstado />} />
-                    <Route path="inventario" element={<Inventario />} />
-                    <Route path="reportes" element={<Reportes />} />
-                    <Route path="reportes/ventas" element={<Ventas />} />
-                    <Route path="reportes/tecnicos" element={<Tecnicos />} />
+                    
+                    <Route path="clientes" element={
+                        <ProtectedRoute permissionId="clientes">
+                            <Clientes />
+                        </ProtectedRoute>
+                    } />
+                    
+                    <Route path="diagnostico" element={
+                        <ProtectedRoute permissionId="diagnostico">
+                            <Diagnostico />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="ver-estado" element={
+                        <ProtectedRoute permissionId="ver-estado">
+                            <VerEstado />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="inventario" element={
+                        <ProtectedRoute permissionId="inventario">
+                            <Inventario />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="reportes" element={
+                        <ProtectedRoute permissionId="reportes">
+                            <Reportes />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="reportes/ventas" element={
+                        <ProtectedRoute permissionId="reportes">
+                            <Ventas />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="reportes/tecnicos" element={
+                        <ProtectedRoute permissionId="reportes">
+                            <Tecnicos />
+                        </ProtectedRoute>
+                    } />
+                    
                     <Route
                         path="usuarios"
                         element={
