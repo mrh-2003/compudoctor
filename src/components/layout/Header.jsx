@@ -1,37 +1,53 @@
+import { useState } from 'react';
+import { Outlet, Navigate } from 'react-router-dom';
+import Sidebar from '../layout/Sidebar';
+import Header from '../layout/Header';
+import { useAuth } from '../../context/AuthContext';
 
+function Dashboard() {
+    const { currentUser, loading } = useAuth();
+    const [isDesktopMinimized, setIsDesktopMinimized] = useState(false);
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-import { useContext } from 'react'
-import { ThemeContext } from '../../context/ThemeContext'
-import { FiMenu } from 'react-icons/fi'
+    if (loading) {
+        return <div className="flex items-center justify-center min-h-screen">Cargando...</div>;
+    }
 
-function Header({ onToggleSidebar }) {
-	const { toggleTheme, theme } = useContext(ThemeContext)
+    if (!currentUser) {
+        return <Navigate to="/login" replace />;
+    }
+    
+    if (currentUser.passwordChanged === false) {
+        return <Navigate to="/change-password" replace />;
+    }
 
-	return (
-		<header className="bg-white dark:bg-gray-800 shadow-sm p-4 sticky top-0 z-10 flex items-center justify-between transition-colors duration-300">
-			<div className="flex items-center">
-				<button
-					onClick={onToggleSidebar}
-					className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mr-4 focus:outline-none lg:hidden"
-				>
-					<FiMenu size={24} />
-				</button>
-				<h1 className="text-xl font-bold text-gray-800 dark:text-white">
-					Dashboard
-				</h1>
-			</div>
-			<div className="flex items-center space-x-4">
-				<button
-					onClick={toggleTheme}
-					className="p-2 rounded-full text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-					title="Cambiar modo claro/oscuro"
-				>
-					{theme === 'light' ? '🌞' : '🌙'}
-				</button>
-			</div>
-		</header>
-	)
+    const toggleDesktopMinimize = () => setIsDesktopMinimized(prev => !prev);
+    const toggleMobileOpen = () => setIsMobileOpen(prev => !prev);
+
+    return (
+        <div className="flex min-h-screen w-full bg-gray-100 dark:bg-gray-900">
+            <Sidebar
+                isDesktopMinimized={isDesktopMinimized}
+                isMobileOpen={isMobileOpen}
+                onToggleDesktop={toggleDesktopMinimize}
+                onToggleMobile={toggleMobileOpen}
+            />
+
+            {isMobileOpen && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+                    onClick={toggleMobileOpen}
+                ></div>
+            )}
+
+            <div className="flex flex-col flex-1 min-w-0">
+                <Header onToggleMobile={toggleMobileOpen} />
+                <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
+                    <Outlet />
+                </main>
+            </div>
+        </div>
+    );
 }
 
-export default Header
- 
+export default Dashboard;
