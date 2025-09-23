@@ -12,6 +12,12 @@ export const getAllUsers = async () => {
 	return userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 }
 
+export const getAllUsersDetailed = async () => {
+    const usersCol = collection(db, 'users');
+    const userSnapshot = await getDocs(usersCol);
+    return userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
 export const createUser = async (userData) => { 
 	if (!userData || !userData.email || !userData.nombre || !userData.rol) {
 		throw new Error("Datos del usuario incompletos en el cliente.");

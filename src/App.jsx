@@ -1,3 +1,4 @@
+// src/App.jsx
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './components/auth/Login';
 import Dashboard from './pages/Dashboard';
@@ -32,6 +33,12 @@ function App() {
                     } />
                     
                     <Route path="diagnostico" element={
+                        <ProtectedRoute permissionId="diagnostico">
+                            <Diagnostico />
+                        </ProtectedRoute>
+                    } />
+                    
+                    <Route path="diagnostico/:diagnosticoId" element={
                         <ProtectedRoute permissionId="diagnostico">
                             <Diagnostico />
                         </ProtectedRoute>
