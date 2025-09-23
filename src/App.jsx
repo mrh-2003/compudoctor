@@ -1,4 +1,3 @@
-// src/App.jsx
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './components/auth/Login';
 import Dashboard from './pages/Dashboard';
@@ -14,6 +13,7 @@ import Tecnicos from './pages/Tecnicos';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import PermissionDenied from './pages/PermissionDenied';
 import ChangePassword from './pages/ChangePassword';
+import ClientHistory from './pages/ClientHistory';
 
 function App() {
     return (
@@ -29,6 +29,12 @@ function App() {
                     <Route path="clientes" element={
                         <ProtectedRoute permissionId="clientes">
                             <Clientes />
+                        </ProtectedRoute>
+                    } />
+                    
+                    <Route path="clientes/historial/:clientId" element={
+                        <ProtectedRoute permissionId="clientes">
+                            <ClientHistory />
                         </ProtectedRoute>
                     } />
                     

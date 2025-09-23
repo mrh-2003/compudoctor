@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Select from 'react-select';
-import { FaPlus, FaSave, FaPrint, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaSave, FaPrint, FaTrash, FaPen } from 'react-icons/fa';
 import toast from 'react-hot-toast';
-import { createDiagnosticReport, getNextReportNumber, getAllClientsForSelection, getClientById } from '../services/diagnosticService';
+import { createDiagnosticReport, getNextReportNumber, getAllClientsForSelection, getClientById, getDiagnosticReportById, updateDiagnosticReport } from '../services/diagnosticService';
 import { getAllUsersDetailed } from '../services/userService';
 import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext';
@@ -11,7 +11,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 function Diagnostico() {
-  const { clientId } = useParams();
+  const { diagnosticoId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { theme } = useContext(ThemeContext);
@@ -34,15 +34,17 @@ function Diagnostico() {
     observaciones: '',
     motivoIngreso: '',
     diagnostico: 30,
-    total: 0,
+    montoServicio: 0, 
+    total: 30, 
     aCuenta: 0,
-    saldo: -30,
+    saldo: 30,
     tecnicoRecepcion: currentUser?.nombre || '',
     tecnicoTesteo: '',
     tecnicoResponsable: '',
     area: '',
   });
   const [isLoading, setIsLoading] = useState(true);
+  const isEditMode = !!diagnosticoId;
 
   const getToday = useMemo(() => {
     const date = new Date();
@@ -131,40 +133,57 @@ function Diagnostico() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [allClients, allUsers, nextReportNumber] = await Promise.all([
-            getAllClientsForSelection(),
-            getAllUsersDetailed(),
-            getNextReportNumber()
+        const [allClients, allUsers] = await Promise.all([
+          getAllClientsForSelection(),
+          getAllUsersDetailed(),
         ]);
         setClients(allClients);
         setUsers(allUsers.map(u => ({ value: u.id, label: u.nombre })));
-        setReportNumber(nextReportNumber.toString().padStart(6, '0'));
 
-        if (clientId) {
-          const client = await getClientById(clientId);
-          if (client) {
+        if (diagnosticoId) {
+          const report = await getDiagnosticReportById(diagnosticoId);
+          if (report) {
+            const client = await getClientById(report.clientId);
             setSelectedClient({ value: client.id, label: client.nombre, data: client });
+            setReportNumber(report.reportNumber.toString().padStart(6, '0'));
+            setFormData({
+                ...report,
+                diagnostico: parseFloat(report.diagnostico),
+                montoServicio: parseFloat(report.montoServicio),
+                aCuenta: parseFloat(report.aCuenta),
+                saldo: parseFloat(report.saldo),
+                total: parseFloat(report.total),
+            });
+            if (report.additionalServices) {
+              setAdditionalServices(report.additionalServices);
+              setShowAdditionalServices(report.hasAdditionalServices);
+            }
           } else {
-            toast.error("Cliente no encontrado.");
+            toast.error("Informe no encontrado.");
           }
+        } else {
+          const nextReportNumber = await getNextReportNumber();
+          setReportNumber(nextReportNumber.toString().padStart(6, '0'));
         }
       } catch (error) {
         toast.error("Error al cargar datos.");
+        console.error(error);
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
-  }, [clientId]);
+  }, [diagnosticoId]);
 
   useEffect(() => {
-    const newTotal = additionalServices.reduce((sum, service) => sum + parseFloat(service.amount), 0);
+    const totalAdicionales = additionalServices.reduce((sum, service) => sum + parseFloat(service.amount), 0);
+    const newTotal = parseFloat(formData.montoServicio) + parseFloat(formData.diagnostico) + totalAdicionales;
     setFormData(prev => ({
       ...prev,
       total: newTotal,
-      saldo: newTotal + parseFloat(prev.diagnostico) - parseFloat(prev.aCuenta),
+      saldo: newTotal - parseFloat(prev.aCuenta),
     }));
-  }, [additionalServices, formData.diagnostico, formData.aCuenta]);
+  }, [additionalServices, formData.diagnostico, formData.montoServicio, formData.aCuenta]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -177,21 +196,18 @@ function Diagnostico() {
   const handlePaymentChange = (e) => {
     const { name, value } = e.target;
     const numericValue = parseFloat(value) || 0;
-    const newTotal = name === 'total' ? numericValue : formData.total;
-    const newACuenta = name === 'aCuenta' ? numericValue : formData.aCuenta;
-    const newDiagnostico = name === 'diagnostico' ? numericValue : formData.diagnostico;
-
-    const newSaldo = newTotal + newDiagnostico - newACuenta;
-    
     setFormData(prev => ({
       ...prev,
       [name]: numericValue,
-      saldo: newSaldo,
     }));
   };
 
   const handleClientChange = (selectedOption) => {
     setSelectedClient(selectedOption);
+    // Para modo de edición, no se puede cambiar el cliente
+    if (isEditMode) {
+      toast.error('No se puede cambiar el cliente en modo de edición.');
+    }
   };
   
   const handleUserChange = (name, selectedOption) => {
@@ -246,36 +262,10 @@ function Diagnostico() {
 
   const validateForm = () => {
     const newErrors = {};
-    const requiredFields = ['marca', 'modelo', 'motivoIngreso', 'tecnicoTesteo', 'tecnicoResponsable', 'area'];
-    const requiredHardwareItems = ['procesador', 'placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo', 'wifi', 'bateria'];
+    const requiredFields = ['marca', 'modelo', 'motivoIngreso', 'tecnicoTesteo', 'tecnicoResponsable', 'area', 'montoServicio'];
     
     if (!selectedClient) {
         newErrors.client = 'Seleccionar un cliente es obligatorio.';
-    }
-    
-    if (formData.tipoEquipo === 'Laptop' || formData.tipoEquipo === 'PC' || formData.tipoEquipo === 'Allinone') {
-        requiredHardwareItems.forEach(item => {
-            const currentItem = formData.items.find(i => i.id === item);
-            if (currentItem && !currentItem.checked && item !== 'bateria') { // Batería solo en laptop
-                newErrors[item] = `El campo ${currentItem.name} es obligatorio.`;
-            }
-        });
-        
-        if (formData.tipoEquipo === 'Laptop') {
-            const bateriaItem = formData.items.find(i => i.id === 'bateria');
-            if (bateriaItem && !bateriaItem.checked) {
-                newErrors.bateria = `El campo Batería es obligatorio para laptops.`;
-            }
-        }
-
-        if (formData.tipoEquipo === 'PC' || formData.tipoEquipo === 'Allinone') {
-            ['memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo'].forEach(item => {
-                const currentItem = formData.items.find(i => i.id === item);
-                if (currentItem && !currentItem.checked) {
-                    newErrors[item] = `El campo ${currentItem.name} es obligatorio para el tipo de equipo.`;
-                }
-            });
-        }
     }
     
     requiredFields.forEach(field => {
@@ -301,18 +291,31 @@ function Diagnostico() {
       return;
     }
     try {
-      const reportId = await createDiagnosticReport({
-        ...formData,
-        reportNumber,
-        clientId: selectedClient.value,
-        clientName: selectedClient.label,
-        fecha: `${getToday.day}-${getToday.month}-${getToday.year}`,
-        hora: getToday.time,
-        additionalServices: showAdditionalServices ? additionalServices : [],
-        hasAdditionalServices: showAdditionalServices && additionalServices.length > 0,
-        estado: 'PENDIENTE',
-      });
-      toast.success(`Informe #${reportId} creado con éxito.`);
+      if (isEditMode) {
+        await updateDiagnosticReport(diagnosticoId, {
+            ...formData,
+            clientId: selectedClient.value,
+            clientName: selectedClient.label,
+            telefono: selectedClient.data?.telefono,
+            additionalServices: showAdditionalServices ? additionalServices : [],
+            hasAdditionalServices: showAdditionalServices && additionalServices.length > 0,
+        });
+        toast.success(`Informe #${reportNumber} actualizado con éxito.`);
+      } else {
+        await createDiagnosticReport({
+          ...formData,
+          reportNumber: parseInt(reportNumber),
+          clientId: selectedClient.value,
+          clientName: selectedClient.label,
+          telefono: selectedClient.data?.telefono,
+          fecha: `${getToday.day}-${getToday.month}-${getToday.year}`,
+          hora: getToday.time,
+          additionalServices: showAdditionalServices ? additionalServices : [],
+          hasAdditionalServices: showAdditionalServices && additionalServices.length > 0,
+          estado: 'PENDIENTE',
+        });
+        toast.success(`Informe #${reportNumber} creado con éxito.`);
+      }
       navigate('/ver-estado');
     } catch (error) {
       toast.error(error.message);
@@ -320,6 +323,11 @@ function Diagnostico() {
   };
 
   const handlePrint = () => {
+    if (!validateForm()) {
+        toast.error('Por favor, completa todos los campos obligatorios antes de imprimir.');
+        return;
+    }
+
     const printContent = `
       <div class="p-8 font-sans">
         <style>
@@ -395,9 +403,10 @@ function Diagnostico() {
             <div class="section-title">INFORMACIÓN DE PAGO</div>
             <div class="flex-row">
                 <div><span class="font-bold">Diagnóstico:</span> S/ ${formData.diagnostico.toFixed(2)}</div>
+                <div><span class="font-bold">Monto Servicio:</span> S/ ${formData.montoServicio.toFixed(2)}</div>
+                <div><span class="font-bold">Total:</span> S/ ${formData.total.toFixed(2)}</div>
                 <div><span class="font-bold">A Cuenta:</span> S/ ${formData.aCuenta.toFixed(2)}</div>
                 <div><span class="font-bold">Saldo:</span> S/ ${formData.saldo.toFixed(2)}</div>
-                <div><span class="font-bold">Total:</span> S/ ${(formData.total + formData.diagnostico).toFixed(2)}</div>
             </div>
 
             ${showAdditionalServices ? `
@@ -407,22 +416,21 @@ function Diagnostico() {
               </ul>
             ` : ''}
 
-            <div class="section-title">TÉCNICOS Y ÁREA</div>
+            <div class="section-title">TÉCNICOS</div>
             <div class="flex-row">
                 <div><span class="font-bold">Técnico Recepción:</span> ${formData.tecnicoRecepcion}</div>
                 <div><span class="font-bold">Técnico Testeo:</span> ${formData.tecnicoTesteo}</div>
                 <div><span class="font-bold">Técnico Responsable:</span> ${formData.tecnicoResponsable}</div>
-                <div><span class="font-bold">Área:</span> ${formData.area}</div>
             </div>
           </div>
           
           <div class="footer">
             <p class="clausula"><b>CLAUSULA N° 01</b><br>
-            Se dará PRIORIDAD al servicio según el motivo por el cual ingresa el equipo, especialmente si es por una reparación de placa. Si se encuentra algún OTRO PROBLEMA durante el proceso, se informará como observación. [cite_start]En caso de que el cliente solicite la revisión o solución de este problema adicional, se considerará como un servicio aparte, lo que implicará un costo adicional. [cite: 67, 68, 69]</p>
+            Se dará PRIORIDAD al servicio según el motivo por el cual ingresa el equipo, especialmente si es por una reparación de placa. Si se encuentra algún OTRO PROBLEMA durante el proceso, se informará como observación. En caso de que el cliente solicite la revisión o solución de este problema adicional, se considerará como un servicio aparte, lo que implicará un costo adicional.</p>
             <p class="clausula"><b>CLAUSULA N° 02</b><br>
-            La garantía cubrirá únicamente el servicio realizado. [cite_start]Si, después de algunos días, se presenta OTRO PROBLEMA, no se aplicaría dicho garantia al equipo. [cite: 71]</p>
+            La garantía cubrirá únicamente el servicio realizado. Si, después de algunos días, se presenta OTRO PROBLEMA, no se aplicaría dicho garantia al equipo.</p>
             <p class="clausula"><b>CLAUSULA N° 03</b><br>
-            Todo SERVICIO que no incluya un producto NO INCLUYE EL IGV (18%), en caso de que el cliente solicite un comprobante electrónico. [cite_start]Los pagos con tarjeta de CRÉDITO Y DÉBITO tendrán un recargo adicional del 5%. [cite: 73, 74]</p>
+            Todo SERVICIO que no incluya un producto NO INCLUYE EL IGV (18%), en caso de que el cliente solicite un comprobante electrónico. Los pagos con tarjeta de CRÉDITO Y DÉBITO tendrán un recargo adicional del 5%.</p>
             <div class="firma">
                 <div class="firma-line"></div>
                 <div>FIRMA CLIENTE</div>
@@ -461,7 +469,7 @@ function Diagnostico() {
               onChange={handleClientChange}
               placeholder="Buscar o seleccionar cliente..."
               isClearable
-              isDisabled={isLoading}
+              isDisabled={isLoading || isEditMode}
               className={`${errors.client ? 'ring-2 ring-red-500' : ''}`}
               styles={{
                 control: (baseStyles) => ({
@@ -588,10 +596,11 @@ function Diagnostico() {
         {/* Información de Pagos */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 text-red-500">Información de Pago</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Total</label>
-              <input type="number" name="total" value={formData.total} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" />
+              <label className="block text-sm font-medium mb-1">Monto Servicio (S/)</label>
+              <input type="number" name="montoServicio" value={formData.montoServicio} onChange={handlePaymentChange} className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${errors.montoServicio ? 'ring-2 ring-red-500' : ''}`} required />
+              {errors.montoServicio && <p className="text-red-500 text-sm mt-1">{errors.montoServicio}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Diagnóstico (S/)</label>
@@ -600,6 +609,10 @@ function Diagnostico() {
             <div>
               <label className="block text-sm font-medium mb-1">A Cuenta (S/)</label>
               <input type="number" name="aCuenta" value={formData.aCuenta} onChange={handlePaymentChange} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Total (S/)</label>
+              <input type="number" name="total" value={formData.total} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Saldo (S/)</label>
@@ -629,7 +642,7 @@ function Diagnostico() {
                   placeholder="Monto (S/)"
                   value={newService.amount}
                   onChange={(e) => setNewService(prev => ({ ...prev, amount: e.target.value }))}
-                  className="w-24 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                 />
                 <button type="button" onClick={handleAddService} className="bg-blue-500 text-white font-bold px-4 rounded-lg">
                   <FaPlus />
@@ -706,7 +719,7 @@ function Diagnostico() {
         </div>
         
         <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center">
-          <FaSave className="mr-2" /> Guardar Informe Técnico
+          {isEditMode ? <><FaPen className="mr-2" /> Actualizar Informe Técnico</> : <><FaSave className="mr-2" /> Guardar Informe Técnico</>}
         </button>
       </form>
     </div>

@@ -1,6 +1,5 @@
-import { collection, getDocs, addDoc, query, orderBy, limit, doc, getDoc, where } from 'firebase/firestore'
-import { db } from './firebase'
-import { getAuth } from 'firebase/auth';
+import { collection, getDocs, addDoc, query, orderBy, limit, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 const DIAGNOSTICO_COLLECTION = 'diagnosticos';
 
