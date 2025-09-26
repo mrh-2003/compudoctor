@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, query, orderBy, limit, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, orderBy, limit, doc, getDoc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from './firebase';
 
 const DIAGNOSTICO_COLLECTION = 'diagnosticos';
@@ -22,6 +22,15 @@ export const createDiagnosticReport = async (reportData) => {
         ...reportData,
         reportNumber,
         createdAt: new Date(),
+        // Nuevo campo para el historial de diagnósticos por área
+        diagnosticoPorArea: {
+            [reportData.area]: {
+                reparacion: '',
+                tecnico: reportData.tecnicoResponsable,
+                fecha: '',
+                estado: 'PENDIENTE',
+            },
+        },
     };
 
     await addDoc(collection(db, DIAGNOSTICO_COLLECTION), fullReport);
@@ -68,4 +77,11 @@ export const getClientById = async (clientId) => {
   } else {
     return null;
   }
+};
+
+export const getAllDiagnosticReportsByTechnician = async (technicianName) => {
+    const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
+    const q = query(reportsCol, where('tecnicoResponsable', '==', technicianName));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };

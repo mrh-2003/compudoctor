@@ -12,6 +12,7 @@ import {
     FaSignOutAlt,
     FaAngleLeft,
     FaAngleRight,
+    FaInbox
 } from 'react-icons/fa';
 import logo from '../../assets/images/compudoctor-logo.png';
 import { signOut } from 'firebase/auth';
@@ -41,6 +42,7 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
     const allNavItems = [
         { name: 'Clientes', icon: <FaUserFriends />, path: '/clientes', id: 'clientes' },
         { name: 'Diagnóstico', icon: <FaLaptopMedical />, path: '/diagnostico', id: 'diagnostico' },
+        { name: 'Bandeja', icon: <FaInbox />, path: '/bandeja-tecnico', id: 'bandeja' }, // Nuevo módulo
         { name: 'Ver Estado', icon: <FaCogs />, path: '/ver-estado', id: 'ver-estado' },
         { name: 'Inventario', icon: <FaBox />, path: '/inventario', id: 'inventario' },
         {
@@ -62,6 +64,10 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
 
         if (item.id === 'usuarios') {
             return currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN';
+        }
+        
+        if (item.id === 'bandeja') {
+            return currentUser.rol === 'USER' || currentUser.rol === 'SUPERUSER' || currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN';
         }
 
         return currentUser.permissions.includes(item.id);

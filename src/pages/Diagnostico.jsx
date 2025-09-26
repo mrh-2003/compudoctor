@@ -11,7 +11,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 function Diagnostico() {
-  const { diagnosticoId } = useParams();
+ const { diagnosticoId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { theme } = useContext(ThemeContext);
@@ -45,6 +45,7 @@ function Diagnostico() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const isEditMode = !!diagnosticoId;
+  const isPrintMode = window.location.search.includes('print');
 
   const getToday = useMemo(() => {
     const date = new Date();
@@ -130,7 +131,7 @@ function Diagnostico() {
   const OS_OPTIONS = ['Windows 11', 'Windows 10', 'Windows 8', 'Windows 7', 'macOS', 'Linux', 'Otro'];
   const AREA_OPTIONS = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA'];
 
-  useEffect(() => {
+   useEffect(() => {
     const fetchData = async () => {
       try {
         const [allClients, allUsers] = await Promise.all([
@@ -260,7 +261,7 @@ function Diagnostico() {
     setAdditionalServices(prev => prev.filter(service => service.id !== id));
   };
 
-  const validateForm = () => {
+    const validateForm = () => {
     const newErrors = {};
     const requiredFields = ['marca', 'modelo', 'motivoIngreso', 'tecnicoTesteo', 'tecnicoResponsable', 'area', 'montoServicio'];
     
@@ -313,6 +314,15 @@ function Diagnostico() {
           additionalServices: showAdditionalServices ? additionalServices : [],
           hasAdditionalServices: showAdditionalServices && additionalServices.length > 0,
           estado: 'PENDIENTE',
+          // Inicializa el campo diagnosticoPorArea
+          diagnosticoPorArea: {
+            [formData.area]: {
+                reparacion: '',
+                tecnico: formData.tecnicoResponsable,
+                fecha: '',
+                estado: 'PENDIENTE',
+            }
+          },
         });
         toast.success(`Informe #${reportNumber} creado con éxito.`);
       }

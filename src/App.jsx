@@ -14,6 +14,8 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import PermissionDenied from './pages/PermissionDenied';
 import ChangePassword from './pages/ChangePassword';
 import ClientHistory from './pages/ClientHistory';
+import BandejaTecnico from './pages/BandejaTecnico';
+import DetalleDiagnostico from './pages/DetalleDiagnostico';
 
 function App() {
     return (
@@ -88,6 +90,17 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+                    
+                    <Route path="bandeja-tecnico" element={
+                        <ProtectedRoute permissionId="diagnostico">
+                            <BandejaTecnico />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="bandeja-tecnico/:reportId" element={
+                        <ProtectedRoute permissionId="diagnostico">
+                            <DetalleDiagnostico />
+                        </ProtectedRoute>
+                    } />
                 </Route>
             </Routes>
         </BrowserRouter>
