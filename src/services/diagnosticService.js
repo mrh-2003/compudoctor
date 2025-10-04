@@ -22,7 +22,7 @@ export const createDiagnosticReport = async (reportData) => {
         ...reportData,
         reportNumber,
         createdAt: new Date(),
-        // Nuevo campo para el historial de diagnósticos por área
+        tecnicoActual: reportData.tecnicoResponsable,
         diagnosticoPorArea: {
             [reportData.area]: {
                 reparacion: '',
@@ -81,7 +81,7 @@ export const getClientById = async (clientId) => {
 
 export const getAllDiagnosticReportsByTechnician = async (technicianName) => {
     const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
-    const q = query(reportsCol, where('tecnicoResponsable', '==', technicianName));
+    const q = query(reportsCol, where('tecnicoActual', '==', technicianName));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };

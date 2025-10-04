@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllDiagnosticReports, deleteDiagnosticReport } from '../services/diagnosticService';
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaEye } from 'react-icons/fa';
 import Modal from '../components/common/Modal';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -20,10 +20,7 @@ function VerEstado() {
     const [notification, setNotification] = useState({ message: '', type: '' });
     const [confirmation, setConfirmation] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
     const [filters, setFilters] = useState({
-        reportNumber: '',
-        clientName: '',
-        tipoEquipo: '',
-        tecnicoResponsable: '',
+        generalSearch: '',
         estado: '',
     });
 
@@ -56,12 +53,11 @@ function VerEstado() {
 
     useEffect(() => {
         const filtered = allReports.filter(report => {
-            const matchesReportNumber = report.reportNumber?.toString().includes(filters.reportNumber);
-            const matchesClientName = report.clientName?.toLowerCase().includes(filters.clientName.toLowerCase());
-            const matchesTipoEquipo = report.tipoEquipo?.toLowerCase().includes(filters.tipoEquipo.toLowerCase());
-            const matchesTecnico = report.tecnicoResponsable?.toLowerCase().includes(filters.tecnicoResponsable.toLowerCase());
-            const matchesEstado = report.estado?.toLowerCase().includes(filters.estado.toLowerCase());
-            return matchesReportNumber && matchesClientName && matchesTipoEquipo && matchesTecnico && matchesEstado;
+            const generalMatch = Object.values(report).some(value => 
+                String(value).toLowerCase().includes(filters.generalSearch.toLowerCase())
+            );
+            const statusMatch = filters.estado ? report.estado?.toLowerCase() === filters.estado.toLowerCase() : true;
+            return generalMatch && statusMatch;
         });
         setReports(filtered);
     }, [filters, allReports]);
@@ -104,12 +100,8 @@ function VerEstado() {
                 <h1 className="text-2xl font-bold">Estado de Reparaciones</h1>
             </div>
             
-            {/* Filtros */}
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                <input type="text" name="reportNumber" placeholder="Filtrar por N° Informe" value={filters.reportNumber} onChange={handleFilterChange} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
-                <input type="text" name="clientName" placeholder="Filtrar por Cliente" value={filters.clientName} onChange={handleFilterChange} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
-                <input type="text" name="tipoEquipo" placeholder="Filtrar por Equipo" value={filters.tipoEquipo} onChange={handleFilterChange} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
-                <input type="text" name="tecnicoResponsable" placeholder="Filtrar por Técnico" value={filters.tecnicoResponsable} onChange={handleFilterChange} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <input type="text" name="generalSearch" placeholder="Buscar en todas las columnas..." value={filters.generalSearch} onChange={handleFilterChange} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 col-span-2" />
                 <select name="estado" value={filters.estado} onChange={handleFilterChange} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
                     <option value="">Todos los estados</option>
                     <option value="PENDIENTE">PENDIENTE</option>
@@ -173,6 +165,7 @@ function VerEstado() {
                                 <td className="px-6 py-4 whitespace-nowrap">S/ {report.saldo ? report.saldo.toFixed(2) : '0.00'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-4">
+                                        <Link to={`/ver-estado/historial/${report.id}`} className="text-blue-500 hover:text-blue-700" title="Ver historial"><FaEye /></Link>
                                         {canEdit && <Link to={`/diagnostico/${report.id}`} className="text-yellow-500 hover:text-yellow-700" title="Editar"><FaEdit /></Link>}
                                         {canDelete && <button onClick={() => handleDeleteRequest(report)} className="text-red-500 hover:text-red-700" title="Eliminar"><FaTrash /></button>}
                                     </div>

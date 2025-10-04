@@ -42,7 +42,7 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
     const allNavItems = [
         { name: 'Clientes', icon: <FaUserFriends />, path: '/clientes', id: 'clientes' },
         { name: 'Diagnóstico', icon: <FaLaptopMedical />, path: '/diagnostico', id: 'diagnostico' },
-        { name: 'Bandeja', icon: <FaInbox />, path: '/bandeja-tecnico', id: 'bandeja' }, // Nuevo módulo
+        { name: 'Bandeja', icon: <FaInbox />, path: '/bandeja-tecnico', id: 'bandeja' },
         { name: 'Ver Estado', icon: <FaCogs />, path: '/ver-estado', id: 'ver-estado' },
         { name: 'Inventario', icon: <FaBox />, path: '/inventario', id: 'inventario' },
         {

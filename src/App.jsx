@@ -16,6 +16,7 @@ import ChangePassword from './pages/ChangePassword';
 import ClientHistory from './pages/ClientHistory';
 import BandejaTecnico from './pages/BandejaTecnico';
 import DetalleDiagnostico from './pages/DetalleDiagnostico';
+import DetalleHistorial from './pages/DetalleHistorial';
 
 function App() {
     return (
@@ -55,6 +56,11 @@ function App() {
                     <Route path="ver-estado" element={
                         <ProtectedRoute permissionId="ver-estado">
                             <VerEstado />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="ver-estado/historial/:reportId" element={
+                        <ProtectedRoute permissionId="ver-estado">
+                            <DetalleHistorial />
                         </ProtectedRoute>
                     } />
 

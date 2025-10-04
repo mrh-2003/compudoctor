@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllDiagnosticReportsByTechnician } from '../services/diagnosticService';
 import { Link } from 'react-router-dom';
-import { FaEye, FaTasks } from 'react-icons/fa';
+import { FaTasks } from 'react-icons/fa';
 import toast from 'react-hot-toast';
-import Modal from '../components/common/Modal';
 
 function BandejaTecnico() {
     const { currentUser, loading } = useAuth();
@@ -23,7 +22,7 @@ function BandejaTecnico() {
         setIsLoading(true);
         try {
             const userReports = await getAllDiagnosticReportsByTechnician(currentUser.nombre);
-            const pendingReports = userReports.filter(report => report.estado === 'PENDIENTE');
+            const pendingReports = userReports.filter(report => report.estado === 'PENDIENTE'  );
             setReports(pendingReports);
         } catch (error) {
             toast.error('Error al cargar los informes técnicos');
