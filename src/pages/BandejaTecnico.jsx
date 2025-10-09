@@ -22,7 +22,9 @@ function BandejaTecnico() {
         setIsLoading(true);
         try {
             const userReports = await getAllDiagnosticReportsByTechnician(currentUser.nombre);
-            const pendingReports = userReports.filter(report => report.estado === 'PENDIENTE'  );
+            console.log(userReports);
+            
+            const pendingReports = userReports.filter(report => report.estado === 'PENDIENTE' || report.estado === 'EN PROGRESO');
             setReports(pendingReports);
         } catch (error) {
             toast.error('Error al cargar los informes técnicos');

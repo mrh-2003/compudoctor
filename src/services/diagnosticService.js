@@ -17,25 +17,32 @@ export const getNextReportNumber = async () => {
 
 export const createDiagnosticReport = async (reportData) => {
     const reportNumber = await getNextReportNumber();
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
+    const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
     const fullReport = {
         ...reportData,
         reportNumber,
-        createdAt: new Date(),
+        createdAt: now,
         tecnicoActual: reportData.tecnicoResponsable,
         diagnosticoPorArea: {
-            [reportData.area]: {
+            [reportData.area]: [{
                 reparacion: '',
                 tecnico: reportData.tecnicoResponsable,
-                fecha: '',
+                fecha_inicio: formattedDate,
+                hora_inicio: formattedTime,
+                fecha_fin: '',
+                hora_fin: '',
                 estado: 'PENDIENTE',
-            },
+            }],
         },
     };
 
     await addDoc(collection(db, DIAGNOSTICO_COLLECTION), fullReport);
     return reportNumber;
 };
+
 
 export const getAllDiagnosticReports = async () => {
     const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);

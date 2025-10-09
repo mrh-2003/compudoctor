@@ -2,16 +2,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
-const db = admin.firestore();
-
-const ALL_MODULES = [
-    { id: 'clientes', name: 'Clientes' },
-    { id: 'diagnostico', name: 'Diagnóstico' },
-    { id: 'ver-estado', name: 'Ver Estado' },
-    { id: 'inventario', name: 'Inventario' },
-    { id: 'reportes', name: 'Reportes' },
-];
-
+const db = admin.firestore(); 
 
 exports.createUser = functions.https.onCall(async (request) => {
     const { email, nombre, rol, telefono, especialidad, permissions } = request.data;
