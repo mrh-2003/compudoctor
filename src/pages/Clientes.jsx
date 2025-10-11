@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getAllClients, createClient, updateClient, deleteClient } from '../services/clientService'
 import Modal from '../components/common/Modal'
-import { FaPlus, FaEdit, FaTrash, FaEye } from 'react-icons/fa'
+import { FaPlus, FaEdit, FaTrash, FaEye, FaChevronLeft, FaChevronRight } from 'react-icons/fa'
 import { FiPlus } from 'react-icons/fi'
 
 function ClientForm({ client, onSave, onCancel }) {
@@ -68,12 +68,16 @@ function Notification({ message, type }) {
 
 function Clientes() {
   const { currentUser, loading } = useAuth()
-  const [clients, setClients] = useState([])
+  const [allClients, setAllClients] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingClient, setEditingClient] = useState(null)
   const [notification, setNotification] = useState({ message: '', type: '' })
   const [confirmation, setConfirmation] = useState({ isOpen: false, title: '', message: '', onConfirm: null })
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const canCreate = currentUser && (currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERUSER')
   const canEdit = currentUser && (currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN')
@@ -89,8 +93,8 @@ function Clientes() {
   const fetchClients = async () => {
     setIsLoading(true)
     try {
-      const allClients = await getAllClients()
-      setClients(allClients)
+      const clientsData = await getAllClients()
+      setAllClients(clientsData)
     } catch (error) {
       showNotification('Error al cargar clientes', 'error')
     }
@@ -148,6 +152,32 @@ function Clientes() {
     setConfirmation({ isOpen: false })
   }
 
+  const filteredClients = useMemo(() => {
+    if (!searchTerm) {
+      return allClients;
+    }
+    return allClients.filter(client =>
+      client.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.telefono.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [allClients, searchTerm]);
+
+  const paginatedClients = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredClients.slice(startIndex, startIndex + pageSize);
+  }, [filteredClients, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredClients.length / pageSize);
+
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
+
   if (loading) {
     return <div className="text-center p-8">Cargando autenticación...</div>
   }
@@ -173,6 +203,19 @@ function Clientes() {
         )}
       </div>
 
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Buscar por nombre o teléfono..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+        />
+      </div>
+
       <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
         <table className="min-w-full">
           <thead className="bg-gray-50 dark:bg-gray-700">
@@ -184,7 +227,7 @@ function Clientes() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {clients.map((client) => (
+            {paginatedClients.map((client) => (
               <tr key={client.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-6 py-4 whitespace-nowrap">{client.nombre}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{client.telefono}</td>
@@ -192,7 +235,7 @@ function Clientes() {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center justify-center space-x-4">
                     <Link to={`/clientes/historial/${client.id}`} className="text-blue-500 hover:text-blue-700" title="Ver historial"><FaEye /></Link>
-                    <Link to={`/diagnostico/${client.id}`} className="text-green-500 hover:text-green-700" title="Agregar servicio"><FiPlus /></Link>
+                    <Link to={`/diagnostico?clientId=${client.id}`} className="text-green-500 hover:text-green-700" title="Agregar servicio"><FiPlus /></Link>
                     {canEdit && <button onClick={() => handleOpenModal(client)} className="text-yellow-500 hover:text-yellow-700" title="Editar"><FaEdit /></button>}
                     {canDelete && <button onClick={() => handleDeleteRequest(client)} className="text-red-500 hover:text-red-700" title="Eliminar"><FaTrash /></button>}
                   </div>
@@ -202,6 +245,29 @@ function Clientes() {
           </tbody>
         </table>
       </div>
+
+      <div className="flex justify-between items-center mt-4">
+        <span className="text-sm text-gray-700 dark:text-gray-400">
+          Página {currentPage} de {totalPages} ({filteredClients.length} resultados)
+        </span>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+            className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            <FaChevronLeft />
+          </button>
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            <FaChevronRight />
+          </button>
+        </div>
+      </div>
+
 
       {isModalOpen && (
         <Modal onClose={handleCloseModal}>
@@ -225,4 +291,4 @@ function Clientes() {
   )
 }
 
-export default Clientes
+export default Clientes;

@@ -1,11 +1,12 @@
-import { collection, getDocs, doc, addDoc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, addDoc, updateDoc, deleteDoc, getDoc, query, orderBy } from 'firebase/firestore'
 import { db } from './firebase'
 
 const CLIENTES_COLLECTION = 'clientes'
 
 export const getAllClients = async () => {
   const clientsCol = collection(db, CLIENTES_COLLECTION)
-  const clientSnapshot = await getDocs(clientsCol)
+  const q = query(clientsCol, orderBy('nombre'));
+  const clientSnapshot = await getDocs(q);
   return clientSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 }
 

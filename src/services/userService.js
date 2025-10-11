@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from './firebase'
 
@@ -8,7 +8,8 @@ const resetUserPasswordFn = httpsCallable(functions, 'resetUserPassword')
 
 export const getAllUsers = async () => {
 	const usersCol = collection(db, 'users')
-	const userSnapshot = await getDocs(usersCol)
+	const q = query(usersCol, orderBy('nombre'));
+	const userSnapshot = await getDocs(q)
 	return userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 }
 

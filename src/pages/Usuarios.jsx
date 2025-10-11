@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllUsers, createUser, updateUser, deleteUser, resetPassword } from '../services/userService';
-import { FaPlus, FaEdit, FaTrash, FaKey } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaKey, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Modal from '../components/common/Modal';
 
 const ALL_MODULES = [
@@ -14,12 +14,16 @@ const ALL_MODULES = [
 
 function Usuarios() {
     const { currentUser, loading } = useAuth();
-    const [users, setUsers] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [notification, setNotification] = useState({ message: '', type: '' });
     const [confirmation, setConfirmation] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+    
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
 
     useEffect(() => {
         if (!loading && currentUser) {
@@ -42,11 +46,11 @@ function Usuarios() {
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
-            const allUsers = await getAllUsers();
+            const usersData = await getAllUsers();
             if (currentUser.rol !== 'SUPERADMIN') {
-                setUsers(allUsers.filter(user => user.rol !== 'SUPERADMIN'));
+                setAllUsers(usersData.filter(user => user.rol !== 'SUPERADMIN'));
             } else {
-                setUsers(allUsers);
+                setAllUsers(usersData);
             }
         } catch (error) {
             showNotification('Error al cargar usuarios', 'error');
@@ -130,6 +134,31 @@ function Usuarios() {
         setConfirmation({ isOpen: false });
     };
 
+    const filteredUsers = useMemo(() => {
+        if (!searchTerm) {
+          return allUsers;
+        }
+        return allUsers.filter(user =>
+          user.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }, [allUsers, searchTerm]);
+    
+      const paginatedUsers = useMemo(() => {
+        const startIndex = (currentPage - 1) * pageSize;
+        return filteredUsers.slice(startIndex, startIndex + pageSize);
+      }, [filteredUsers, currentPage, pageSize]);
+    
+      const totalPages = Math.ceil(filteredUsers.length / pageSize);
+    
+      const handlePreviousPage = () => {
+        setCurrentPage(prev => Math.max(prev - 1, 1));
+      };
+    
+      const handleNextPage = () => {
+        setCurrentPage(prev => Math.min(prev + 1, totalPages));
+      };
+
     if (isLoading) return <div className="text-center p-8">Cargando usuarios...</div>;
 
     return (
@@ -147,6 +176,19 @@ function Usuarios() {
                 )}
             </div>
 
+            <div className="mb-4">
+                <input
+                type="text"
+                placeholder="Buscar por nombre o email..."
+                value={searchTerm}
+                onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                }}
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                />
+            </div>
+
             <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
                 <table className="min-w-full">
                     <thead className="bg-gray-50 dark:bg-gray-700">
@@ -159,7 +201,7 @@ function Usuarios() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {users.map((user) => (
+                        {paginatedUsers.map((user) => (
                             <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td className="px-6 py-4 whitespace-nowrap">{user.nombre}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
@@ -176,6 +218,28 @@ function Usuarios() {
                         ))}
                     </tbody>
                 </table>
+            </div>
+            
+            <div className="flex justify-between items-center mt-4">
+                <span className="text-sm text-gray-700 dark:text-gray-400">
+                Página {currentPage} de {totalPages} ({filteredUsers.length} resultados)
+                </span>
+                <div className="flex items-center space-x-2">
+                <button
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                    <FaChevronLeft />
+                </button>
+                <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                    <FaChevronRight />
+                </button>
+                </div>
             </div>
 
             {isModalOpen && (
