@@ -74,13 +74,11 @@ const FIELD_LABELS = {
     sw_otros: "Otros",
     sw_otros_spec: "Especificación de Otros",
     elec_video: "Tarjeta de Video",
-    elec_placa: "Placa",
     elec_otro: "Otro",
     elec_codigo: "Código",
     elec_etapa: "Etapa",
     elec_obs: "Observación",
-    tec_apoyo: "Técnico de Apoyo",
-    ubicacionFisica: "Ubicación Física"
+    tec_apoyo: "Técnico de Apoyo"
 };
 
 const GROUPED_FIELDS_CONFIG = {
@@ -104,37 +102,41 @@ const GROUPED_FIELDS_CONFIG = {
     sw_otros: ["sw_otros_spec"],
 };
 
-const ALL_COMPONENTS = [
-    { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
-    { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
-    { id: "m2Nvme", name: "M2 Nvme" }, { id: "tarjetaVideo", name: "Tarjeta de video" },
-    { id: "wifi", name: "Wi-Fi" }, { id: "bateria", name: "Batería" }, { id: "cargador", name: "Cargador" },
-    { id: "pantalla", name: "Pantalla" }, { id: "teclado", name: "Teclado" }, { id: "camara", name: "Cámara" },
-    { id: "microfono", name: "Micrófono" }, { id: "parlantes", name: "Parlantes" },
-    { id: "auriculares", name: "Auriculares" }, { id: "rj45", name: "RJ 45" }, { id: "hdmi", name: "HDMI" },
-    { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, { id: "tipoC", name: "Tipo C" },
-    { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" }, { id: "otros", name: "Otros" },
-];
-
-const getComponentOptions = (type) => {
-    switch (type) {
-        case 'PC':
-            return ALL_COMPONENTS.filter(c => c.id !== 'bateria' && c.id !== 'cargador' && c.id !== 'pantalla' && c.id !== 'teclado' && c.id !== 'camara' && c.id !== 'microfono' && c.id !== 'parlantes' && c.id !== 'auriculares' && c.id !== 'hdmi' && c.id !== 'tipoC' && c.id !== 'touchpad');
-        case 'Laptop':
-            return ALL_COMPONENTS.filter(c => c.id !== 'vga' && c.id !== 'lector');
-        case 'Allinone':
-            return ALL_COMPONENTS.filter(c => c.id !== 'bateria' && c.id !== 'cargador' && c.id !== 'microfono' && c.id !== 'parlantes' && c.id !== 'auriculares' && c.id !== 'hdmi' && c.id !== 'tipoC' && c.id !== 'touchpad' && c.id !== 'lector' && c.id !== 'vga' && c.id !== 'teclado' && c.id !== 'pantalla' && c.id !== 'camara');
-        case 'Impresora':
-            return [{ id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" }, { id: "tinta", name: "Cartuchos/Tinta" }, { id: "bandejas", name: "Bandejas" }, { id: "otros", name: "Otros" }];
-        case 'Otros':
-            return ALL_COMPONENTS;
-        default:
-            return [];
-    }
+const COMPONENT_OPTIONS = {
+    PC: [
+        { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
+        { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
+        { id: "m2Nvme", name: "M2 Nvme" }, { id: "tarjetaVideo", name: "Tarjeta de video" },
+        { id: "wifi", name: "Wi-Fi" }, { id: "rj45", name: "RJ 45" }, { id: "vga", name: "VGA" },
+        { id: "usb", name: "USB" }, { id: "lectora", name: "Lectora" }, { id: "otros", name: "Otros" },
+    ],
+    Laptop: [
+        { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
+        { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
+        { id: "m2Nvme", name: "M2 Nvme" }, { id: "tarjetaVideo", name: "Tarjeta de video" },
+        { id: "wifi", name: "Wi-Fi" }, { id: "bateria", name: "Batería" }, { id: "cargador", name: "Cargador" },
+        { id: "pantalla", name: "Pantalla" }, { id: "teclado", name: "Teclado" }, { id: "camara", name: "Cámara" },
+        { id: "microfono", name: "Micrófono" }, { id: "parlantes", name: "Parlantes" },
+        { id: "auriculares", name: "Auriculares" }, { id: "rj45", name: "RJ 45" }, { id: "hdmi", name: "HDMI" },
+        { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, { id: "tipoC", name: "Tipo C" },
+        { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" }, { id: "otros", name: "Otros" },
+    ],
+    Allinone: [
+        { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
+        { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
+        { id: "m2Nvme", name: "M2 Nvme" }, { id: "tarjetaVideo", name: "Tarjeta de video" },
+        { id: "wifi", name: "Wi-Fi" }, { id: "rj45", name: "RJ 45" }, { id: "usb", name: "USB" },
+        { id: "lector", name: "Lectora" }, { id: "otros", name: "Otros" },
+    ],
+    Impresora: [
+        { id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" },
+        { id: "tinta", name: "Cartuchos/Tinta" }, { id: "bandejas", name: "Bandejas" }, { id: "otros", name: "Otros" },
+    ],
+    Otros: [{ id: "otros", name: "Otros" }],
 };
 
 const getComponentName = (itemId, tipoEquipo) => {
-    const options = getComponentOptions(tipoEquipo) || [];
+    const options = COMPONENT_OPTIONS[tipoEquipo] || [];
     return options.find((item) => item.id === itemId)?.name || itemId;
 };
 
@@ -160,7 +162,7 @@ const selectStyles = (theme) => ({
 });
 
 const ReadOnlyEntry = ({ entry, areaName }) => {
-    const processedKeys = new Set(['tecnico', 'tecnicoId', 'reparacion', 'fecha_inicio', 'hora_inicio', 'fecha_fin', 'hora_fin', 'estado']);
+    const processedKeys = new Set(['tecnico', 'reparacion', 'fecha_inicio', 'hora_inicio', 'fecha_fin', 'hora_fin', 'estado']);
     const detailsToShow = [];
 
     const allGroupedSubKeys = Object.values(GROUPED_FIELDS_CONFIG).flat();
@@ -197,7 +199,6 @@ const ReadOnlyEntry = ({ entry, areaName }) => {
             <div className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
                 <strong className="text-right">Técnico:</strong><span>{entry.tecnico}</span>
                 <strong className="text-right">Reparación:</strong><span>{entry.reparacion || 'N/A'}</span>
-                <strong className="text-right">Ubicación Física:</strong><span>{entry.ubicacionFisica || 'N/A'}</span>
                 <strong className="text-right">Fechas:</strong><span>{entry.fecha_inicio} {entry.hora_inicio} - {entry.fecha_fin || 'N/A'} {entry.hora_fin || ''}</span>
                 <strong className="text-right">Estado:</strong><span className="font-semibold">{entry.estado}</span>
             </div>
@@ -229,7 +230,6 @@ function DetalleDiagnostico() {
     const [nextArea, setNextArea] = useState('');
     const [users, setUsers] = useState([]);
     const [tecnicoSiguiente, setTecnicoSiguiente] = useState(null);
-    const [ubicacionFisica, setUbicacionFisica] = useState('');
 
     const AREA_OPTIONS = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA'];
 
@@ -241,46 +241,12 @@ function DetalleDiagnostico() {
                 setReport(fetchedReport);
 
                 const currentAreaHistory = fetchedReport.diagnosticoPorArea[fetchedReport.area];
-                const lastEntry = currentAreaHistory && currentAreaHistory.findLast((entry) => entry.tecnicoId === currentUser.uid);
-                
-                // Transición de ASIGNADO a PENDIENTE al abrir la tarea por primera vez
-                if (lastEntry && lastEntry.estado === 'ASIGNADO') {
-                    const now = new Date();
-                    const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
-                    const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-                    
-                    const updatedAreaHistory = [...currentAreaHistory];
-                    const lastEntryIndex = updatedAreaHistory.findIndex(e => e === lastEntry);
+                const lastEntry = currentAreaHistory && currentAreaHistory[currentAreaHistory.length - 1];
 
-                    updatedAreaHistory[lastEntryIndex] = {
-                        ...lastEntry,
-                        estado: 'PENDIENTE', 
-                        fecha_inicio: formattedDate,
-                        hora_inicio: formattedTime,
-                    };
-                    
-                    await updateDiagnosticReport(reportId, {
-                        diagnosticoPorArea: {
-                            ...fetchedReport.diagnosticoPorArea,
-                            [fetchedReport.area]: updatedAreaHistory,
-                        },
-                        estado: 'PENDIENTE',
-                    });
-
-                    // Vuelve a cargar el reporte con el estado actualizado
-                    const updatedReport = await getDiagnosticReportById(reportId);
-                    setReport(updatedReport);
-                    
-                    setFormState({
-                        fecha_inicio: updatedReport.diagnosticoPorArea[updatedReport.area].findLast(e => e.tecnicoId === currentUser.uid)?.fecha_inicio,
-                        hora_inicio: updatedReport.diagnosticoPorArea[updatedReport.area].findLast(e => e.tecnicoId === currentUser.uid)?.hora_inicio
-                    });
-                } else if (lastEntry) {
-                    setFormState({
-                        fecha_inicio: lastEntry.fecha_inicio,
-                        hora_inicio: lastEntry.hora_inicio
-                    });
-                }
+                setFormState({
+                    fecha_inicio: lastEntry?.fecha_inicio,
+                    hora_inicio: lastEntry?.hora_inicio
+                });
 
                 const allUsers = await getAllUsersDetailed();
                 setUsers(allUsers.map(u => ({ value: u.id, label: u.nombre })));
@@ -294,8 +260,7 @@ function DetalleDiagnostico() {
         if (reportId) {
             fetchData();
         }
-    }, [reportId, currentUser.uid]);
-
+    }, [reportId]);
 
     const handleFormChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -311,20 +276,14 @@ function DetalleDiagnostico() {
         setNextArea('');
         setReparacionFinal('');
         setTecnicoSiguiente(null);
-        setUbicacionFisica('');
     };
     
     const handleCompleteTask = async (e) => {
         e.preventDefault();
-        
         if (!reparacionFinal) return toast.error('La descripción de la reparación es obligatoria.');
         if (!nextArea) return toast.error('Debes seleccionar la siguiente área o marcar como terminado.');
-        
-        // Validación de ubicación física solo si NO es TERMINADO
-        if (nextArea !== 'TERMINADO' && !ubicacionFisica) return toast.error('La ubicación física es obligatoria al pasar el equipo a otra área.');
-        
         if (nextArea !== 'TERMINADO' && !tecnicoSiguiente) return toast.error('Debes asignar un técnico para la siguiente área.');
-        if (nextArea === report.area && tecnicoSiguiente?.value === currentUser.uid) {
+        if (nextArea === report.area && tecnicoSiguiente?.label === currentUser.nombre) {
             return toast.error('No puedes reasignarte el informe a ti mismo en la misma área.');
         }
 
@@ -334,26 +293,17 @@ function DetalleDiagnostico() {
             const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     
             const currentAreaHistory = [...(report.diagnosticoPorArea[report.area] || [])];
-            
-            // Buscar la entrada del técnico actual que no esté finalizada
-            const lastEntryIndex = currentAreaHistory.findLastIndex(
-                (entry) => entry.tecnicoId === currentUser.uid && entry.estado !== 'FINALIZADO' && entry.estado !== 'TERMINADO'
-            );
-            
-            if (lastEntryIndex === -1) {
-                return toast.error('Error: No se encontró una tarea PENDIENTE o ASIGNADA a tu nombre en el historial de esta área.');
-            }
+            const lastEntryIndex = currentAreaHistory.length - 1;
             
             const currentEntry = currentAreaHistory[lastEntryIndex];
-            
+
             currentAreaHistory[lastEntryIndex] = {
                 ...currentEntry,
                 ...formState,
                 reparacion: reparacionFinal,
                 fecha_fin: formattedDate,
                 hora_fin: formattedTime,
-                ubicacionFisica: ubicacionFisica,
-                estado: 'FINALIZADO', // La tarea del técnico en esta área se marca como FINALIZADO
+                estado: 'TERMINADO',
             };
     
             const updatedDiagnosticoPorArea = {
@@ -363,11 +313,9 @@ function DetalleDiagnostico() {
     
             const updatedData = {
                 diagnosticoPorArea: updatedDiagnosticoPorArea,
-                estado: nextArea === 'TERMINADO' ? 'ENTREGADO' : 'ASIGNADO', // Estado general del informe
+                estado: nextArea === 'TERMINADO' ? 'ENTREGADO' : 'PENDIENTE',
                 area: nextArea !== 'TERMINADO' ? nextArea : report.area,
                 tecnicoActual: tecnicoSiguiente ? tecnicoSiguiente.label : report.tecnicoResponsable,
-                tecnicoActualId: tecnicoSiguiente ? tecnicoSiguiente.value : report.tecnicoResponsableId,
-                ubicacionFisica: ubicacionFisica,
             };
     
             if (nextArea !== 'TERMINADO') {
@@ -375,19 +323,17 @@ function DetalleDiagnostico() {
                 newAreaHistory.push({
                     reparacion: '',
                     tecnico: tecnicoSiguiente.label,
-                    tecnicoId: tecnicoSiguiente.value,
-                    ubicacionFisica: ubicacionFisica,
                     fecha_inicio: formattedDate,
                     hora_inicio: formattedTime,
                     fecha_fin: '',
                     hora_fin: '',
-                    estado: 'ASIGNADO', // La nueva tarea se establece como ASIGNADO
+                    estado: 'PENDIENTE',
                 });
                 updatedData.diagnosticoPorArea[nextArea] = newAreaHistory;
             }
     
             await updateDiagnosticReport(reportId, updatedData);
-            toast.success('Tarea completada y asignación actualizada.');
+            toast.success('Tarea completada con éxito.');
             handleCloseCompletionModal();
             navigate('/bandeja-tecnico');
     
@@ -396,7 +342,6 @@ function DetalleDiagnostico() {
             console.error(error);
         }
     };
-    
     const renderAreaForm = () => {
         const commonFields = (
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4">
@@ -531,7 +476,6 @@ function DetalleDiagnostico() {
                         <h2 className="text-2xl font-bold text-yellow-500">ÁREA DE ELECTRÓNICA</h2>
                         <div className="flex items-center space-x-4">
                             <label className="flex items-center"><input type="checkbox" name="elec_video" checked={formState.elec_video || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>TARJ. VIDEO</label>
-                            <label className="flex items-center"><input type="checkbox" name="elec_placa" checked={formState.elec_placa || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>PLACA</label>
                             <label className="flex items-center"><input type="checkbox" name="elec_otro" checked={formState.elec_otro || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>OTRO</label>
                         </div>
                         <div className="space-y-2">
@@ -548,15 +492,13 @@ function DetalleDiagnostico() {
     };
 
     const flatHistory = useMemo(() => {
-        if (!report || !report.diagnosticoPorArea) return [];
+        if (!report) return [];
         return Object.entries(report.diagnosticoPorArea)
             .flatMap(([areaName, entries]) => 
                 (Array.isArray(entries) ? entries : [entries]).map(entry => ({...entry, areaName}))
             )
-            .filter(entry => entry.estado === 'FINALIZADO')
+            .filter(entry => entry.estado === 'TERMINADO')
             .sort((a, b) => {
-                // Ordenar por fecha y hora de finalización
-                if (!a.fecha_fin || !b.fecha_fin) return 0;
                 const dateA = new Date(`${a.fecha_fin.split('-').reverse().join('-')}T${a.hora_fin}`);
                 const dateB = new Date(`${b.fecha_fin.split('-').reverse().join('-')}T${b.hora_fin}`);
                 return dateA - dateB;
@@ -566,21 +508,17 @@ function DetalleDiagnostico() {
     if (isLoading) return <div className="text-center p-8">Cargando informe...</div>;
     if (!report) return <div className="text-center p-8 text-red-500">Informe no encontrado.</div>;
 
-    const isCurrentUserTechnician = report.tecnicoActualId === currentUser.uid;
+    const isCurrentUserTechnician = report.tecnicoActual === currentUser.nombre;
     
     if (!isCurrentUserTechnician) {
         return <div className="text-center p-8 text-red-500">No tienes permiso para ver este informe.</div>;
     }
-    
-    const currentTaskState = report.diagnosticoPorArea[report.area]?.findLast(
-        (entry) => entry.tecnicoId === currentUser.uid
-    )?.estado || 'PENDIENTE';
 
     const filteredItems = report.items?.filter(item => item.checked || item.detalles) || [];
 
     const getTechnicianOptions = () => {
         if (nextArea === report.area) {
-            return users.filter(u => u.value !== currentUser.uid);
+            return users.filter(u => u.label !== currentUser.nombre);
         }
         return users;
     };
@@ -603,14 +541,12 @@ function DetalleDiagnostico() {
                     <p><strong>Marca - Modelo:</strong> {report.marca} - {report.modelo}</p>
                     <p><strong>Serie:</strong> {report.serie || 'N/A'}</p>
                     <p><strong>Sistema Operativo:</strong> {report.sistemaOperativo || 'N/A'}</p>
-                    <p><strong>Clave Bitlocker:</strong> {report.bitlockerKey ? 'Sí' : 'No'}</p>
+                    <p><strong>Clave Bitlocker:</strong> {report.bitlockerKey || 'N/A'}</p>
                     <p><strong>Motivo de Ingreso:</strong> {report.motivoIngreso}</p>
                     <p><strong>Técnico de Recepción:</strong> {report.tecnicoRecepcion}</p>
-                    <p><strong>Técnico Testeo:</strong> {report.tecnicoTesteo || 'N/A'}</p>
-                    <p><strong>Técnico Responsable:</strong> {report.tecnicoResponsable || 'N/A'}</p>
+                    <p><strong>Técnico Responsable:</strong> {report.tecnicoResponsable}</p>
                     <p><strong>Área Actual:</strong> <span className="font-bold text-red-500">{report.area}</span></p>
-                    <p><strong>Técnico Asignado:</strong> <span className="font-bold text-red-500">{report.tecnicoActual}</span></p>
-                    <p><strong>Estado Tarea:</strong> <span className="font-bold text-red-500">{currentTaskState}</span></p>
+                    <p><strong>Técnico Actual:</strong> <span className="font-bold text-red-500">{report.tecnicoActual}</span></p>
                 </div>
                  <div className="mt-4 border-t pt-4 dark:border-gray-700">
                     <h3 className="text-lg font-semibold text-green-500 mb-2">Componentes y Accesorios Registrados</h3>
@@ -668,23 +604,6 @@ function DetalleDiagnostico() {
                                 required
                             ></textarea>
                         </div>
-                        
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium mb-1">
-                                Ubicación Física del Equipo
-                                {nextArea !== 'TERMINADO' && <span className="text-red-500 ml-1">*</span>}
-                            </label>
-                            <input
-                                type="text"
-                                value={ubicacionFisica}
-                                onChange={(e) => setUbicacionFisica(e.target.value)}
-                                placeholder="Ej: Estante C3, Mesa de trabajo 5"
-                                className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
-                                    nextArea !== 'TERMINADO' && !ubicacionFisica ? 'ring-2 ring-red-500' : ''
-                                }`}
-                            />
-                        </div>
-
                         <div>
                             <label className="block text-sm font-medium mb-1">Pasar a la Siguiente Área</label>
                             <Select
