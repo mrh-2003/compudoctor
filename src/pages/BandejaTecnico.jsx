@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 const STATUS_COLORS = {
     'ASIGNADO': 'bg-gray-500',
     'PENDIENTE': 'bg-orange-500',
-    'EN PROGRESO': 'bg-blue-500',
     'FINALIZADO': 'bg-green-500',
 };
 
@@ -52,8 +51,8 @@ function BandejaTecnico() {
                         return null;
                     }
 
-                    // Solo mostramos reportes que están asignados o en progreso para el técnico actual
-                    if (taskState === 'PENDIENTE' || taskState === 'ASIGNADO' || taskState === 'EN PROGRESO') {
+                    // Solo mostramos reportes que están asignados para el técnico actual
+                    if (taskState === 'PENDIENTE' || taskState === 'ASIGNADO') {
                         return { ...report, taskState };
                     }
                     return null;

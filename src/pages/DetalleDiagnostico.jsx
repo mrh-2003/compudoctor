@@ -243,7 +243,7 @@ function DetalleDiagnostico() {
                 const currentAreaHistory = fetchedReport.diagnosticoPorArea[fetchedReport.area];
                 const lastEntry = currentAreaHistory && currentAreaHistory.findLast((entry) => entry.tecnicoId === currentUser.uid);
                 
-                // Transición de ASIGNADO a PENDIENTE/EN PROGRESO al abrir la tarea por primera vez
+                // Transición de ASIGNADO a PENDIENTE al abrir la tarea por primera vez
                 if (lastEntry && lastEntry.estado === 'ASIGNADO') {
                     const now = new Date();
                     const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;

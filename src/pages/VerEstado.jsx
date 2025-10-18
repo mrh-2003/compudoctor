@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 
 const STATUS_COLORS = {
     'PENDIENTE': 'bg-gray-400',
-    'EN PROGRESO': 'bg-blue-400',
+    'ASIGNADO': 'bg-blue-400',
     'ENTREGADO': 'bg-green-500',
 };
 
@@ -105,7 +105,7 @@ function VerEstado() {
                 <select name="estado" value={filters.estado} onChange={handleFilterChange} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
                     <option value="">Todos los estados</option>
                     <option value="PENDIENTE">PENDIENTE</option>
-                    <option value="EN PROGRESO">EN PROGRESO</option>
+                    <option value="ASIGNADO">ASIGNADO</option>
                     <option value="ENTREGADO">ENTREGADO</option>
                 </select>
             </div>

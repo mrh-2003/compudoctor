@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
                             const reportsCol = collection(db, 'diagnosticos');
                             const q = query(reportsCol, 
                                 where('tecnicoActualId', '==', userData.uid), 
-                                where('estado', 'in', ['PENDIENTE', 'ASIGNADO', 'EN PROGRESO'])
+                                where('estado', 'in', ['PENDIENTE', 'ASIGNADO'])
                             );
 
                             unsubscribeReports = onSnapshot(q, (snapshot) => {

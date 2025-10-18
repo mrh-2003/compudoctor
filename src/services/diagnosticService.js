@@ -95,7 +95,7 @@ export const getClientById = async (clientId) => {
 
 export const getAllDiagnosticReportsByTechnician = async (technicianId) => {
     const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
-    const q = query(reportsCol, where('tecnicoActualId', '==', technicianId), where('estado', 'in', ['PENDIENTE', 'ASIGNADO', 'EN PROGRESO']));
+    const q = query(reportsCol, where('tecnicoActualId', '==', technicianId), where('estado', 'in', ['PENDIENTE', 'ASIGNADO']));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
