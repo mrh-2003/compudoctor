@@ -16,7 +16,6 @@ export const getNextReportNumber = async () => {
 };
 
 export const createDiagnosticReport = async (reportData) => {
-    // REQ 8: Asegura que el reporte tenga la estructura de área y estado inicial
     const reportNumber = await getNextReportNumber();
     const now = new Date();
     const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
@@ -26,18 +25,19 @@ export const createDiagnosticReport = async (reportData) => {
         ...reportData,
         reportNumber,
         createdAt: now,
-        // REQ 8: Establecer el técnico actual como el responsable
         tecnicoActual: reportData.tecnicoResponsable,
-        // REQ 8: Inicializar diagnosticoPorArea con el área de destino en PENDIENTE
+        tecnicoActualId: reportData.tecnicoResponsableId,
         diagnosticoPorArea: {
             [reportData.area]: [{
                 reparacion: '',
                 tecnico: reportData.tecnicoResponsable,
+                tecnicoId: reportData.tecnicoResponsableId,
+                ubicacionFisica: '',
                 fecha_inicio: formattedDate,
                 hora_inicio: formattedTime,
                 fecha_fin: '',
                 hora_fin: '',
-                estado: 'PENDIENTE',
+                estado: 'ASIGNADO',
             }],
         },
     };
@@ -89,26 +89,9 @@ export const getClientById = async (clientId) => {
   }
 };
 
-export const getAllDiagnosticReportsByTechnician = async (technicianName) => {
+export const getAllDiagnosticReportsByTechnician = async (technicianId) => {
     const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
-    const q = query(reportsCol, where('tecnicoActual', '==', technicianName));
+    const q = query(reportsCol, where('tecnicoActualId', '==', technicianId), where('estado', 'in', ['PENDIENTE', 'ASIGNADO', 'EN PROGRESO']));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-};
-
-// REQ 7: Función para obtener el conteo de informes pendientes
-export const getPendingReportsCountByTechnicianName = async (technicianName) => {
-    if (!technicianName) return 0;
-    const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
-    
-    // Se filtra por tecnicoActual y se hace un filtrado local de estado para ser más eficiente y simple con Firestore.
-    const q = query(reportsCol, where('tecnicoActual', '==', technicianName));
-    const querySnapshot = await getDocs(q);
-
-    const pendingCount = querySnapshot.docs.filter(doc => {
-        const data = doc.data();
-        return data.estado === 'PENDIENTE' || data.estado === 'EN PROGRESO';
-    }).length;
-
-    return pendingCount;
 };

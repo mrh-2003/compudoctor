@@ -52,8 +52,11 @@ function Diagnostico() {
     aCuenta: 0,
     saldo: 30,
     tecnicoRecepcion: currentUser?.nombre || "",
+    tecnicoRecepcionId: currentUser?.uid || "",
     tecnicoTesteo: "",
+    tecnicoTesteoId: "",
     tecnicoResponsable: "",
+    tecnicoResponsableId: "",
     area: "",
     fecha: "",
     hora: "",
@@ -88,31 +91,29 @@ function Diagnostico() {
         { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" }, { id: "otros", name: "Otros" },
   ];
 
+  const getComponentOptions = (type) => {
+    switch (type) {
+        case 'PC':
+            return ALL_COMPONENTS.filter(c => c.id !== 'bateria' && c.id !== 'cargador' && c.id !== 'pantalla' && c.id !== 'teclado' && c.id !== 'camara' && c.id !== 'microfono' && c.id !== 'parlantes' && c.id !== 'auriculares' && c.id !== 'hdmi' && c.id !== 'tipoC' && c.id !== 'touchpad');
+        case 'Laptop':
+            return ALL_COMPONENTS.filter(c => c.id !== 'vga' && c.id !== 'lector');
+        case 'Allinone':
+            return ALL_COMPONENTS.filter(c => c.id !== 'bateria' && c.id !== 'cargador' && c.id !== 'microfono' && c.id !== 'parlantes' && c.id !== 'auriculares' && c.id !== 'hdmi' && c.id !== 'tipoC' && c.id !== 'touchpad' && c.id !== 'lector' && c.id !== 'vga' && c.id !== 'teclado' && c.id !== 'pantalla' && c.id !== 'camara');
+        case 'Impresora':
+            return [{ id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" }, { id: "tinta", name: "Cartuchos/Tinta" }, { id: "bandejas", name: "Bandejas" }, { id: "otros", name: "Otros" }];
+        case 'Otros':
+            return ALL_COMPONENTS;
+        default:
+            return [];
+    }
+  };
+
   const COMPONENT_OPTIONS = {
-    PC: [
-        { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
-        { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
-        { id: "m2Nvme", name: "M2 Nvme" }, { id: "tarjetaVideo", name: "Tarjeta de video" },
-        { id: "wifi", name: "Wi-Fi" }, { id: "rj45", name: "RJ 45" }, { id: "vga", name: "VGA" },
-        { id: "usb", name: "USB" }, { id: "lectora", name: "Lectora" }, { id: "otros", name: "Otros" },
-    ],
-    Laptop: [
-        { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
-        { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
-        { id: "m2Nvme", name: "M2 Nvme" }, { id: "tarjetaVideo", name: "Tarjeta de video" },
-        { id: "wifi", name: "Wi-Fi" }, { id: "bateria", name: "Batería" }, { id: "cargador", name: "Cargador" },
-        { id: "pantalla", name: "Pantalla" }, { id: "teclado", name: "Teclado" }, { id: "camara", name: "Cámara" },
-        { id: "microfono", name: "Micrófono" }, { id: "parlantes", name: "Parlantes" },
-        { id: "auriculares", name: "Auriculares" }, { id: "rj45", name: "RJ 45" }, { id: "hdmi", name: "HDMI" },
-        { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, { id: "tipoC", name: "Tipo C" },
-        { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" }, { id: "otros", name: "Otros" },
-    ],
-    Allinone: ALL_COMPONENTS,
-    Impresora: [
-        { id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" },
-        { id: "tinta", name: "Cartuchos/Tinta" }, { id: "bandejas", name: "Bandejas" }, { id: "otros", name: "Otros" },
-    ],
-    Otros: ALL_COMPONENTS,
+    PC: getComponentOptions('PC'),
+    Laptop: getComponentOptions('Laptop'),
+    Allinone: getComponentOptions('Allinone'),
+    Impresora: getComponentOptions('Impresora'),
+    Otros: getComponentOptions('Otros'),
   };
 
   const OS_OPTIONS = [
@@ -126,12 +127,12 @@ function Diagnostico() {
 
     const fetchData = async () => {
       try {
-        const [allClients, allUsers] = await Promise.all([
-          getAllClientsForSelection(),
-          getAllUsersDetailed(),
-        ]);
+        const allClients = await getAllClientsForSelection();
         setClients(allClients);
-        setUsers(allUsers.map((u) => ({ value: u.id, label: u.nombre })));
+        
+        const allUsersData = await getAllUsersDetailed();
+        const userOptions = allUsersData.map((u) => ({ value: u.id, label: u.nombre }));
+        setUsers(userOptions);
 
         if (diagnosticoId) {
           const report = await getDiagnosticReportById(diagnosticoId);
@@ -143,6 +144,10 @@ function Diagnostico() {
               data: client,
             });
             setReportNumber(report.reportNumber.toString().padStart(6, "0"));
+            
+            const tecnicoTesteoOption = userOptions.find(u => u.label === report.tecnicoTesteo);
+            const tecnicoResponsableOption = userOptions.find(u => u.label === report.tecnicoResponsable);
+
             setFormData({
               ...report,
               bitlockerKey: report.bitlockerKey || false,
@@ -152,6 +157,9 @@ function Diagnostico() {
               aCuenta: parseFloat(report.aCuenta),
               saldo: parseFloat(report.saldo),
               total: parseFloat(report.total),
+              tecnicoRecepcionId: report.tecnicoRecepcionId || currentUser?.uid,
+              tecnicoTesteoId: tecnicoTesteoOption?.value || "",
+              tecnicoResponsableId: tecnicoResponsableOption?.value || "",
             });
             if (report.additionalServices) {
               setAdditionalServices(report.additionalServices);
@@ -169,7 +177,7 @@ function Diagnostico() {
             if (client) {
                 setSelectedClient({
                     value: client.id,
-                    label: client.nombre,
+                    label: `${client.nombre} (${client.telefono})`,
                     data: client,
                 });
             }
@@ -177,23 +185,24 @@ function Diagnostico() {
         }
       } catch (error) {
         toast.error("Error al cargar datos.");
+        console.error(error);
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
-  }, [diagnosticoId, search]);
+  }, [diagnosticoId, search, currentUser?.uid, currentUser?.nombre]);
 
   useEffect(() => {
     const totalAdicionales = additionalServices.reduce(
       (sum, service) => sum + parseFloat(service.amount),
       0
     );
-    const newTotal = parseFloat(formData.montoServicio) + totalAdicionales;
+    const newTotal = (parseFloat(formData.montoServicio) || 0) + totalAdicionales + (parseFloat(formData.diagnostico) || 0);
     setFormData((prev) => ({
       ...prev,
       total: newTotal,
-      saldo: newTotal - parseFloat(prev.aCuenta),
+      saldo: newTotal - (parseFloat(prev.aCuenta) || 0),
     }));
   }, [
     additionalServices,
@@ -205,7 +214,7 @@ function Diagnostico() {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    if (name === "bitlockerKey" || type === "checkbox") {
+    if (name === "bitlockerKey" && type === "checkbox") {
         setFormData((prev) => ({
             ...prev,
             [name]: checked,
@@ -225,9 +234,9 @@ function Diagnostico() {
 
   const handlePaymentChange = (e) => {
     let { name, value } = e.target;
-    if (value < 0) value = 0;
     
-    const numericValue = parseFloat(value) || 0;
+    let numericValue = parseFloat(value);
+    if (isNaN(numericValue) || numericValue < 0) numericValue = 0;
     
     setFormData((prev) => ({
       ...prev,
@@ -247,23 +256,28 @@ function Diagnostico() {
   };
 
   const handleUserChange = (name, selectedOption) => {
+    const nameKey = name;
+    const idKey = `${name}Id`;
+    
     setFormData((prev) => ({
       ...prev,
-      [name]: selectedOption ? selectedOption.label : "",
+      [nameKey]: selectedOption ? selectedOption.label : "",
+      [idKey]: selectedOption ? selectedOption.value : "",
     }));
   };
 
   const handleEquipoChange = (e) => {
     const { value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      tipoEquipo: value,
-      items:
-        COMPONENT_OPTIONS[value]?.map((item) => ({
+    const newItems = getComponentOptions(value)?.map((item) => ({
           id: item.id,
           checked: false,
           detalles: "",
-        })) || [],
+    })) || [];
+    
+    setFormData((prev) => ({
+      ...prev,
+      tipoEquipo: value,
+      items: newItems,
       sistemaOperativo: "",
       bitlockerKey: false,
     }));
@@ -344,7 +358,7 @@ function Diagnostico() {
                 const item = formData.items.find(i => i.id === requiredId);
                 
                 if (item && !item.detalles) { 
-                    newErrors[requiredId] = `Debe especificar detalles para ${requiredId}`;
+                    newErrors[requiredId] = `Detalle de ${getComponentDisplayName(requiredId)} es obligatorio.`;
                 }
             }
         });
@@ -369,7 +383,7 @@ function Diagnostico() {
       const baseData = {
         ...formData,
         clientId: selectedClient.value,
-        clientName: selectedClient.label,
+        clientName: selectedClient.label.split('(')[0].trim(),
         telefono: selectedClient.data?.telefono,
         additionalServices: showAdditionalServices ? additionalServices : [],
         hasAdditionalServices: showAdditionalServices && additionalServices.length > 0,
@@ -389,8 +403,7 @@ function Diagnostico() {
           reportNumber: parseInt(reportNumber),
           fecha: `${getToday.day}-${getToday.month}-${getToday.year}`,
           hora: getToday.time,
-          estado: "PENDIENTE",
-          tecnicoActual: formData.tecnicoResponsable || 'N/A', 
+          estado: "PENDIENTE", 
         });
         toast.success(`Informe #${reportNumber} creado con éxito.`);
       }
@@ -795,6 +808,7 @@ function Diagnostico() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {COMPONENT_OPTIONS[formData.tipoEquipo]?.map((item) => {
                 const isRequired = REQUIRED_COMPONENT_INPUTS.includes(item.id);
+                const itemDetails = formData.items.find((i) => i.id === item.id)?.detalles || "";
                 return (
                 <div key={item.id} className="flex items-center space-x-2">
                   <input
@@ -810,24 +824,20 @@ function Diagnostico() {
                   />
                   <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
                     {item.name}
-                    {isRequired && <FaCheckCircle className="ml-1 text-xs text-red-500" title="Campo obligatorio"/>}
+                    {isRequired && <FaCheckCircle className="ml-1 text-xs text-blue-500" title="Detalle obligatorio"/>}
                   </label>
                   <input
                     type="text"
                     name={item.id}
-                    value={
-                      formData.items.find((i) => i.id === item.id)?.detalles ||
-                      ""
-                    }
+                    value={itemDetails}
                     onChange={handleItemDetailsChange}
                     className={`flex-1 p-1 text-xs border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
                        isRequired && errors[item.id] ? "ring-2 ring-red-500" : ""
                     }`}
                     placeholder="Detalles"
-                    required={isRequired}
                   />
                    {isRequired && errors[item.id] && (
-                        <FaTimesCircle className="text-red-500" title="Requerido"/>
+                        <FaTimesCircle className="text-red-500" title={errors[item.id]}/>
                    )}
                 </div>
               )})}
@@ -950,6 +960,7 @@ function Diagnostico() {
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   onFocus={handlePaymentFocus}
                   onWheel={handleWheel}
                   placeholder="Monto (S/)"
@@ -960,7 +971,8 @@ function Diagnostico() {
                       amount: e.target.value,
                     }))
                   }
-                  className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 appearance-none m-0"
+                  className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
                 />
                 <button
                   type="button"
@@ -1021,14 +1033,16 @@ function Diagnostico() {
               <input
                 type="number"
                 min="0"
+                step="any"
                 onFocus={handlePaymentFocus}
                 onWheel={handleWheel}
                 name="montoServicio"
                 value={formData.montoServicio}
                 onChange={handlePaymentChange}
-                className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 appearance-none m-0 ${
+                className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
                   errors.montoServicio ? "ring-2 ring-red-500" : ""
                 }`}
+                style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
                 required
               />
               {errors.montoServicio && (
@@ -1044,12 +1058,14 @@ function Diagnostico() {
               <input
                 type="number"
                 min="0"
+                step="any"
                 onFocus={handlePaymentFocus}
                 onWheel={handleWheel}
                 name="diagnostico"
                 value={formData.diagnostico}
                 onChange={handlePaymentChange}
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 appearance-none m-0"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
                 required
               />
             </div>
@@ -1060,12 +1076,14 @@ function Diagnostico() {
               <input
                 type="number"
                 min="0"
+                step="any"
                 onFocus={handlePaymentFocus}
                 onWheel={handleWheel}
                 name="aCuenta"
                 value={formData.aCuenta}
                 onChange={handlePaymentChange}
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 appearance-none m-0"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
                 required
               />
             </div>
@@ -1078,7 +1096,7 @@ function Diagnostico() {
                 name="total"
                 value={formData.total}
                 readOnly
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed appearance-none m-0"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
               />
             </div>
             <div>
@@ -1090,7 +1108,7 @@ function Diagnostico() {
                 name="saldo"
                 value={formData.saldo}
                 readOnly
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed appearance-none m-0"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
               />
             </div>
           </div>
@@ -1118,7 +1136,7 @@ function Diagnostico() {
               </label>
               <Select
                 options={users}
-                value={users.find((u) => u.label === formData.tecnicoTesteo)}
+                value={users.find((u) => u.value === formData.tecnicoTesteoId)}
                 onChange={(option) => handleUserChange("tecnicoTesteo", option)}
                 placeholder="Selecciona un técnico..."
                 styles={{
@@ -1155,7 +1173,7 @@ function Diagnostico() {
               <Select
                 options={users}
                 value={users.find(
-                  (u) => u.label === formData.tecnicoResponsable
+                  (u) => u.value === formData.tecnicoResponsableId
                 )}
                 onChange={(option) =>
                   handleUserChange("tecnicoResponsable", option)
