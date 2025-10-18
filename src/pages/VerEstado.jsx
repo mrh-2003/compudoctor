@@ -10,6 +10,7 @@ const STATUS_COLORS = {
     'PENDIENTE': 'bg-gray-400',
     'ASIGNADO': 'bg-blue-400',
     'ENTREGADO': 'bg-green-500',
+    'TERMINADO': 'bg-orange-500',
 };
 
 function VerEstado() {
@@ -107,6 +108,7 @@ function VerEstado() {
                     <option value="PENDIENTE">PENDIENTE</option>
                     <option value="ASIGNADO">ASIGNADO</option>
                     <option value="ENTREGADO">ENTREGADO</option>
+                    <option value="TERMINADO">TERMINADO</option>
                 </select>
             </div>
 

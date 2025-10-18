@@ -74,6 +74,7 @@ const FIELD_LABELS = {
     sw_otros: "Otros",
     sw_otros_spec: "Especificación de Otros",
     elec_video: "Tarjeta de Video",
+    elec_placa: "Placa",
     elec_otro: "Otro",
     elec_codigo: "Código",
     elec_etapa: "Etapa",
@@ -230,8 +231,9 @@ function DetalleDiagnostico() {
     const [nextArea, setNextArea] = useState('');
     const [users, setUsers] = useState([]);
     const [tecnicoSiguiente, setTecnicoSiguiente] = useState(null);
+    const [ubicacionFisica, setUbicacionFisica] = useState('');
 
-    const AREA_OPTIONS = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA'];
+    const AREA_OPTIONS = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO'];
 
     useEffect(() => {
         const fetchData = async () => {
@@ -270,18 +272,29 @@ function DetalleDiagnostico() {
         }));
     };
 
+    const handleRadioChange = (groupName, value) => {
+        setFormState(prev => ({
+            ...prev,
+            [`${groupName}_laptop`]: value === 'laptop',
+            [`${groupName}_pc`]: value === 'pc',
+            [`${groupName}_otro`]: value === 'otro',
+        }));
+    };
+
     const handleOpenCompletionModal = () => setIsCompletionModalOpen(true);
     const handleCloseCompletionModal = () => {
         setIsCompletionModalOpen(false);
         setNextArea('');
         setReparacionFinal('');
         setTecnicoSiguiente(null);
+        setUbicacionFisica('');
     };
     
     const handleCompleteTask = async (e) => {
         e.preventDefault();
         if (!reparacionFinal) return toast.error('La descripción de la reparación es obligatoria.');
         if (!nextArea) return toast.error('Debes seleccionar la siguiente área o marcar como terminado.');
+        if (!ubicacionFisica) return toast.error('Debes ingresar la ubicación física.');
         if (nextArea !== 'TERMINADO' && !tecnicoSiguiente) return toast.error('Debes asignar un técnico para la siguiente área.');
         if (nextArea === report.area && tecnicoSiguiente?.label === currentUser.nombre) {
             return toast.error('No puedes reasignarte el informe a ti mismo en la misma área.');
@@ -310,12 +323,14 @@ function DetalleDiagnostico() {
                 ...report.diagnosticoPorArea,
                 [report.area]: currentAreaHistory,
             };
-    
+
             const updatedData = {
                 diagnosticoPorArea: updatedDiagnosticoPorArea,
-                estado: nextArea === 'TERMINADO' ? 'ENTREGADO' : 'PENDIENTE',
+                estado: nextArea === 'TERMINADO' ? nextArea : 'ASIGNADO',
                 area: nextArea !== 'TERMINADO' ? nextArea : report.area,
                 tecnicoActual: tecnicoSiguiente ? tecnicoSiguiente.label : report.tecnicoResponsable,
+                tecnicoActualId: tecnicoSiguiente ? tecnicoSiguiente.value : report.tecnicoResponsableId,
+                ubicacionFisica: ubicacionFisica,
             };
     
             if (nextArea !== 'TERMINADO') {
@@ -323,14 +338,16 @@ function DetalleDiagnostico() {
                 newAreaHistory.push({
                     reparacion: '',
                     tecnico: tecnicoSiguiente.label,
+                    tecnicoId: tecnicoSiguiente.value,
+                    ubicacionFisica: ubicacionFisica,
                     fecha_inicio: formattedDate,
                     hora_inicio: formattedTime,
                     fecha_fin: '',
                     hora_fin: '',
-                    estado: 'PENDIENTE',
+                    estado: 'ASIGNADO',
                 });
                 updatedData.diagnosticoPorArea[nextArea] = newAreaHistory;
-            }
+            }  
     
             await updateDiagnosticReport(reportId, updatedData);
             toast.success('Tarea completada con éxito.');
@@ -342,6 +359,7 @@ function DetalleDiagnostico() {
             console.error(error);
         }
     };
+
     const renderAreaForm = () => {
         const commonFields = (
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4">
@@ -375,9 +393,36 @@ function DetalleDiagnostico() {
                     <div className="space-y-4">
                         <h2 className="text-2xl font-bold text-red-500">ÁREA DE HARDWARE</h2>
                         <div className="flex items-center space-x-4">
-                            <label className="flex items-center"><input type="checkbox" name="hw_laptop" checked={formState.hw_laptop || false} onChange={handleFormChange} className="h-4 w-4 mr-2" />LAPTOP</label>
-                            <label className="flex items-center"><input type="checkbox" name="hw_pc" checked={formState.hw_pc || false} onChange={handleFormChange} className="h-4 w-4 mr-2" />PC</label>
-                            <label className="flex items-center"><input type="checkbox" name="hw_otro" checked={formState.hw_otro || false} onChange={handleFormChange} className="h-4 w-4 mr-2" />OTRO</label>
+                            <label className="flex items-center">
+                                <input 
+                                    type="radio" 
+                                    name="hw_tipo" 
+                                    checked={formState.hw_laptop || false} 
+                                    onChange={() => handleRadioChange('hw', 'laptop')} 
+                                    className="h-4 w-4 mr-2" 
+                                />
+                                LAPTOP
+                            </label>
+                            <label className="flex items-center">
+                                <input 
+                                    type="radio" 
+                                    name="hw_tipo" 
+                                    checked={formState.hw_pc || false} 
+                                    onChange={() => handleRadioChange('hw', 'pc')} 
+                                    className="h-4 w-4 mr-2" 
+                                />
+                                PC
+                            </label>
+                            <label className="flex items-center">
+                                <input 
+                                    type="radio" 
+                                    name="hw_tipo" 
+                                    checked={formState.hw_otro || false} 
+                                    onChange={() => handleRadioChange('hw', 'otro')} 
+                                    className="h-4 w-4 mr-2" 
+                                />
+                                OTRO
+                            </label>
                             <input type="text" name="hw_otro_spec" value={formState.hw_otro_spec || ''} onChange={handleFormChange} placeholder="Especificar" className="flex-1 p-2 border rounded-md dark:bg-gray-700"/>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -417,7 +462,7 @@ function DetalleDiagnostico() {
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <label className="flex items-center"><input type="checkbox" name="otros" checked={formState.otros || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>Otros:</label>
-                                <input type="text" name="otros_especif" value={formState.otros_especif || ''} onChange={handleFormChange} placeholder="Especificar" className="p-2 border rounded-md dark:bg-gray-700 flex-1"/>
+                                <input type="text" name="otros_especif" value={formState.otros_especif || ''} onChange={ handleFormChange} placeholder="Especificar" className="p-2 border rounded-md dark:bg-gray-700 flex-1"/>
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -450,9 +495,36 @@ function DetalleDiagnostico() {
                     <div className="space-y-4">
                         <h2 className="text-2xl font-bold text-blue-500">ÁREA DE SOFTWARE</h2>
                         <div className="flex items-center space-x-4">
-                            <label className="flex items-center"><input type="checkbox" name="sw_laptop" checked={formState.sw_laptop || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>LAPTOP</label>
-                            <label className="flex items-center"><input type="checkbox" name="sw_pc" checked={formState.sw_pc || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>PC</label>
-                            <label className="flex items-center"><input type="checkbox" name="sw_otro" checked={formState.sw_otro || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>OTRO</label>
+                            <label className="flex items-center">
+                                <input 
+                                    type="radio" 
+                                    name="sw_tipo" 
+                                    checked={formState.sw_laptop || false} 
+                                    onChange={() => handleRadioChange('sw', 'laptop')} 
+                                    className="h-4 w-4 mr-2"
+                                />
+                                LAPTOP
+                            </label>
+                            <label className="flex items-center">
+                                <input 
+                                    type="radio" 
+                                    name="sw_tipo" 
+                                    checked={formState.sw_pc || false} 
+                                    onChange={() => handleRadioChange('sw', 'pc')} 
+                                    className="h-4 w-4 mr-2"
+                                />
+                                PC
+                            </label>
+                            <label className="flex items-center">
+                                <input 
+                                    type="radio" 
+                                    name="sw_tipo" 
+                                    checked={formState.sw_otro || false} 
+                                    onChange={() => handleRadioChange('sw', 'otro')} 
+                                    className="h-4 w-4 mr-2"
+                                />
+                                OTRO
+                            </label>
                             <input type="text" name="sw_otro_spec" value={formState.sw_otro_spec || ''} onChange={handleFormChange} placeholder="Especificar" className="flex-1 p-2 border rounded-md dark:bg-gray-700"/>
                         </div>
                          <div className="space-y-2">
@@ -476,12 +548,270 @@ function DetalleDiagnostico() {
                         <h2 className="text-2xl font-bold text-yellow-500">ÁREA DE ELECTRÓNICA</h2>
                         <div className="flex items-center space-x-4">
                             <label className="flex items-center"><input type="checkbox" name="elec_video" checked={formState.elec_video || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>TARJ. VIDEO</label>
+                            <label className="flex items-center"><input type="checkbox" name="elec_placa" checked={formState.elec_placa || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>PLACA</label>
                             <label className="flex items-center"><input type="checkbox" name="elec_otro" checked={formState.elec_otro || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>OTRO</label>
                         </div>
                         <div className="space-y-2">
                            <textarea name="elec_codigo" value={formState.elec_codigo || ''} onChange={handleFormChange} placeholder="Código" className="w-full p-2 border rounded-md dark:bg-gray-700" rows="2"></textarea>
                            <textarea name="elec_etapa" value={formState.elec_etapa || ''} onChange={handleFormChange} placeholder="Etapa" className="w-full p-2 border rounded-md dark:bg-gray-700" rows="2"></textarea>
                            <textarea name="elec_obs" value={formState.elec_obs || ''} onChange={handleFormChange} placeholder="Obs" className="w-full p-2 border rounded-md dark:bg-gray-700" rows="3"></textarea>
+                        </div>
+                        {commonFields}
+                    </div>
+                );
+            case 'TESTEO':
+                return (
+                    <div className="space-y-4">
+                        <h2 className="text-2xl font-bold text-purple-500">ÁREA DE TESTEO</h2>
+                        <div className="bg-yellow-50 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 p-3 rounded-md text-sm">
+                            <p className="font-semibold mb-1">Instrucciones:</p>
+                            <p>Marcar en orden con una "X" dentro de la casilla correspondiente si <strong>FUNCIONA</strong> o <strong>NO FUNCIONA</strong> el periférico testeado. Si el equipo no tiene el periférico escribirlo en <strong>OBSERVACIONES: "NO TIENE"</strong>. Si el periférico al testear tiene algún detalle escribirlo en <strong>OBSERVACIONES</strong> especificándolo. OJO: VERIFICAR SI EL TECLADO ILUMINA O NO ASÍ COMO LA PANTALLA SI ES TÁCTIL O NO Y ESCRIBIRLO EN OBSERVACIONES.</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Procesador:</label>
+                                    <input type="text" name="testeo_procesador" value={formState.testeo_procesador || ''} onChange={handleFormChange} placeholder="Obs." className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Video Dedicado:</label>
+                                    <input type="text" name="testeo_video_dedicado" value={formState.testeo_video_dedicado || ''} onChange={handleFormChange} placeholder="Obs." className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Memoria Ram:</label>
+                                    <input type="text" name="testeo_memoria_ram" value={formState.testeo_memoria_ram || ''} onChange={handleFormChange} placeholder="Obs." className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Disco:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_disco" value="SI" checked={formState.testeo_disco === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_disco" value="NO" checked={formState.testeo_disco === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_disco_obs" value={formState.testeo_disco_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Pantalla:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_pantalla" value="SI" checked={formState.testeo_pantalla === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_pantalla" value="NO" checked={formState.testeo_pantalla === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_pantalla_obs" value={formState.testeo_pantalla_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Batería:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_bateria" value="SI" checked={formState.testeo_bateria === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_bateria" value="NO" checked={formState.testeo_bateria === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_bateria_obs" value={formState.testeo_bateria_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Cargador:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_cargador" value="SI" checked={formState.testeo_cargador === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_cargador" value="NO" checked={formState.testeo_cargador === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_cargador_obs" value={formState.testeo_cargador_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Cámara:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_camara" value="SI" checked={formState.testeo_camara === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_camara" value="NO" checked={formState.testeo_camara === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_camara_obs" value={formState.testeo_camara_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Micrófono:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_microfono" value="SI" checked={formState.testeo_microfono === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_microfono" value="NO" checked={formState.testeo_microfono === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_microfono_obs" value={formState.testeo_microfono_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Auricular:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_auricular" value="SI" checked={formState.testeo_auricular === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_auricular" value="NO" checked={formState.testeo_auricular === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_auricular_obs" value={formState.testeo_auricular_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Parlantes:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_parlantes" value="SI" checked={formState.testeo_parlantes === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_parlantes" value="NO" checked={formState.testeo_parlantes === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_parlantes_obs" value={formState.testeo_parlantes_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Teclado:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_teclado" value="SI" checked={formState.testeo_teclado === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_teclado" value="NO" checked={formState.testeo_teclado === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_teclado_obs" value={formState.testeo_teclado_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Lectora:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_lectora" value="SI" checked={formState.testeo_lectora === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_lectora" value="NO" checked={formState.testeo_lectora === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_lectora_obs" value={formState.testeo_lectora_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Touchpad:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_touchpad" value="SI" checked={formState.testeo_touchpad === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_touchpad" value="NO" checked={formState.testeo_touchpad === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_touchpad_obs" value={formState.testeo_touchpad_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Wifi:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_wifi" value="SI" checked={formState.testeo_wifi === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_wifi" value="NO" checked={formState.testeo_wifi === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_wifi_obs" value={formState.testeo_wifi_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">RJ45:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_rj45" value="SI" checked={formState.testeo_rj45 === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_rj45" value="NO" checked={formState.testeo_rj45 === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_rj45_obs" value={formState.testeo_rj45_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">USB:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_usb" value="SI" checked={formState.testeo_usb === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_usb" value="NO" checked={formState.testeo_usb === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_usb_obs" value={formState.testeo_usb_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Tipo C:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_tipo_c" value="SI" checked={formState.testeo_tipo_c === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_tipo_c" value="NO" checked={formState.testeo_tipo_c === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_tipo_c_obs" value={formState.testeo_tipo_c_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">HDMI:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_hdmi" value="SI" checked={formState.testeo_hdmi === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_hdmi" value="NO" checked={formState.testeo_hdmi === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_hdmi_obs" value={formState.testeo_hdmi_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">VGA:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_vga" value="SI" checked={formState.testeo_vga === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_vga" value="NO" checked={formState.testeo_vga === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_vga_obs" value={formState.testeo_vga_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="block text-sm font-medium">Otros:</label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_otros" value="SI" checked={formState.testeo_otros === 'SI'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        SI
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="radio" name="testeo_otros" value="NO" checked={formState.testeo_otros === 'NO'} onChange={handleFormChange} className="h-4 w-4 mr-1"/>
+                                        NO
+                                    </label>
+                                    <input type="text" name="testeo_otros_obs" value={formState.testeo_otros_obs || ''} onChange={handleFormChange} placeholder="Obs." className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="border-t pt-4 dark:border-gray-700">
+                            <h3 className="font-bold text-lg mb-3">TÉCNICO/A DEL TESTEO FINAL</h3>
+                            <input type="text" name="testeo_tecnico_final" value={formState.testeo_tecnico_final || ''} onChange={handleFormChange} placeholder="Nombre del técnico" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 mb-4"/>
+                            <h3 className="font-bold text-lg mb-3">SERVICIO REALIZADO FINAL</h3>
+                            <textarea name="testeo_servicio_final" value={formState.testeo_servicio_final || ''} onChange={handleFormChange} placeholder="Descripción del servicio realizado" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" rows="4"></textarea>
                         </div>
                         {commonFields}
                     </div>
@@ -521,6 +851,17 @@ function DetalleDiagnostico() {
             return users.filter(u => u.label !== currentUser.nombre);
         }
         return users;
+    };
+
+    const getAreaOptions = () => {
+        if (report.area === 'TESTEO') {
+            return [
+                ...AREA_OPTIONS.map(area => ({value: area, label: area})),
+                {value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)'}
+            ];
+        } else {
+            return AREA_OPTIONS.map(area => ({value: area, label: area}));
+        }
     };
     
     return (
@@ -583,7 +924,7 @@ function DetalleDiagnostico() {
                 <button
                     onClick={handleOpenCompletionModal}
                     className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"
-                    disabled={report.estado === 'ENTREGADO'}
+                    disabled={report.estado === 'TERMINADO'}
                 >
                     <FaCheckCircle className="mr-2" /> Completar Tarea
                 </button>
@@ -605,12 +946,20 @@ function DetalleDiagnostico() {
                             ></textarea>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium mb-1">Ubicación Física</label>
+                            <input
+                                type="text"
+                                value={ubicacionFisica}
+                                onChange={(e) => setUbicacionFisica(e.target.value)}
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                placeholder="Ingresa la ubicación física del equipo"
+                                required
+                            />
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium mb-1">Pasar a la Siguiente Área</label>
                             <Select
-                                options={[
-                                    ...AREA_OPTIONS.map(area => ({value: area, label: area})),
-                                    {value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)'}
-                                ]}
+                                options={getAreaOptions()}
                                 onChange={(option) => setNextArea(option.value)}
                                 placeholder="Selecciona la siguiente área..."
                                 styles={selectStyles(theme)}
