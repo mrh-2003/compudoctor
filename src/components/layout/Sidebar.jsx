@@ -1,4 +1,3 @@
-// src/components/layout/Sidebar.jsx
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
@@ -22,7 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu }) {
     const [isReportsOpen, setIsReportsOpen] = useState(false);
     const navigate = useNavigate();
-    const { currentUser } = useAuth();
+    const { currentUser, pendingReportsCount } = useAuth();
 
     const handleLinkClick = () => {
         if (window.innerWidth < 1024) {
@@ -164,7 +163,19 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
                                         title={isMinimized ? item.name : ''}
                                     >
                                         <span className="text-xl">{item.icon}</span>
-                                        {!isMinimized && <span className="ml-4">{item.name}</span>}
+                                        {!isMinimized && <span className="ml-4 flex-1">{item.name}</span>}
+                                        
+                                        {item.id === 'bandeja' && pendingReportsCount > 0 && (
+                                            <span className={`
+                                                ${!isMinimized ? 'ml-auto' : ''} 
+                                                inline-flex items-center justify-center 
+                                                h-5 w-5 text-xs font-bold rounded-full 
+                                                bg-red-500 text-white
+                                                ${isMinimized ? 'absolute top-3 right-3' : ''}
+                                            `}>
+                                                {pendingReportsCount}
+                                            </span>
+                                        )}
                                     </NavLink>
                                 )}
                             </li>

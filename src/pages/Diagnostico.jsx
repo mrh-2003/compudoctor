@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useContext } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Select from "react-select";
-import { FaPlus, FaSave, FaPrint, FaTrash, FaPen } from "react-icons/fa";
+import { FaPlus, FaSave, FaPrint, FaTrash, FaPen, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
   createDiagnosticReport,
@@ -17,9 +17,14 @@ import { ThemeContext } from "../context/ThemeContext";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
+const REQUIRED_COMPONENT_INPUTS = [
+    "procesador", "placaMadre", "memoriaRam", "hdd", "ssd", "m2Nvme", "tarjetaVideo", "wifi", "bateria", "teclado", "camara"
+];
+
 function Diagnostico() {
   const { diagnosticoId } = useParams();
   const navigate = useNavigate();
+  const { search } = useLocation();
   const { currentUser } = useAuth();
   const { theme } = useContext(ThemeContext);
   const [clients, setClients] = useState([]);
@@ -37,9 +42,10 @@ function Diagnostico() {
     serie: "",
     items: [],
     sistemaOperativo: "",
-    bitlockerKey: "",
+    bitlockerKey: false,
     observaciones: "",
     motivoIngreso: "",
+    detallesPago: "",
     diagnostico: 30,
     montoServicio: 0,
     total: 30,
@@ -70,84 +76,54 @@ function Diagnostico() {
     };
   }, []);
 
+  const ALL_COMPONENTS = [
+        { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
+        { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
+        { id: "m2Nvme", name: "M2 Nvme" }, { id: "tarjetaVideo", name: "Tarjeta de video" },
+        { id: "wifi", name: "Wi-Fi" }, { id: "bateria", name: "Batería" }, { id: "cargador", name: "Cargador" },
+        { id: "pantalla", name: "Pantalla" }, { id: "teclado", name: "Teclado" }, { id: "camara", name: "Cámara" },
+        { id: "microfono", name: "Micrófono" }, { id: "parlantes", name: "Parlantes" },
+        { id: "auriculares", name: "Auriculares" }, { id: "rj45", name: "RJ 45" }, { id: "hdmi", name: "HDMI" },
+        { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, { id: "tipoC", name: "Tipo C" },
+        { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" }, { id: "otros", name: "Otros" },
+  ];
+
   const COMPONENT_OPTIONS = {
     PC: [
-      { id: "procesador", name: "Procesador" },
-      { id: "placaMadre", name: "Placa Madre" },
-      { id: "memoriaRam", name: "Memoria RAM" },
-      { id: "hdd", name: "HDD" },
-      { id: "ssd", name: "SSD" },
-      { id: "m2Nvme", name: "M2 Nvme" },
-      { id: "tarjetaVideo", name: "Tarjeta de video" },
-      { id: "wifi", name: "Wi-Fi" },
-      { id: "rj45", name: "RJ 45" },
-      { id: "vga", name: "VGA" },
-      { id: "usb", name: "USB" },
-      { id: "lectora", name: "Lectora" },
-      { id: "otros", name: "Otros" },
+        { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
+        { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
+        { id: "m2Nvme", name: "M2 Nvme" }, { id: "tarjetaVideo", name: "Tarjeta de video" },
+        { id: "wifi", name: "Wi-Fi" }, { id: "rj45", name: "RJ 45" }, { id: "vga", name: "VGA" },
+        { id: "usb", name: "USB" }, { id: "lectora", name: "Lectora" }, { id: "otros", name: "Otros" },
     ],
     Laptop: [
-      { id: "procesador", name: "Procesador" },
-      { id: "placaMadre", name: "Placa Madre" },
-      { id: "memoriaRam", name: "Memoria RAM" },
-      { id: "hdd", name: "HDD" },
-      { id: "ssd", name: "SSD" },
-      { id: "m2Nvme", name: "M2 Nvme" },
-      { id: "tarjetaVideo", name: "Tarjeta de video" },
-      { id: "wifi", name: "Wi-Fi" },
-      { id: "bateria", name: "Batería" },
-      { id: "cargador", name: "Cargador" },
-      { id: "pantalla", name: "Pantalla" },
-      { id: "teclado", name: "Teclado" },
-      { id: "camara", name: "Cámara" },
-      { id: "microfono", name: "Micrófono" },
-      { id: "parlantes", name: "Parlantes" },
-      { id: "auriculares", name: "Auriculares" },
-      { id: "rj45", name: "RJ 45" },
-      { id: "hdmi", name: "HDMI" },
-      { id: "vga", name: "VGA" },
-      { id: "usb", name: "USB" },
-      { id: "tipoC", name: "Tipo C" },
-      { id: "lectora", name: "Lectora" },
-      { id: "touchpad", name: "Touchpad" },
-      { id: "otros", name: "Otros" },
+        { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
+        { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
+        { id: "m2Nvme", name: "M2 Nvme" }, { id: "tarjetaVideo", name: "Tarjeta de video" },
+        { id: "wifi", name: "Wi-Fi" }, { id: "bateria", name: "Batería" }, { id: "cargador", name: "Cargador" },
+        { id: "pantalla", name: "Pantalla" }, { id: "teclado", name: "Teclado" }, { id: "camara", name: "Cámara" },
+        { id: "microfono", name: "Micrófono" }, { id: "parlantes", name: "Parlantes" },
+        { id: "auriculares", name: "Auriculares" }, { id: "rj45", name: "RJ 45" }, { id: "hdmi", name: "HDMI" },
+        { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, { id: "tipoC", name: "Tipo C" },
+        { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" }, { id: "otros", name: "Otros" },
     ],
-    Allinone: [
-      { id: "procesador", name: "Procesador" },
-      { id: "placaMadre", name: "Placa Madre" },
-      { id: "memoriaRam", name: "Memoria RAM" },
-      { id: "hdd", name: "HDD" },
-      { id: "ssd", name: "SSD" },
-      { id: "m2Nvme", name: "M2 Nvme" },
-      { id: "tarjetaVideo", name: "Tarjeta de video" },
-      { id: "wifi", name: "Wi-Fi" },
-      { id: "rj45", name: "RJ 45" },
-      { id: "usb", name: "USB" },
-      { id: "lector", name: "Lectora" },
-      { id: "otros", name: "Otros" },
-    ],
+    Allinone: ALL_COMPONENTS,
     Impresora: [
-      { id: "rodillos", name: "Rodillos" },
-      { id: "cabezal", name: "Cabezal" },
-      { id: "tinta", name: "Cartuchos/Tinta" },
-      { id: "bandejas", name: "Bandejas" },
-      { id: "otros", name: "Otros" },
+        { id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" },
+        { id: "tinta", name: "Cartuchos/Tinta" }, { id: "bandejas", name: "Bandejas" }, { id: "otros", name: "Otros" },
     ],
-    Otros: [{ id: "otros", name: "Otros" }],
+    Otros: ALL_COMPONENTS,
   };
 
   const OS_OPTIONS = [
-    "Windows 11",
-    "Windows 10",
-    "Windows 8",
-    "Windows 7",
-    "macOS",
-    "Linux",
-    "Otro",
+    "Windows 11", "Windows 10", "Windows 8", "Windows 7", "macOS", "Linux", "Otro",
   ];
   const AREA_OPTIONS = ["SOFTWARE", "HARDWARE", "ELECTRONICA"];
 
   useEffect(() => {
+    const query = new URLSearchParams(search);
+    const clientIdFromUrl = query.get('clientId');
+
     const fetchData = async () => {
       try {
         const [allClients, allUsers] = await Promise.all([
@@ -169,6 +145,8 @@ function Diagnostico() {
             setReportNumber(report.reportNumber.toString().padStart(6, "0"));
             setFormData({
               ...report,
+              bitlockerKey: report.bitlockerKey || false,
+              detallesPago: report.detallesPago || "",
               diagnostico: parseFloat(report.diagnostico),
               montoServicio: parseFloat(report.montoServicio),
               aCuenta: parseFloat(report.aCuenta),
@@ -185,16 +163,26 @@ function Diagnostico() {
         } else {
           const nextReportNumber = await getNextReportNumber();
           setReportNumber(nextReportNumber.toString().padStart(6, "0"));
+
+          if (clientIdFromUrl) {
+            const client = await getClientById(clientIdFromUrl);
+            if (client) {
+                setSelectedClient({
+                    value: client.id,
+                    label: client.nombre,
+                    data: client,
+                });
+            }
+          }
         }
       } catch (error) {
         toast.error("Error al cargar datos.");
-        console.error(error);
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
-  }, [diagnosticoId]);
+  }, [diagnosticoId, search]);
 
   useEffect(() => {
     const totalAdicionales = additionalServices.reduce(
@@ -215,20 +203,40 @@ function Diagnostico() {
   ]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+
+    if (name === "bitlockerKey" || type === "checkbox") {
+        setFormData((prev) => ({
+            ...prev,
+            [name]: checked,
+        }));
+        return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
+  const handlePaymentFocus = (e) => {
+    e.target.value = '';
+  };
+
   const handlePaymentChange = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+    if (value < 0) value = 0;
+    
     const numericValue = parseFloat(value) || 0;
+    
     setFormData((prev) => ({
       ...prev,
       [name]: numericValue,
     }));
+  };
+
+  const handleWheel = (e) => {
+    e.preventDefault();
   };
 
   const handleClientChange = (selectedOption) => {
@@ -257,7 +265,7 @@ function Diagnostico() {
           detalles: "",
         })) || [],
       sistemaOperativo: "",
-      bitlockerKey: "",
+      bitlockerKey: false,
     }));
   };
 
@@ -283,13 +291,18 @@ function Diagnostico() {
 
   const handleAddService = (e) => {
     e.preventDefault();
-    if (newService.description && newService.amount > 0) {
-      setAdditionalServices((prev) => [
-        ...prev,
-        { ...newService, id: Date.now() },
-      ]);
-      setNewService({ description: "", amount: "" });
+    const amount = parseFloat(newService.amount);
+    
+    if (!newService.description || !amount || amount <= 0) {
+      toast.error("Debe ingresar la descripción y un monto mayor a 0 antes de agregar un servicio adicional.");
+      return;
     }
+
+    setAdditionalServices((prev) => [
+        ...prev,
+        { ...newService, amount: amount.toFixed(2), id: Date.now() },
+    ]);
+    setNewService({ description: "", amount: "" });
   };
 
   const handleDeleteService = (id) => {
@@ -300,36 +313,47 @@ function Diagnostico() {
 
   const validateForm = () => {
     const newErrors = {};
-    const requiredFields = [
-      "marca",
-      "modelo",
-      "motivoIngreso",
-      "tecnicoTesteo",
-      "tecnicoResponsable",
-      "area",
-      "montoServicio",
+    
+    const requiredGeneralFields = [
+      { field: "tipoEquipo", message: "El Tipo de Equipo es obligatorio." },
+      { field: "marca", message: "La Marca es obligatoria." },
+      { field: "modelo", message: "El Modelo es obligatorio." },
+      { field: "serie", message: "La Serie es obligatoria." },
+      { field: "motivoIngreso", message: "El Motivo de Ingreso es obligatorio." },
+      { field: "observaciones", message: "Las Observaciones son obligatorias." },
+      { field: "area", message: "El Área de Destino es obligatoria." },
     ];
 
     if (!selectedClient) {
       newErrors.client = "Seleccionar un cliente es obligatorio.";
     }
 
-    requiredFields.forEach((field) => {
+    requiredGeneralFields.forEach(({ field, message }) => {
       if (!formData[field]) {
-        newErrors[field] = `El campo ${field} es obligatorio.`;
+        newErrors[field] = message;
       }
     });
 
-    if (showAdditionalServices && additionalServices.length > 0) {
-      if (
-        additionalServices.some(
-          (service) => !service.description || !service.amount
-        )
-      ) {
-        newErrors.additionalServices =
-          "Todos los servicios adicionales deben tener una descripción y un monto.";
-      }
+    const requiredComponentInputs = REQUIRED_COMPONENT_INPUTS;
+    
+    if (formData.tipoEquipo && COMPONENT_OPTIONS[formData.tipoEquipo]) {
+        const availableComponentIds = COMPONENT_OPTIONS[formData.tipoEquipo].map(c => c.id);
+
+        requiredComponentInputs.forEach(requiredId => {
+            if (availableComponentIds.includes(requiredId)) {
+                const item = formData.items.find(i => i.id === requiredId);
+                
+                if (item && !item.detalles) { 
+                    newErrors[requiredId] = `Debe especificar detalles para ${requiredId}`;
+                }
+            }
+        });
     }
+    
+    if (!formData.montoServicio || formData.montoServicio <= 0) {
+        newErrors.montoServicio = "El Monto del Servicio es obligatorio y debe ser mayor a 0.";
+    }
+
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -342,39 +366,31 @@ function Diagnostico() {
       return;
     }
     try {
+      const baseData = {
+        ...formData,
+        clientId: selectedClient.value,
+        clientName: selectedClient.label,
+        telefono: selectedClient.data?.telefono,
+        additionalServices: showAdditionalServices ? additionalServices : [],
+        hasAdditionalServices: showAdditionalServices && additionalServices.length > 0,
+        diagnostico: parseFloat(formData.diagnostico),
+        montoServicio: parseFloat(formData.montoServicio),
+        aCuenta: parseFloat(formData.aCuenta),
+        saldo: parseFloat(formData.saldo),
+        total: parseFloat(formData.total),
+      };
+
       if (isEditMode) {
-        await updateDiagnosticReport(diagnosticoId, {
-          ...formData,
-          clientId: selectedClient.value,
-          clientName: selectedClient.label,
-          telefono: selectedClient.data?.telefono,
-          additionalServices: showAdditionalServices ? additionalServices : [],
-          hasAdditionalServices:
-            showAdditionalServices && additionalServices.length > 0,
-        });
+        await updateDiagnosticReport(diagnosticoId, baseData);
         toast.success(`Informe #${reportNumber} actualizado con éxito.`);
       } else {
         await createDiagnosticReport({
-          ...formData,
+          ...baseData,
           reportNumber: parseInt(reportNumber),
-          clientId: selectedClient.value,
-          clientName: selectedClient.label,
-          telefono: selectedClient.data?.telefono,
           fecha: `${getToday.day}-${getToday.month}-${getToday.year}`,
           hora: getToday.time,
-          additionalServices: showAdditionalServices ? additionalServices : [],
-          hasAdditionalServices:
-            showAdditionalServices && additionalServices.length > 0,
           estado: "PENDIENTE",
-          tecnicoActual: formData.tecnicoResponsable,
-          diagnosticoPorArea: {
-            [formData.area]: {
-              reparacion: "",
-              tecnico: "",
-              fecha: "",
-              estado: "PENDIENTE",
-            },
-          },
+          tecnicoActual: formData.tecnicoResponsable || 'N/A', 
         });
         toast.success(`Informe #${reportNumber} creado con éxito.`);
       }
@@ -432,6 +448,12 @@ function Diagnostico() {
           .clausula { margin-top: 10px; font-size: 8pt; }
           .firma { margin-top: 40px; text-align: center; }
           .firma-line { border-top: 1px solid #000; width: 200px; margin: 5px auto 0; }
+          .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .text-center { text-align: center; }
+          .text-xl { font-size: 1.25rem; }
+          .font-bold { font-weight: 700; }
+          .mt-4 { margin-top: 1rem; }
+          .mb-2 { margin-bottom: 0.5rem; }
         </style>
         <div class="pdf-container">
           <div class="header">
@@ -449,7 +471,7 @@ function Diagnostico() {
           <div class="report-info">
             <div class="flex-row">
               <div>
-                <span class="font-bold">Cliente:</span> ${selectedClient?.label}
+                <span class="font-bold">Cliente:</span> ${selectedClient?.label.split('(')[0].trim()}
               </div>
               <div>
                 <span class="font-bold">Celular:</span> ${
@@ -481,7 +503,7 @@ function Diagnostico() {
             </div>
 
             <div class="section-title">COMPONENTES Y ACCESORIOS</div>
-            <div class="grid grid-cols-2">
+            <div class="grid-cols-2">
                 ${formData.items
                   .filter((item) => item.checked || item.detalles)
                   .map(
@@ -501,7 +523,7 @@ function Diagnostico() {
                 }
                 ${
                   formData.bitlockerKey
-                    ? `<div class="field"><span class="font-bold">Bitlocker:</span> ${formData.bitlockerKey}</div>`
+                    ? `<div class="field"><span class="font-bold">Bitlocker:</span> Activado</div>`
                     : ""
                 }
             </div>
@@ -514,7 +536,7 @@ function Diagnostico() {
             </div>
             <div class="field">
                 <span class="font-bold">Observaciones:</span> ${
-                  formData.observaciones || "N/A"
+                  formData.observaciones || "Sin observaciones adicionales."
                 }
             </div>
 
@@ -522,7 +544,7 @@ function Diagnostico() {
                showAdditionalServices
                  ? `
               <div class="section-title">SERVICIOS ADICIONALES</div>
-              <ul>
+              <ul class="mb-2">
                   ${additionalServices
                     .map((s) => `<li>${s.description}: S/ ${s.amount}</li>`)
                     .join("")}
@@ -532,6 +554,9 @@ function Diagnostico() {
              }
 
             <div class="section-title">INFORMACIÓN DE PAGO</div>
+             <div class="field mb-2">
+                <span class="font-bold">Detalles de Pago:</span> ${formData.detallesPago || 'N/A'}
+            </div>
             <div class="flex-row">
                 <div><span class="font-bold">Diagnóstico:</span> S/ ${formData.diagnostico.toFixed(
                   2
@@ -556,10 +581,10 @@ function Diagnostico() {
                   formData.tecnicoRecepcion
                 }</div>
                 <div><span class="font-bold">Técnico Testeo:</span> ${
-                  formData.tecnicoTesteo
+                  formData.tecnicoTesteo || 'N/A'
                 }</div>
                 <div><span class="font-bold">Técnico Responsable:</span> ${
-                  formData.tecnicoResponsable
+                  formData.tecnicoResponsable || 'N/A'
                 }</div>
             </div>
           </div>
@@ -586,6 +611,16 @@ function Diagnostico() {
     newWindow.focus();
     newWindow.print();
   };
+
+  const getComponentDisplayName = (id) => {
+    const componentMap = {
+        "procesador": "Procesador", "placaMadre": "Placa Madre", "memoriaRam": "Memoria RAM", "hdd": "HDD", 
+        "ssd": "SSD", "m2Nvme": "M2 Nvme", "tarjetaVideo": "Tarjeta de video", "wifi": "Wi-Fi", 
+        "bateria": "Batería", "teclado": "Teclado", "camara": "Cámara"
+    };
+    return componentMap[id] || id;
+  };
+
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -620,7 +655,6 @@ function Diagnostico() {
           </div>
         </div>
 
-        {/* Datos del Cliente */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 text-blue-500">
             Datos del Cliente
@@ -673,7 +707,6 @@ function Diagnostico() {
           </div>
         </div>
 
-        {/* Descripción del Equipo */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 text-purple-500">
             Descripción del Equipo
@@ -687,7 +720,10 @@ function Diagnostico() {
                 name="tipoEquipo"
                 value={formData.tipoEquipo}
                 onChange={handleEquipoChange}
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                  errors.tipoEquipo ? "ring-2 ring-red-500" : ""
+                }`}
+                required
               >
                 <option value="">Selecciona un tipo</option>
                 {Object.keys(COMPONENT_OPTIONS).map((type) => (
@@ -696,6 +732,9 @@ function Diagnostico() {
                   </option>
                 ))}
               </select>
+               {errors.tipoEquipo && (
+                <p className="text-red-500 text-sm mt-1">{errors.tipoEquipo}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Marca</label>
@@ -736,20 +775,27 @@ function Diagnostico() {
                 name="serie"
                 value={formData.serie}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                  errors.serie ? "ring-2 ring-red-500" : ""
+                }`}
+                required
               />
+              {errors.serie && (
+                <p className="text-red-500 text-sm mt-1">{errors.serie}</p>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Componentes del equipo */}
         {formData.tipoEquipo && (
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
             <h2 className="text-xl font-semibold mb-4 text-green-500">
               Componentes y Accesorios
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {COMPONENT_OPTIONS[formData.tipoEquipo]?.map((item) => (
+              {COMPONENT_OPTIONS[formData.tipoEquipo]?.map((item) => {
+                const isRequired = REQUIRED_COMPONENT_INPUTS.includes(item.id);
+                return (
                 <div key={item.id} className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -760,12 +806,11 @@ function Diagnostico() {
                       false
                     }
                     onChange={handleItemCheck}
-                    className={`h-4 w-4 rounded ${
-                      errors[item.id] ? "ring-2 ring-red-500" : ""
-                    }`}
+                    className={`h-4 w-4 rounded`}
                   />
-                  <label htmlFor={item.id} className="flex-1 text-sm">
+                  <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
                     {item.name}
+                    {isRequired && <FaCheckCircle className="ml-1 text-xs text-red-500" title="Campo obligatorio"/>}
                   </label>
                   <input
                     type="text"
@@ -775,21 +820,21 @@ function Diagnostico() {
                       ""
                     }
                     onChange={handleItemDetailsChange}
-                    className="flex-1 p-1 text-xs border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    className={`flex-1 p-1 text-xs border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                       isRequired && errors[item.id] ? "ring-2 ring-red-500" : ""
+                    }`}
                     placeholder="Detalles"
+                    required={isRequired}
                   />
-                  {errors[item.id] && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors[item.id]}
-                    </p>
-                  )}
+                   {isRequired && errors[item.id] && (
+                        <FaTimesCircle className="text-red-500" title="Requerido"/>
+                   )}
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         )}
 
-        {/* Software y Seguridad */}
         {(formData.tipoEquipo === "PC" ||
           formData.tipoEquipo === "Laptop" ||
           formData.tipoEquipo === "Allinone") && (
@@ -816,23 +861,21 @@ function Diagnostico() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Clave de Bitlocker
-                </label>
-                <input
-                  type="text"
-                  name="bitlockerKey"
-                  value={formData.bitlockerKey}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              <div className="flex items-center">
+                <input 
+                    type="checkbox"
+                    name="bitlockerKey" 
+                    id="bitlockerKey"
+                    checked={formData.bitlockerKey}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 mr-2"
                 />
+                <label className="text-sm font-medium" htmlFor="bitlockerKey">Clave de Bitlocker</label>
               </div>
             </div>
           </div>
         )}
 
-        {/* Observaciones y Motivo */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 text-yellow-500">
             Detalles del Servicio
@@ -857,7 +900,7 @@ function Diagnostico() {
               </p>
             )}
           </div>
-          <div>
+          <div className="mt-4">
             <label className="block text-sm font-medium mb-1">
               Observaciones
             </label>
@@ -866,12 +909,17 @@ function Diagnostico() {
               value={formData.observaciones}
               onChange={handleInputChange}
               rows="3"
-              className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                errors.observaciones ? "ring-2 ring-red-500" : ""
+              }`}
+              required
             ></textarea>
+            {errors.observaciones && (
+              <p className="text-red-500 text-sm mt-1">{errors.observaciones}</p>
+            )}
           </div>
         </div>
 
-        {/* Servicios Adicionales */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <div className="flex items-center mb-4">
             <input
@@ -901,6 +949,9 @@ function Diagnostico() {
                 />
                 <input
                   type="number"
+                  min="0"
+                  onFocus={handlePaymentFocus}
+                  onWheel={handleWheel}
                   placeholder="Monto (S/)"
                   value={newService.amount}
                   onChange={(e) =>
@@ -909,7 +960,7 @@ function Diagnostico() {
                       amount: e.target.value,
                     }))
                   }
-                  className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 appearance-none m-0"
                 />
                 <button
                   type="button"
@@ -919,11 +970,7 @@ function Diagnostico() {
                   <FaPlus />
                 </button>
               </div>
-              {errors.additionalServices && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.additionalServices}
-                </p>
-              )}
+              
               <ul className="space-y-1">
                 {additionalServices.map((service) => (
                   <li
@@ -947,11 +994,25 @@ function Diagnostico() {
           )}
         </div>
 
-        {/* Información de Pagos */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 text-red-500">
             Información de Pago
           </h2>
+          
+          <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">
+                Detalles del Pago
+              </label>
+              <textarea
+                name="detallesPago"
+                value={formData.detallesPago}
+                onChange={handleInputChange}
+                rows="2"
+                placeholder="Detalles del pago (ej. depósito en cuenta, efectivo, etc.)"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              ></textarea>
+            </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">
@@ -959,10 +1020,13 @@ function Diagnostico() {
               </label>
               <input
                 type="number"
+                min="0"
+                onFocus={handlePaymentFocus}
+                onWheel={handleWheel}
                 name="montoServicio"
                 value={formData.montoServicio}
                 onChange={handlePaymentChange}
-                className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 appearance-none m-0 ${
                   errors.montoServicio ? "ring-2 ring-red-500" : ""
                 }`}
                 required
@@ -979,10 +1043,13 @@ function Diagnostico() {
               </label>
               <input
                 type="number"
+                min="0"
+                onFocus={handlePaymentFocus}
+                onWheel={handleWheel}
                 name="diagnostico"
                 value={formData.diagnostico}
                 onChange={handlePaymentChange}
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 appearance-none m-0"
                 required
               />
             </div>
@@ -992,10 +1059,13 @@ function Diagnostico() {
               </label>
               <input
                 type="number"
+                min="0"
+                onFocus={handlePaymentFocus}
+                onWheel={handleWheel}
                 name="aCuenta"
                 value={formData.aCuenta}
                 onChange={handlePaymentChange}
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 appearance-none m-0"
                 required
               />
             </div>
@@ -1008,7 +1078,7 @@ function Diagnostico() {
                 name="total"
                 value={formData.total}
                 readOnly
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed appearance-none m-0"
               />
             </div>
             <div>
@@ -1020,13 +1090,12 @@ function Diagnostico() {
                 name="saldo"
                 value={formData.saldo}
                 readOnly
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed appearance-none m-0"
               />
             </div>
           </div>
         </div>
 
-        {/* Técnicos y Área */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 text-indigo-500">
             Asignación de Personal
@@ -1052,9 +1121,6 @@ function Diagnostico() {
                 value={users.find((u) => u.label === formData.tecnicoTesteo)}
                 onChange={(option) => handleUserChange("tecnicoTesteo", option)}
                 placeholder="Selecciona un técnico..."
-                className={`${
-                  errors.tecnicoTesteo ? "ring-2 ring-red-500" : ""
-                }`}
                 styles={{
                   control: (baseStyles) => ({
                     ...baseStyles,
@@ -1081,15 +1147,10 @@ function Diagnostico() {
                   }),
                 }}
               />
-              {errors.tecnicoTesteo && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.tecnicoTesteo}
-                </p>
-              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico Responsable
+                Técnico Responsable (Opcional)
               </label>
               <Select
                 options={users}
@@ -1100,9 +1161,6 @@ function Diagnostico() {
                   handleUserChange("tecnicoResponsable", option)
                 }
                 placeholder="Selecciona un técnico..."
-                className={`${
-                  errors.tecnicoResponsable ? "ring-2 ring-red-500" : ""
-                }`}
                 styles={{
                   control: (baseStyles) => ({
                     ...baseStyles,
@@ -1129,11 +1187,6 @@ function Diagnostico() {
                   }),
                 }}
               />
-              {errors.tecnicoResponsable && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.tecnicoResponsable}
-                </p>
-              )}
             </div>
           </div>
           <div className="mt-4">

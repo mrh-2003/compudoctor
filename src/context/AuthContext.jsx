@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 
 export const AuthContext = createContext();
@@ -8,49 +8,74 @@ export const AuthContext = createContext();
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [pendingReportsCount, setPendingReportsCount] = useState(0);
 
     useEffect(() => {
         let unsubscribeFirestore = () => {};
+        let unsubscribeReports = () => {};
 
         const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
             unsubscribeFirestore();
+            unsubscribeReports();
 
             if (user) {
                 const userDocRef = doc(db, 'users', user.uid);
                 
                 unsubscribeFirestore = onSnapshot(userDocRef, (docSnap) => {
                     if (docSnap.exists()) {
-                        setCurrentUser({
+                        const userData = {
                             uid: user.uid,
                             email: user.email,
                             ...docSnap.data()
-                        });
+                        };
+                        setCurrentUser(userData);
+
+                        if (userData.nombre) {
+                            const reportsCol = collection(db, 'diagnosticos');
+                            const q = query(reportsCol, 
+                                where('tecnicoActual', '==', userData.nombre), 
+                                where('estado', 'in', ['PENDIENTE', 'EN PROGRESO'])
+                            );
+
+                            unsubscribeReports = onSnapshot(q, (snapshot) => {
+                                setPendingReportsCount(snapshot.size);
+                            }, (error) => {
+                                console.error("Error al escuchar reportes:", error);
+                                setPendingReportsCount(0);
+                            });
+                        }
+
                     } else {
                         setCurrentUser(null);
+                        setPendingReportsCount(0);
                     }
                     setLoading(false);
                 }, (error) => {
                     console.error("Error al escuchar datos del usuario:", error);
                     setCurrentUser(null);
                     setLoading(false);
+                    setPendingReportsCount(0);
                 });
 
             } else {
                 setCurrentUser(null);
                 setLoading(false);
+                setPendingReportsCount(0);
             }
         });
 
         return () => {
             unsubscribeAuth();
             unsubscribeFirestore();
+            unsubscribeReports();
         };
     }, []);
 
     const value = useMemo(() => ({
         currentUser,
-        loading
-    }), [currentUser, loading]);
+        loading,
+        pendingReportsCount,
+    }), [currentUser, loading, pendingReportsCount]);
 
     return (
         <AuthContext.Provider value={value}>
