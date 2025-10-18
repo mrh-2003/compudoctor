@@ -28,33 +28,31 @@ function BandejaTecnico() {
     const fetchReports = async () => {
         setIsLoading(true);
         try {
-            // Utilizamos el ID para filtrar de manera más precisa
+            // Filtramos por tecnicoActualId para obtener las tareas asignadas para MODIFICAR
             const userReports = await getAllDiagnosticReportsByTechnician(currentUser.uid);
             
-            // Filtramos y calculamos el estado actual de la tarea asignada al técnico
             const reportsWithCurrentTaskState = userReports
                 .map(report => {
                     const areaHistory = report.diagnosticoPorArea?.[report.area] || [];
                     
-                    // Buscamos la última entrada que corresponde al técnico actual
+                    // Buscamos la última entrada en el área actual asignada a este técnico
                     const currentTask = areaHistory.findLast(
                         (entry) => entry.tecnicoId === currentUser.uid && entry.estado !== 'FINALIZADO' && entry.estado !== 'TERMINADO'
                     );
 
-                    // Si no se encuentra una tarea específica, pero el informe está asignado a él (tecnicoActualId),
-                    // usamos el estado general del informe. Esto cubre el caso de "ASIGNADO" inicial.
                     let taskState = report.estado;
 
                     if (currentTask) {
-                        // El estado de la tarea del técnico es el de la última entrada sin finalizar en esa área
                         taskState = currentTask.estado;
-                    } else if (report.tecnicoActualId === currentUser.uid) {
-                        // Si está asignado al técnico pero no hay una entrada de tarea,
-                        // o la entrada es la inicial, tomamos el estado general.
-                        taskState = report.estado;
+                    } else if (report.tecnicoActualId === currentUser.uid && report.estado !== 'ENTREGADO') {
+                        // Caso inicial o si se pierde el hilo, pero el reporte está actualmente asignado a él
+                        taskState = report.diagnosticoPorArea[report.area]?.findLast(e => e.tecnicoId === currentUser.uid)?.estado || 'ASIGNADO';
+                    } else {
+                        // Si no es el tecnicoActual, no debe aparecer aquí.
+                        return null;
                     }
 
-                    // Solo mostramos reportes que están pendientes, asignados o en progreso para el técnico actual
+                    // Solo mostramos reportes que están asignados o en progreso para el técnico actual
                     if (taskState === 'PENDIENTE' || taskState === 'ASIGNADO' || taskState === 'EN PROGRESO') {
                         return { ...report, taskState };
                     }
@@ -95,6 +93,7 @@ function BandejaTecnico() {
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cliente</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Equipo</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Área</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Técnico Actual</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Estado Tarea</th>
                             <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
                         </tr>
@@ -103,10 +102,11 @@ function BandejaTecnico() {
                         {reports.map((report) => (
                             <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td className="px-6 py-4 whitespace-nowrap">{report.reportNumber}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{report.fecha}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.fecha} {report.hora}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.clientName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tipoEquipo}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.area}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoActual}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${STATUS_COLORS[report.taskState || report.estado]}`}>
                                         {report.taskState || report.estado}

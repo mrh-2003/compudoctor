@@ -198,7 +198,7 @@ function Diagnostico() {
       (sum, service) => sum + parseFloat(service.amount),
       0
     );
-    const newTotal = (parseFloat(formData.montoServicio) || 0) + totalAdicionales + (parseFloat(formData.diagnostico) || 0);
+    const newTotal = (parseFloat(formData.montoServicio) || 0) + totalAdicionales;
     setFormData((prev) => ({
       ...prev,
       total: newTotal,
@@ -379,9 +379,16 @@ function Diagnostico() {
       toast.error("Por favor, completa todos los campos obligatorios.");
       return;
     }
+
+    // Determinar el técnico responsable y actual para la asignación inicial
+    const finalResponsible = formData.tecnicoResponsable;
+    const finalResponsibleId = formData.tecnicoResponsableId;
+    
     try {
       const baseData = {
         ...formData,
+        tecnicoResponsable: finalResponsible,
+        tecnicoResponsableId: finalResponsibleId,
         clientId: selectedClient.value,
         clientName: selectedClient.label.split('(')[0].trim(),
         telefono: selectedClient.data?.telefono,
@@ -393,6 +400,11 @@ function Diagnostico() {
         saldo: parseFloat(formData.saldo),
         total: parseFloat(formData.total),
       };
+
+      if(!baseData.tecnicoActual || !baseData.tecnicoActualId) {
+        baseData.tecnicoActual = finalResponsible;
+        baseData.tecnicoActualId = finalResponsibleId;
+      }
 
       if (isEditMode) {
         await updateDiagnosticReport(diagnosticoId, baseData);
@@ -710,7 +722,7 @@ function Diagnostico() {
                       ? "#4B5563"
                       : "#e5e7eb"
                     : "transparent",
-                  color: theme === "dark" ? "#fff" : "#000",
+                    color: theme === "dark" ? "#fff" : "#000",
                 }),
               }}
             />
@@ -805,7 +817,7 @@ function Diagnostico() {
             <h2 className="text-xl font-semibold mb-4 text-green-500">
               Componentes y Accesorios
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
               {COMPONENT_OPTIONS[formData.tipoEquipo]?.map((item) => {
                 const isRequired = REQUIRED_COMPONENT_INPUTS.includes(item.id);
                 const itemDetails = formData.items.find((i) => i.id === item.id)?.detalles || "";

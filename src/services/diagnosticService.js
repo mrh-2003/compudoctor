@@ -20,18 +20,22 @@ export const createDiagnosticReport = async (reportData) => {
     const now = new Date();
     const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
     const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    // Determinar el técnico inicial (Responsable o Recepción) para la asignación
+    const initialTechnician = reportData.tecnicoResponsable;
+    const initialTechnicianId = reportData.tecnicoResponsableId;
 
     const fullReport = {
         ...reportData,
         reportNumber,
         createdAt: now,
-        tecnicoActual: reportData.tecnicoResponsable,
-        tecnicoActualId: reportData.tecnicoResponsableId,
+        tecnicoActual: initialTechnician,
+        tecnicoActualId: initialTechnicianId,
         diagnosticoPorArea: {
             [reportData.area]: [{
                 reparacion: '',
-                tecnico: reportData.tecnicoResponsable,
-                tecnicoId: reportData.tecnicoResponsableId,
+                tecnico: initialTechnician,
+                tecnicoId: initialTechnicianId,
                 ubicacionFisica: '',
                 fecha_inicio: formattedDate,
                 hora_inicio: formattedTime,

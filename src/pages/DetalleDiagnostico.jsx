@@ -74,6 +74,7 @@ const FIELD_LABELS = {
     sw_otros: "Otros",
     sw_otros_spec: "Especificación de Otros",
     elec_video: "Tarjeta de Video",
+    elec_placa: "Placa",
     elec_otro: "Otro",
     elec_codigo: "Código",
     elec_etapa: "Etapa",
@@ -530,6 +531,7 @@ function DetalleDiagnostico() {
                         <h2 className="text-2xl font-bold text-yellow-500">ÁREA DE ELECTRÓNICA</h2>
                         <div className="flex items-center space-x-4">
                             <label className="flex items-center"><input type="checkbox" name="elec_video" checked={formState.elec_video || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>TARJ. VIDEO</label>
+                            <label className="flex items-center"><input type="checkbox" name="elec_placa" checked={formState.elec_placa || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>PLACA</label>
                             <label className="flex items-center"><input type="checkbox" name="elec_otro" checked={formState.elec_otro || false} onChange={handleFormChange} className="h-4 w-4 mr-2"/>OTRO</label>
                         </div>
                         <div className="space-y-2">
