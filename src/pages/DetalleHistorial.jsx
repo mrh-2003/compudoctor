@@ -367,7 +367,7 @@ function DetalleHistorial() {
             .sort((a, b) => {
                 const dateA = new Date(`${a.fecha_fin.split('-').reverse().join('-')}T${a.hora_fin}`);
                 const dateB = new Date(`${b.fecha_fin.split('-').reverse().join('-')}T${b.hora_fin}`);
-                return dateA - dateB;
+                return dateB - dateA;
             })
         : [];
     

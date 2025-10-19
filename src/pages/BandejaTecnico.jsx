@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllDiagnosticReportsByTechnician } from '../services/diagnosticService';
 import { Link } from 'react-router-dom';
-import { FaTasks } from 'react-icons/fa';
+import { FaTasks, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const STATUS_COLORS = {
@@ -13,8 +13,11 @@ const STATUS_COLORS = {
 
 function BandejaTecnico() {
     const { currentUser, loading } = useAuth();
-    const [reports, setReports] = useState([]);
+    const [allTechReports, setAllTechReports] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
 
     const canView = currentUser && ['SUPERADMIN', 'ADMIN', 'SUPERUSER', 'USER'].includes(currentUser.rol);
 
@@ -27,46 +30,71 @@ function BandejaTecnico() {
     const fetchReports = async () => {
         setIsLoading(true);
         try {
-            // Utilizamos el ID para filtrar de manera más precisa
             const userReports = await getAllDiagnosticReportsByTechnician(currentUser.uid);
-            
-            // Filtramos y calculamos el estado actual de la tarea asignada al técnico
-            const reportsWithCurrentTaskState = userReports
-                .map(report => {
-                    const areaHistory = report.diagnosticoPorArea?.[report.area] || [];
-                    
-                    // Buscamos la última entrada que corresponde al técnico actual
-                    const currentTask = areaHistory.findLast(
-                        (entry) => entry.tecnicoId === currentUser.uid && entry.estado !== 'TERMINADO'
-                    );
-
-                    // Si no se encuentra una tarea específica, pero el informe está asignado a él (tecnicoActualId),
-                    // usamos el estado general del informe. Esto cubre el caso de "ASIGNADO" inicial.
-                    let taskState = report.estado;
-
-                    if (currentTask) {
-                        // El estado de la tarea del técnico es el de la última entrada sin finalizar en esa área
-                        taskState = currentTask.estado;
-                    } else if (report.tecnicoActualId === currentUser.uid) {
-                        // Si está asignado al técnico pero no hay una entrada de tarea,
-                        // o la entrada es la inicial, tomamos el estado general.
-                        taskState = report.estado;
-                    }
-
-                    // Solo mostramos reportes que están pendientes, asignados para el técnico actual
-                    if (taskState === 'PENDIENTE' || taskState === 'ASIGNADO') {
-                        return { ...report, taskState };
-                    }
-                    return null;
-                })
-                .filter(report => report !== null);
-                
-            setReports(reportsWithCurrentTaskState);
-
+            setAllTechReports(userReports);
         } catch (error) {
             toast.error('Error al cargar los informes técnicos');
         }
         setIsLoading(false);
+    };
+
+    const filteredReports = useMemo(() => {
+        const reportsFilteredByTaskLogic = allTechReports
+            .map(report => {
+                const areaHistory = report.diagnosticoPorArea?.[report.area] || [];
+                
+                const currentTask = areaHistory.findLast(
+                    (entry) => entry.tecnicoId === currentUser.uid && entry.estado !== 'TERMINADO'
+                );
+
+                let taskState = report.estado;
+
+                if (currentTask) {
+                    taskState = currentTask.estado;
+                } else if (report.tecnicoActualId === currentUser.uid) {
+                    taskState = report.estado;
+                }
+
+                if (taskState === 'PENDIENTE' || taskState === 'ASIGNADO') {
+                    return { ...report, taskState };
+                }
+                return null;
+            })
+            .filter(report => report !== null);
+
+        if (!searchTerm) {
+            return reportsFilteredByTaskLogic;
+        }
+
+        const lowerCaseSearch = searchTerm.toLowerCase();
+
+        return reportsFilteredByTaskLogic.filter(report =>
+            String(report.reportNumber).toLowerCase().includes(lowerCaseSearch) ||
+            report.clientName.toLowerCase().includes(lowerCaseSearch) ||
+            report.tipoEquipo.toLowerCase().includes(lowerCaseSearch) ||
+            report.area.toLowerCase().includes(lowerCaseSearch) ||
+            String(report.taskState || report.estado).toLowerCase().includes(lowerCaseSearch)
+        );
+    }, [allTechReports, searchTerm, currentUser]);
+
+    const totalPages = Math.ceil(filteredReports.length / pageSize);
+
+    const paginatedReports = useMemo(() => {
+        const startIndex = (currentPage - 1) * pageSize;
+        return filteredReports.slice(startIndex, startIndex + pageSize);
+    }, [filteredReports, currentPage, pageSize]);
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(1);
+    };
+
+    const handlePreviousPage = () => {
+        setCurrentPage(prev => Math.max(prev - 1, 1));
+    };
+
+    const handleNextPage = () => {
+        setCurrentPage(prev => Math.min(prev + 1, totalPages));
     };
 
     if (loading) {
@@ -85,6 +113,16 @@ function BandejaTecnico() {
                 <h1 className="text-2xl font-bold">Bandeja de Tareas Pendientes</h1>
             </div>
             
+            <div className="mb-4">
+                <input
+                    type="text"
+                    placeholder="Buscar por N° Informe, Cliente, Equipo o Área..."
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                />
+            </div>
+            
             <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
                 <table className="min-w-full table-auto">
                     <thead className="bg-gray-50 dark:bg-gray-700">
@@ -99,7 +137,7 @@ function BandejaTecnico() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {reports.map((report) => (
+                        {paginatedReports.map((report) => (
                             <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td className="px-6 py-4 whitespace-nowrap">{report.reportNumber}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.fecha} {report.hora}</td>
@@ -120,9 +158,36 @@ function BandejaTecnico() {
                         ))}
                     </tbody>
                 </table>
-                {reports.length === 0 && (
-                    <div className="p-4 text-center text-gray-500">No hay tareas pendientes asignadas.</div>
+                {paginatedReports.length === 0 && (
+                    <div className="p-4 text-center text-gray-500">
+                        {filteredReports.length === 0 && searchTerm
+                            ? 'No se encontraron tareas pendientes con el término de búsqueda.'
+                            : 'No hay tareas pendientes asignadas.'
+                        }
+                    </div>
                 )}
+            </div>
+            
+            <div className="flex justify-between items-center mt-4">
+                <span className="text-sm text-gray-700 dark:text-gray-400">
+                    Página {currentPage} de {totalPages} ({filteredReports.length} resultados)
+                </span>
+                <div className="flex items-center space-x-2">
+                    <button
+                        onClick={handlePreviousPage}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                        <FaChevronLeft />
+                    </button>
+                    <button
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                        <FaChevronRight />
+                    </button>
+                </div>
             </div>
         </div>
     );

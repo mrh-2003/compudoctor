@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useContext } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Select from "react-select";
-import { FaPlus, FaSave, FaPrint, FaTrash, FaPen, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import { FaPlus, FaSave, FaPrint, FaTrash, FaPen, FaCheckCircle, FaTimesCircle, FaCheck } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
   createDiagnosticReport,
@@ -16,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import { ThemeContext } from "../context/ThemeContext";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import logo from '../assets/images/compudoctor-logo.png';
 
 const REQUIRED_COMPONENT_INPUTS = [
     "procesador", "placaMadre", "memoriaRam", "hdd", "ssd", "m2Nvme", "tarjetaVideo", "wifi", "bateria", "teclado", "camara"
@@ -60,9 +61,11 @@ function Diagnostico() {
     area: "",
     fecha: "",
     hora: "",
+    estado: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const isEditMode = !!diagnosticoId;
+  const isReportFinalized = isEditMode && ['ENTREGADO', 'TERMINADO'].includes(formData.estado);
 
   const getToday = useMemo(() => {
     const date = new Date();
@@ -89,20 +92,26 @@ function Diagnostico() {
         { id: "auriculares", name: "Auriculares" }, { id: "rj45", name: "RJ 45" }, { id: "hdmi", name: "HDMI" },
         { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, { id: "tipoC", name: "Tipo C" },
         { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" }, { id: "otros", name: "Otros" },
+        { id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" }, { id: "tinta", name: "Cartuchos/Tinta" }, { id: "bandejas", name: "Bandejas" }
   ];
+
+  const getComponentDisplayName = (id) => {
+    const component = ALL_COMPONENTS.find(c => c.id === id);
+    return component ? component.name : id;
+  };
 
   const getComponentOptions = (type) => {
     switch (type) {
         case 'PC':
-            return ALL_COMPONENTS.filter(c => c.id !== 'bateria' && c.id !== 'cargador' && c.id !== 'pantalla' && c.id !== 'teclado' && c.id !== 'camara' && c.id !== 'microfono' && c.id !== 'parlantes' && c.id !== 'auriculares' && c.id !== 'hdmi' && c.id !== 'tipoC' && c.id !== 'touchpad');
+            return ALL_COMPONENTS.filter(c => c.id !== 'bateria' && c.id !== 'cargador' && c.id !== 'pantalla' && c.id !== 'teclado' && c.id !== 'camara' && c.id !== 'microfono' && c.id !== 'parlantes' && c.id !== 'auriculares' && c.id !== 'hdmi' && c.id !== 'tipoC' && c.id !== 'touchpad' && c.id !== 'rodillos' && c.id !== 'cabezal' && c.id !== 'tinta' && c.id !== 'bandejas');
         case 'Laptop':
-            return ALL_COMPONENTS.filter(c => c.id !== 'vga' && c.id !== 'lector');
+            return ALL_COMPONENTS.filter(c => c.id !== 'vga' && c.id !== 'lector' && c.id !== 'rodillos' && c.id !== 'cabezal' && c.id !== 'tinta' && c.id !== 'bandejas');
         case 'Allinone':
-            return ALL_COMPONENTS.filter(c => c.id !== 'bateria' && c.id !== 'cargador' && c.id !== 'microfono' && c.id !== 'parlantes' && c.id !== 'auriculares' && c.id !== 'hdmi' && c.id !== 'tipoC' && c.id !== 'touchpad' && c.id !== 'lector' && c.id !== 'vga' && c.id !== 'teclado' && c.id !== 'pantalla' && c.id !== 'camara');
+            return ALL_COMPONENTS.filter(c => c.id !== 'bateria' && c.id !== 'cargador' && c.id !== 'microfono' && c.id !== 'parlantes' && c.id !== 'auriculares' && c.id !== 'hdmi' && c.id !== 'tipoC' && c.id !== 'touchpad' && c.id !== 'lector' && c.id !== 'vga' && c.id !== 'teclado' && c.id !== 'pantalla' && c.id !== 'camara' && c.id !== 'rodillos' && c.id !== 'cabezal' && c.id !== 'tinta' && c.id !== 'bandejas');
         case 'Impresora':
-            return [{ id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" }, { id: "tinta", name: "Cartuchos/Tinta" }, { id: "bandejas", name: "Bandejas" }, { id: "otros", name: "Otros" }];
+            return ALL_COMPONENTS.filter(c => ['rodillos', 'cabezal', 'tinta', 'bandejas', 'otros'].includes(c.id));
         case 'Otros':
-            return ALL_COMPONENTS;
+            return ALL_COMPONENTS.filter(c => !['rodillos', 'cabezal', 'tinta', 'bandejas'].includes(c.id));
         default:
             return [];
     }
@@ -158,8 +167,8 @@ function Diagnostico() {
               saldo: parseFloat(report.saldo),
               total: parseFloat(report.total),
               tecnicoRecepcionId: report.tecnicoRecepcionId || currentUser?.uid,
-              tecnicoTesteoId: tecnicoTesteoOption?.value || "",
-              tecnicoResponsableId: tecnicoResponsableOption?.value || "",
+              tecnicoTesteoId: tecnicoTesteoOption?.value || report.tecnicoTesteoId || "",
+              tecnicoResponsableId: tecnicoResponsableOption?.value || report.tecnicoResponsableId || "",
             });
             if (report.additionalServices) {
               setAdditionalServices(report.additionalServices);
@@ -212,6 +221,7 @@ function Diagnostico() {
   ]);
 
   const handleInputChange = (e) => {
+    if (isReportFinalized) return;
     const { name, value, type, checked } = e.target;
 
     if (name === "bitlockerKey" && type === "checkbox") {
@@ -229,10 +239,12 @@ function Diagnostico() {
   };
 
   const handlePaymentFocus = (e) => {
+    if (isReportFinalized) return;
     e.target.value = '';
   };
 
   const handlePaymentChange = (e) => {
+    if (isReportFinalized) return;
     let { name, value } = e.target;
     
     let numericValue = parseFloat(value);
@@ -249,6 +261,8 @@ function Diagnostico() {
   };
 
   const handleClientChange = (selectedOption) => {
+    if (isReportFinalized) return;
+
     setSelectedClient(selectedOption);
     if (isEditMode) {
       toast.error("No se puede cambiar el cliente en modo de edición.");
@@ -256,6 +270,7 @@ function Diagnostico() {
   };
 
   const handleUserChange = (name, selectedOption) => {
+    if (isReportFinalized) return;
     const nameKey = name;
     const idKey = `${name}Id`;
     
@@ -267,6 +282,7 @@ function Diagnostico() {
   };
 
   const handleEquipoChange = (e) => {
+    if (isReportFinalized) return;
     const { value } = e.target;
     const newItems = getComponentOptions(value)?.map((item) => ({
           id: item.id,
@@ -284,6 +300,7 @@ function Diagnostico() {
   };
 
   const handleItemCheck = (e) => {
+    if (isReportFinalized) return;
     const { name, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -294,6 +311,7 @@ function Diagnostico() {
   };
 
   const handleItemDetailsChange = (e) => {
+    if (isReportFinalized) return;
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -305,6 +323,7 @@ function Diagnostico() {
 
   const handleAddService = (e) => {
     e.preventDefault();
+    if (isReportFinalized) return;
     const amount = parseFloat(newService.amount);
     
     if (!newService.description || !amount || amount <= 0) {
@@ -320,10 +339,12 @@ function Diagnostico() {
   };
 
   const handleDeleteService = (id) => {
+    if (isReportFinalized) return;
     setAdditionalServices((prev) =>
       prev.filter((service) => service.id !== id)
     );
   };
+
 
   const validateForm = () => {
     const newErrors = {};
@@ -348,12 +369,20 @@ function Diagnostico() {
       }
     });
 
-    const requiredComponentInputs = REQUIRED_COMPONENT_INPUTS;
+    if (!formData.tecnicoTesteoId) {
+        newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio.";
+    }
     
-    if (formData.tipoEquipo && COMPONENT_OPTIONS[formData.tipoEquipo]) {
+    if (['PC', 'Laptop'].includes(formData.tipoEquipo) && !formData.sistemaOperativo) {
+        newErrors.sistemaOperativo = "El Sistema Operativo es obligatorio para PC/Laptop.";
+    }
+
+    const componentValidationEnabled = !['Allinone', 'Otros', 'Impresora'].includes(formData.tipoEquipo);
+    
+    if (componentValidationEnabled && formData.tipoEquipo && COMPONENT_OPTIONS[formData.tipoEquipo]) {
         const availableComponentIds = COMPONENT_OPTIONS[formData.tipoEquipo].map(c => c.id);
 
-        requiredComponentInputs.forEach(requiredId => {
+        REQUIRED_COMPONENT_INPUTS.forEach(requiredId => {
             if (availableComponentIds.includes(requiredId)) {
                 const item = formData.items.find(i => i.id === requiredId);
                 
@@ -375,14 +404,14 @@ function Diagnostico() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isReportFinalized) return;
     if (!validateForm()) {
       toast.error("Por favor, completa todos los campos obligatorios.");
       return;
     }
 
-    // Determinar el técnico responsable y actual para la asignación inicial
-    const finalResponsible = formData.tecnicoResponsable;
-    const finalResponsibleId = formData.tecnicoResponsableId;
+    const finalResponsible = formData.tecnicoResponsable || formData.tecnicoTesteo;
+    const finalResponsibleId = formData.tecnicoResponsableId || formData.tecnicoTesteoId;
     
     try {
       const baseData = {
@@ -445,189 +474,225 @@ function Diagnostico() {
     : formData.fecha;
   const displayTime = isNewReport ? getToday.time : formData.hora;
 
+  const showTecnicoResponsable = currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN');
+
+  const generateComponentHtml = (item) => {
+    const componentName = getComponentDisplayName(item.id);
+    const hasCheck = item.checked;
+    const hasDetails = item.detalles && item.detalles.trim() !== "";
+
+    if (!hasCheck && !hasDetails) return "";
+
+    let content = `<div class="field">`;
+    
+    if (hasCheck) {
+        content += `<span class="text-green-600 mr-1" style="color: #10b981;">&#x2713;</span>`; 
+    }
+
+    content += `<span class="font-bold">${componentName}:</span>`;
+    
+    if (hasDetails) {
+        content += ` ${item.detalles}`;
+    } else if (hasCheck) {
+        content += ` OK`;
+    }
+    
+    content += `</div>`;
+    return content;
+  };
+
   const handlePrint = () => {
-    if (!validateForm()) {
+    if (isEditMode && !formData.reportNumber) {
+        toast.error("El informe debe estar cargado para imprimir.");
+        return;
+    }
+    
+    // Simplificamos la validación para la impresión en modo de edición o si es un informe nuevo y se quiere imprimir
+    if (!isEditMode && !validateForm()) {
       toast.error(
-        "Por favor, completa todos los campos obligatorios antes de imprimir."
+        "Por favor, completa todos los campos obligatorios antes de imprimir (sólo para nuevos informes)."
       );
       return;
     }
 
-    const getComponentName = (itemId) => {
-      const options = COMPONENT_OPTIONS[formData.tipoEquipo] || [];
-      return options.find((item) => item.id === itemId)?.name || itemId;
-    };
-
     const printContent = `
-      <div class="p-8 font-sans">
-        <style>
-          .pdf-container { width: 210mm; margin: auto; padding: 20mm; font-size: 10pt; }
-          .header { display: flex; justify-content: space-between; align-items: flex-start; }
-          .logo { height: 60px; width: auto; }
-          .company-info { text-align: right; font-size: 8pt; }
-          .report-info { margin-top: 20px; border: 1px solid #000; padding: 10px; }
-          .section-title { font-weight: bold; text-decoration: underline; margin-top: 15px; margin-bottom: 5px; }
-          .field { margin-bottom: 5px; }
-          .flex-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-          .footer { margin-top: 50px; }
-          .clausula { margin-top: 10px; font-size: 8pt; }
-          .firma { margin-top: 40px; text-align: center; }
-          .firma-line { border-top: 1px solid #000; width: 200px; margin: 5px auto 0; }
-          .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .text-center { text-align: center; }
-          .text-xl { font-size: 1.25rem; }
-          .font-bold { font-weight: 700; }
-          .mt-4 { margin-top: 1rem; }
-          .mb-2 { margin-bottom: 0.5rem; }
-        </style>
-        <div class="pdf-container">
-          <div class="header">
-            <img src="/src/assets/images/compudoctor-logo.png" class="logo" />
-            <div class="company-info">
-              <div>Jr. Camaná 1190 - 2do piso - Ofi 203, Cercado de Lima</div>
-              <div>Cel. 998 371 086 / 960 350 483</div>
-              <div>Tel. 014242142</div>
-              <div>compudoctor_@hotmail.com</div>
-              <div>www.compudoctor.pe</div>
-            </div>
-          </div>
-          <h1 class="text-center text-xl font-bold mt-4">INFORME TÉCNICO N° ${reportNumber}</h1>
-
-          <div class="report-info">
-            <div class="flex-row">
-              <div>
-                <span class="font-bold">Cliente:</span> ${selectedClient?.label.split('(')[0].trim()}
-              </div>
-              <div>
-                <span class="font-bold">Celular:</span> ${
-                  selectedClient?.data?.telefono || "N/A"
+      <html>
+        <head>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+                
+                @page {
+                    margin-top: 15mm; 
+                    margin-bottom: 20mm;
+                    margin-left: 15mm;
+                    margin-right: 15mm;
                 }
-              </div>
-              <div class="flex">
-                <div><span class="font-bold">Día:</span> ${dia}</div>
-                <div class="ml-4"><span class="font-bold">Mes:</span> ${mes}</div>
-                <div class="ml-4"><span class="font-bold">Año:</span> ${anio}</div>
-                <div class="ml-4"><span class="font-bold">Hora:</span> ${hora}</div>
+                .pdf-container { width: 94%; padding: 2%; font-size: 10pt; color: #1f2937; font-family: 'Roboto', sans-serif; }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #e11d48; padding-bottom: 10px; margin-bottom: 15px; }
+                .logo { height: 60px; width: auto; max-width: 150px; }
+                .company-info { text-align: right; font-size: 8pt; color: #4b5563; }
+                .report-info { margin-top: 15px; border: 2px solid #039be5; padding: 15px; border-radius: 8px; }
+                .section-title { font-weight: bold; color: #1e40af; border-bottom: 1px dashed #bfdbfe; padding-bottom: 3px; margin-top: 15px; margin-bottom: 8px; font-size: 11pt; }
+                .field { margin-bottom: 3px; display: flex; align-items: center; }
+                .flex-row { display: flex; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; }
+                .flex-row > div { flex-basis: 48%; }
+                .footer { text-align: center; }
+                .clausula { margin-top: 10px; font-size: 7.5pt; color: #6b7280; text-align: justify;}
+                .firma { margin-top: 40px; text-align: center; }
+                .firma-line { border-top: 1px solid #000; width: 250px; margin: 5px auto 0; }
+                .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+                .text-center { text-align: center; }
+                .text-xl { font-size: 1.5rem; }
+                .font-bold { font-weight: 700; }
+                .mt-4 { margin-top: 1rem; }
+                .mb-2 { margin-bottom: 0.5rem; }
+                .text-green-600 { color: #10b981; }
+            </style>
+        </head>
+        <body>
+          <div class="pdf-container">
+            <div class="header">
+              <img src="${logo}" class="logo" />
+              <div class="company-info">
+                <div style="font-size: 10pt; font-weight: bold; color: #e11d48;">COMPUDOCTOR</div>
+                <div>Jr. Camaná 1190 - 2do piso - Ofi 203, Cercado de Lima</div>
+                <div>Cel. 998 371 086 / 960 350 483 | Tel. 014242142</div>
+                <div>compudoctor_@hotmail.com | www.compudoctor.pe</div>
               </div>
             </div>
-            
-            <div class="section-title">DESCRIPCIÓN DEL EQUIPO</div>
-            <div class="flex-row">
-                <div><span class="font-bold">Tipo:</span> ${
-                  formData.tipoEquipo
-                }</div>
-                <div><span class="font-bold">Marca:</span> ${
-                  formData.marca
-                }</div>
-                <div><span class="font-bold">Modelo:</span> ${
-                  formData.modelo
-                }</div>
-                <div><span class="font-bold">Serie:</span> ${
-                  formData.serie
-                }</div>
-            </div>
+            <h1 class="text-center text-xl font-bold mt-4" style="color: #e11d48;">INFORME TÉCNICO N° ${reportNumber}</h1>
 
-            <div class="section-title">COMPONENTES Y ACCESORIOS</div>
-            <div class="grid-cols-2">
-                ${formData.items
-                  .filter((item) => item.checked || item.detalles)
-                  .map(
-                    (item) => `
-                    <div class="field">
-                        <span class="font-bold">${getComponentName(
-                          item.id
-                        )}:</span> ${item.detalles || "OK"}
-                    </div>
-                `
-                  )
-                  .join("")}
-                ${
-                  formData.sistemaOperativo
-                    ? `<div class="field"><span class="font-bold">S.O.:</span> ${formData.sistemaOperativo}</div>`
-                    : ""
-                }
-                ${
-                  formData.bitlockerKey
-                    ? `<div class="field"><span class="font-bold">Bitlocker:</span> Activado</div>`
-                    : ""
-                }
-            </div>
-            
-            <div class="section-title">DETALLES DEL SERVICIO</div>
-            <div class="field">
-                <span class="font-bold">Motivo de Ingreso:</span> ${
-                  formData.motivoIngreso
-                }
-            </div>
-            <div class="field">
-                <span class="font-bold">Observaciones:</span> ${
-                  formData.observaciones || "Sin observaciones adicionales."
-                }
-            </div>
+            <div class="report-info">
+              <div class="flex-row" style="margin-bottom: 15px;">
+                <div>
+                  <span class="font-bold">Cliente:</span> ${selectedClient?.label.split('(')[0].trim()}
+                </div>
+                <div>
+                  <span class="font-bold">Celular:</span> ${
+                    selectedClient?.data?.telefono || "N/A"
+                  }
+                </div>
+                <div>
+                  <span class="font-bold">Fecha:</span> ${dia}/${mes}/${anio}
+                </div>
+                <div>
+                  <span class="font-bold">Hora:</span> ${hora}
+                </div>
+              </div>
+              
+              <div class="section-title">DESCRIPCIÓN DEL EQUIPO</div>
+              <div class="flex-row">
+                  <div><span class="font-bold">Tipo:</span> ${
+                    formData.tipoEquipo
+                  }</div>
+                  <div><span class="font-bold">Marca:</span> ${
+                    formData.marca
+                  }</div>
+                  <div><span class="font-bold">Modelo:</span> ${
+                    formData.modelo
+                  }</div>
+                  <div><span class="font-bold">Serie:</span> ${
+                    formData.serie
+                  }</div>
+              </div>
 
-             ${
-               showAdditionalServices
-                 ? `
-              <div class="section-title">SERVICIOS ADICIONALES</div>
-              <ul class="mb-2">
-                  ${additionalServices
-                    .map((s) => `<li>${s.description}: S/ ${s.amount}</li>`)
+              <div class="section-title">COMPONENTES Y ACCESORIOS</div>
+              <div class="grid-cols-2">
+                  ${formData.items
+                    .filter((item) => item.checked || (item.detalles && item.detalles.trim() !== ""))
+                    .map(generateComponentHtml)
                     .join("")}
-              </ul>
-            `
-                 : ""
-             }
+                  ${
+                    formData.sistemaOperativo
+                      ? `<div class="field"><span class="font-bold">S.O.:</span> ${formData.sistemaOperativo}</div>`
+                      : ""
+                  }
+                  ${
+                    formData.bitlockerKey
+                      ? `<div class="field"><span class="font-bold">Bitlocker:</span> Activado</div>`
+                      : ""
+                  }
+              </div>
+              
+              <div class="section-title">DETALLES DEL SERVICIO</div>
+              <div class="field">
+                  <span class="font-bold">Motivo de Ingreso:</span> ${
+                    formData.motivoIngreso
+                  }
+              </div>
+              <div class="field">
+                  <span class="font-bold">Observaciones:</span> ${
+                    formData.observaciones || "Sin observaciones adicionales."
+                  }
+              </div>
 
-            <div class="section-title">INFORMACIÓN DE PAGO</div>
-             <div class="field mb-2">
-                <span class="font-bold">Detalles de Pago:</span> ${formData.detallesPago || 'N/A'}
+              ${
+                showAdditionalServices
+                  ? `
+                <div class="section-title">SERVICIOS ADICIONALES</div>
+                <ul class="mb-2" style="list-style-type: disc; padding-left: 20px;">
+                    ${additionalServices
+                      .map((s) => `<li>${s.description} - S/ ${s.amount}</li>`)
+                      .join("")}
+                </ul>
+              `
+                  : ""
+              }
+
+              <div class="section-title">INFORMACIÓN DE PAGO</div>
+              <div class="field mb-2">
+                  <span class="font-bold">Detalles de Pago:</span> ${formData.detallesPago || 'N/A'}
+              </div>
+              <div class="flex-row" style="font-weight: bold; color: #e11d48;">
+                  <div><span class="font-bold">Diagnóstico:</span> S/ ${formData.diagnostico.toFixed(
+                    2
+                  )}</div>
+                  <div><span class="font-bold">Monto Servicio:</span> S/ ${formData.montoServicio.toFixed(
+                    2
+                  )}</div>
+                  <div><span class="font-bold">Total:</span> S/ ${formData.total.toFixed(
+                    2
+                  )}</div>
+                  <div><span class="font-bold">A Cuenta:</span> S/ ${formData.aCuenta.toFixed(
+                    2
+                  )}</div>
+                  <div><span class="font-bold">Saldo:</span> S/ ${formData.saldo.toFixed(
+                    2
+                  )}</div>
+              </div> 
+
+              <div class="section-title">TÉCNICOS</div>
+              <div class="flex-row">
+                  <div><span class="font-bold">Técnico Recepción:</span> ${
+                    formData.tecnicoRecepcion
+                  }</div>
+                  <div><span class="font-bold">Técnico Testeo:</span> ${
+                    formData.tecnicoTesteo || 'N/A'
+                  }</div>
+                  <div><span class="font-bold">Técnico Responsable:</span> ${
+                    formData.tecnicoResponsable || 'N/A'
+                  }</div>
+                  <div><span class="font-bold">Área Destino:</span> ${
+                    formData.area
+                  }</div>
+              </div>
             </div>
-            <div class="flex-row">
-                <div><span class="font-bold">Diagnóstico:</span> S/ ${formData.diagnostico.toFixed(
-                  2
-                )}</div>
-                <div><span class="font-bold">Monto Servicio:</span> S/ ${formData.montoServicio.toFixed(
-                  2
-                )}</div>
-                <div><span class="font-bold">Total:</span> S/ ${formData.total.toFixed(
-                  2
-                )}</div>
-                <div><span class="font-bold">A Cuenta:</span> S/ ${formData.aCuenta.toFixed(
-                  2
-                )}</div>
-                <div><span class="font-bold">Saldo:</span> S/ ${formData.saldo.toFixed(
-                  2
-                )}</div>
-            </div> 
-
-            <div class="section-title">TÉCNICOS</div>
-            <div class="flex-row">
-                <div><span class="font-bold">Técnico Recepción:</span> ${
-                  formData.tecnicoRecepcion
-                }</div>
-                <div><span class="font-bold">Técnico Testeo:</span> ${
-                  formData.tecnicoTesteo || 'N/A'
-                }</div>
-                <div><span class="font-bold">Técnico Responsable:</span> ${
-                  formData.tecnicoResponsable || 'N/A'
-                }</div>
+            
+            <div class="footer">
+              <p class="clausula"><b>CLAUSULA N° 01</b><br>
+              Se dará PRIORIDAD al servicio según el motivo por el cual ingresa el equipo, especialmente si es por una reparación de placa. Si se encuentra algún OTRO PROBLEMA durante el proceso, se informará como observación. En caso de que el cliente solicite la revisión o solución de este problema adicional, se considerará como un servicio aparte, lo que implicará un costo adicional.</p>
+              <p class="clausula"><b>CLAUSULA N° 02</b><br>
+              La garantía cubrirá únicamente el servicio realizado. Si, después de algunos días, se presenta OTRO PROBLEMA, no se aplicaría dicho garantia al equipo.</p>
+              <p class="clausula"><b>CLAUSULA N° 03</b><br>
+              Todo SERVICIO que no incluya un producto NO INCLUYE EL IGV (18%), en caso de que el cliente solicite un comprobante electrónico. Los pagos con tarjeta de CRÉDITO Y DÉBITO tendrán un recargo adicional del 5%.</p>
+              <div class="firma">
+                  <div class="firma-line"></div>
+                  <div>FIRMA CLIENTE</div>
+              </div>
             </div>
           </div>
-          
-          <div class="footer">
-            <p class="clausula"><b>CLAUSULA N° 01</b><br>
-            Se dará PRIORIDAD al servicio según el motivo por el cual ingresa el equipo, especialmente si es por una reparación de placa. Si se encuentra algún OTRO PROBLEMA durante el proceso, se informará como observación. En caso de que el cliente solicite la revisión o solución de este problema adicional, se considerará como un servicio aparte, lo que implicará un costo adicional.</p>
-            <p class="clausula"><b>CLAUSULA N° 02</b><br>
-            La garantía cubrirá únicamente el servicio realizado. Si, después de algunos días, se presenta OTRO PROBLEMA, no se aplicaría dicho garantia al equipo.</p>
-            <p class="clausula"><b>CLAUSULA N° 03</b><br>
-            Todo SERVICIO que no incluya un producto NO INCLUYE EL IGV (18%), en caso de que el cliente solicite un comprobante electrónico. Los pagos con tarjeta de CRÉDITO Y DÉBITO tendrán un recargo adicional del 5%.</p>
-            <div class="firma">
-                <div class="firma-line"></div>
-                <div>FIRMA CLIENTE</div>
-            </div>
-          </div>
-        </div>
-      </div>
+        </body>
+      </html>
     `;
 
     const newWindow = window.open("", "", "width=800,height=600");
@@ -635,15 +700,6 @@ function Diagnostico() {
     newWindow.document.close();
     newWindow.focus();
     newWindow.print();
-  };
-
-  const getComponentDisplayName = (id) => {
-    const componentMap = {
-        "procesador": "Procesador", "placaMadre": "Placa Madre", "memoriaRam": "Memoria RAM", "hdd": "HDD", 
-        "ssd": "SSD", "m2Nvme": "M2 Nvme", "tarjetaVideo": "Tarjeta de video", "wifi": "Wi-Fi", 
-        "bateria": "Batería", "teclado": "Teclado", "camara": "Cámara"
-    };
-    return componentMap[id] || id;
   };
 
 
@@ -678,6 +734,11 @@ function Diagnostico() {
               {displayTime}
             </div>
           </div>
+          {isReportFinalized && (
+            <p className="text-red-500 font-bold mt-4">
+                El informe se encuentra en estado "{formData.estado}" y no puede ser modificado.
+            </p>
+          )}
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
@@ -698,7 +759,7 @@ function Diagnostico() {
               onChange={handleClientChange}
               placeholder="Buscar o seleccionar cliente..."
               isClearable
-              isDisabled={isLoading || isEditMode}
+              isDisabled={isLoading || isEditMode || isReportFinalized}
               className={`${errors.client ? "ring-2 ring-red-500" : ""}`}
               styles={{
                 control: (baseStyles) => ({
@@ -709,7 +770,7 @@ function Diagnostico() {
                 }),
                 singleValue: (baseStyles) => ({
                   ...baseStyles,
-                  color: theme === "dark" ? "#fff" : "#000",
+                  color: theme === "dark" ? "#D1D5DB" : "#000",
                 }),
                 menu: (baseStyles) => ({
                   ...baseStyles,
@@ -724,6 +785,14 @@ function Diagnostico() {
                     : "transparent",
                     color: theme === "dark" ? "#fff" : "#000",
                 }),
+                placeholder: (baseStyles) => ({
+                    ...baseStyles,
+                    color: theme === "dark" ? "#9CA3AF" : "#9CA3AF",
+                }),
+                input: (baseStyles) => ({
+                    ...baseStyles,
+                    color: theme === "dark" ? "#D1D5DB" : "#000",
+                })
               }}
             />
             {errors.client && (
@@ -749,6 +818,7 @@ function Diagnostico() {
                   errors.tipoEquipo ? "ring-2 ring-red-500" : ""
                 }`}
                 required
+                disabled={isReportFinalized}
               >
                 <option value="">Selecciona un tipo</option>
                 {Object.keys(COMPONENT_OPTIONS).map((type) => (
@@ -772,6 +842,7 @@ function Diagnostico() {
                   errors.marca ? "ring-2 ring-red-500" : ""
                 }`}
                 required
+                disabled={isReportFinalized}
               />
               {errors.marca && (
                 <p className="text-red-500 text-sm mt-1">{errors.marca}</p>
@@ -788,6 +859,7 @@ function Diagnostico() {
                   errors.modelo ? "ring-2 ring-red-500" : ""
                 }`}
                 required
+                disabled={isReportFinalized}
               />
               {errors.modelo && (
                 <p className="text-red-500 text-sm mt-1">{errors.modelo}</p>
@@ -804,6 +876,7 @@ function Diagnostico() {
                   errors.serie ? "ring-2 ring-red-500" : ""
                 }`}
                 required
+                disabled={isReportFinalized}
               />
               {errors.serie && (
                 <p className="text-red-500 text-sm mt-1">{errors.serie}</p>
@@ -817,9 +890,14 @@ function Diagnostico() {
             <h2 className="text-xl font-semibold mb-4 text-green-500">
               Componentes y Accesorios
             </h2>
+            {['Allinone', 'Otros', 'Impresora'].includes(formData.tipoEquipo) && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Para el tipo de equipo "{formData.tipoEquipo}", los campos de componentes son opcionales.
+                </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
               {COMPONENT_OPTIONS[formData.tipoEquipo]?.map((item) => {
-                const isRequired = REQUIRED_COMPONENT_INPUTS.includes(item.id);
+                const isRequired = REQUIRED_COMPONENT_INPUTS.includes(item.id) && !['Allinone', 'Otros', 'Impresora'].includes(formData.tipoEquipo);
                 const itemDetails = formData.items.find((i) => i.id === item.id)?.detalles || "";
                 return (
                 <div key={item.id} className="flex items-center space-x-2">
@@ -833,6 +911,7 @@ function Diagnostico() {
                     }
                     onChange={handleItemCheck}
                     className={`h-4 w-4 rounded`}
+                    disabled={isReportFinalized}
                   />
                   <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
                     {item.name}
@@ -847,6 +926,7 @@ function Diagnostico() {
                        isRequired && errors[item.id] ? "ring-2 ring-red-500" : ""
                     }`}
                     placeholder="Detalles"
+                    disabled={isReportFinalized}
                   />
                    {isRequired && errors[item.id] && (
                         <FaTimesCircle className="text-red-500" title={errors[item.id]}/>
@@ -873,7 +953,11 @@ function Diagnostico() {
                   name="sistemaOperativo"
                   value={formData.sistemaOperativo}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                      errors.sistemaOperativo ? "ring-2 ring-red-500" : ""
+                  }`}
+                  required={['PC', 'Laptop'].includes(formData.tipoEquipo)}
+                  disabled={isReportFinalized}
                 >
                   <option value="">Selecciona un SO</option>
                   {OS_OPTIONS.map((os) => (
@@ -882,6 +966,9 @@ function Diagnostico() {
                     </option>
                   ))}
                 </select>
+                {errors.sistemaOperativo && (
+                    <p className="text-red-500 text-sm mt-1">{errors.sistemaOperativo}</p>
+                )}
               </div>
               <div className="flex items-center">
                 <input 
@@ -891,6 +978,7 @@ function Diagnostico() {
                     checked={formData.bitlockerKey}
                     onChange={handleInputChange}
                     className="h-4 w-4 mr-2"
+                    disabled={isReportFinalized}
                 />
                 <label className="text-sm font-medium" htmlFor="bitlockerKey">Clave de Bitlocker</label>
               </div>
@@ -915,6 +1003,7 @@ function Diagnostico() {
                 errors.motivoIngreso ? "ring-2 ring-red-500" : ""
               }`}
               required
+              disabled={isReportFinalized}
             ></textarea>
             {errors.motivoIngreso && (
               <p className="text-red-500 text-sm mt-1">
@@ -935,6 +1024,7 @@ function Diagnostico() {
                 errors.observaciones ? "ring-2 ring-red-500" : ""
               }`}
               required
+              disabled={isReportFinalized}
             ></textarea>
             {errors.observaciones && (
               <p className="text-red-500 text-sm mt-1">{errors.observaciones}</p>
@@ -949,6 +1039,7 @@ function Diagnostico() {
               checked={showAdditionalServices}
               onChange={() => setShowAdditionalServices((prev) => !prev)}
               className="h-4 w-4"
+              disabled={isReportFinalized}
             />
             <label className="ml-2 text-xl font-semibold text-pink-500">
               Agregar Servicios Adicionales
@@ -968,6 +1059,7 @@ function Diagnostico() {
                     }))
                   }
                   className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  disabled={isReportFinalized}
                 />
                 <input
                   type="number"
@@ -985,11 +1077,13 @@ function Diagnostico() {
                   }
                   className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                   style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
+                  disabled={isReportFinalized}
                 />
                 <button
                   type="button"
                   onClick={handleAddService}
                   className="bg-blue-500 text-white font-bold px-4 rounded-lg"
+                  disabled={isReportFinalized}
                 >
                   <FaPlus />
                 </button>
@@ -1008,6 +1102,7 @@ function Diagnostico() {
                       type="button"
                       onClick={() => handleDeleteService(service.id)}
                       className="text-red-500 hover:text-red-700"
+                      disabled={isReportFinalized}
                     >
                       <FaTrash />
                     </button>
@@ -1034,6 +1129,7 @@ function Diagnostico() {
                 rows="2"
                 placeholder="Detalles del pago (ej. depósito en cuenta, efectivo, etc.)"
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                disabled={isReportFinalized}
               ></textarea>
             </div>
           
@@ -1056,6 +1152,7 @@ function Diagnostico() {
                 }`}
                 style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
                 required
+                disabled={isReportFinalized}
               />
               {errors.montoServicio && (
                 <p className="text-red-500 text-sm mt-1">
@@ -1079,6 +1176,7 @@ function Diagnostico() {
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                 style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
                 required
+                disabled={isReportFinalized}
               />
             </div>
             <div>
@@ -1097,6 +1195,7 @@ function Diagnostico() {
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                 style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
                 required
+                disabled={isReportFinalized}
               />
             </div>
             <div>
@@ -1109,6 +1208,7 @@ function Diagnostico() {
                 value={formData.total}
                 readOnly
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
+                disabled={isReportFinalized}
               />
             </div>
             <div>
@@ -1121,6 +1221,7 @@ function Diagnostico() {
                 value={formData.saldo}
                 readOnly
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
+                disabled={isReportFinalized}
               />
             </div>
           </div>
@@ -1140,6 +1241,7 @@ function Diagnostico() {
                 value={formData.tecnicoRecepcion}
                 readOnly
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
+                disabled={isReportFinalized}
               />
             </div>
             <div>
@@ -1151,6 +1253,8 @@ function Diagnostico() {
                 value={users.find((u) => u.value === formData.tecnicoTesteoId)}
                 onChange={(option) => handleUserChange("tecnicoTesteo", option)}
                 placeholder="Selecciona un técnico..."
+                className={`${errors.tecnicoTesteoId ? "ring-2 ring-red-500 rounded-lg" : ""}`}
+                isDisabled={isReportFinalized}
                 styles={{
                   control: (baseStyles) => ({
                     ...baseStyles,
@@ -1177,47 +1281,53 @@ function Diagnostico() {
                   }),
                 }}
               />
+              {errors.tecnicoTesteoId && (
+                  <p className="text-red-500 text-sm mt-1">{errors.tecnicoTesteoId}</p>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Técnico Responsable (Opcional)
-              </label>
-              <Select
-                options={users}
-                value={users.find(
-                  (u) => u.value === formData.tecnicoResponsableId
-                )}
-                onChange={(option) =>
-                  handleUserChange("tecnicoResponsable", option)
-                }
-                placeholder="Selecciona un técnico..."
-                styles={{
-                  control: (baseStyles) => ({
-                    ...baseStyles,
-                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
-                    borderColor:
-                      theme === "dark" ? "#4B5563" : baseStyles.borderColor,
-                  }),
-                  singleValue: (baseStyles) => ({
-                    ...baseStyles,
-                    color: theme === "dark" ? "#fff" : "#000",
-                  }),
-                  menu: (baseStyles) => ({
-                    ...baseStyles,
-                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
-                  }),
-                  option: (baseStyles, state) => ({
-                    ...baseStyles,
-                    backgroundColor: state.isFocused
-                      ? theme === "dark"
-                        ? "#4B5563"
-                        : "#e5e7eb"
-                      : "transparent",
-                    color: theme === "dark" ? "#fff" : "#000",
-                  }),
-                }}
-              />
-            </div>
+            {showTecnicoResponsable && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Técnico Responsable (Opcional)
+                  </label>
+                  <Select
+                    options={users}
+                    value={users.find(
+                      (u) => u.value === formData.tecnicoResponsableId
+                    )}
+                    onChange={(option) =>
+                      handleUserChange("tecnicoResponsable", option)
+                    }
+                    placeholder="Selecciona un técnico..."
+                    isDisabled={isReportFinalized}
+                    styles={{
+                      control: (baseStyles) => ({
+                        ...baseStyles,
+                        backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                        borderColor:
+                          theme === "dark" ? "#4B5563" : baseStyles.borderColor,
+                      }),
+                      singleValue: (baseStyles) => ({
+                        ...baseStyles,
+                        color: theme === "dark" ? "#fff" : "#000",
+                      }),
+                      menu: (baseStyles) => ({
+                        ...baseStyles,
+                        backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                      }),
+                      option: (baseStyles, state) => ({
+                        ...baseStyles,
+                        backgroundColor: state.isFocused
+                          ? theme === "dark"
+                            ? "#4B5563"
+                            : "#e5e7eb"
+                          : "transparent",
+                        color: theme === "dark" ? "#fff" : "#000",
+                      }),
+                    }}
+                  />
+                </div>
+            )}
           </div>
           <div className="mt-4">
             <label className="block text-sm font-medium mb-1">
@@ -1230,6 +1340,7 @@ function Diagnostico() {
               className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
                 errors.area ? "ring-2 ring-red-500" : ""
               }`}
+              disabled={isReportFinalized}
             >
               <option value="">Selecciona un área</option>
               {AREA_OPTIONS.map((area) => (
@@ -1244,20 +1355,22 @@ function Diagnostico() {
           </div>
         </div>
 
-        <button
-          type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center"
-        >
-          {isEditMode ? (
-            <>
-              <FaPen className="mr-2" /> Actualizar Informe Técnico
-            </>
-          ) : (
-            <>
-              <FaSave className="mr-2" /> Guardar Informe Técnico
-            </>
-          )}
-        </button>
+        {!isReportFinalized && (
+            <button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center"
+            >
+            {isEditMode ? (
+                <>
+                <FaPen className="mr-2" /> Actualizar Informe Técnico
+                </>
+            ) : (
+                <>
+                <FaSave className="mr-2" /> Guardar Informe Técnico
+                </>
+            )}
+            </button>
+        )}
       </form>
     </div>
   );
