@@ -99,3 +99,11 @@ export const getAllDiagnosticReportsByTechnician = async (technicianId) => {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
+
+export const getAllDiagnosticReportsByClientId = async (clientId) => {
+    const reportsCol = collection(db, DIAGNOSTICO_COLLECTION); 
+    const q = query(reportsCol, where('clientId', '==', clientId), orderBy('reportNumber', 'desc')); 
+    const querySnapshot = await getDocs(q); 
+    
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};

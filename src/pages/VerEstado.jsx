@@ -194,7 +194,7 @@ function VerEstado() {
                                 <td className="px-6 py-4 whitespace-nowrap">S/ {report.montoServicio ? report.montoServicio.toFixed(2) : '0.00'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">S/ {report.aCuenta ? report.aCuenta.toFixed(2) : '0.00'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">S/ {report.saldo ? report.saldo.toFixed(2) : '0.00'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{report.diagnostico}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.fechaEntrega} {report.horaEntrega}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.observaciones}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-4">

@@ -519,35 +519,72 @@ function Diagnostico() {
       <html>
         <head>
             <style>
-                @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-                
-                @page {
-                    margin-top: 15mm; 
-                    margin-bottom: 20mm;
-                    margin-left: 15mm;
-                    margin-right: 15mm;
-                }
-                .pdf-container { width: 94%; padding: 2%; font-size: 10pt; color: #1f2937; font-family: 'Roboto', sans-serif; }
-                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #e11d48; padding-bottom: 10px; margin-bottom: 15px; }
-                .logo { height: 60px; width: auto; max-width: 150px; }
-                .company-info { text-align: right; font-size: 8pt; color: #4b5563; }
-                .report-info { margin-top: 15px; border: 2px solid #039be5; padding: 15px; border-radius: 8px; }
-                .section-title { font-weight: bold; color: #1e40af; border-bottom: 1px dashed #bfdbfe; padding-bottom: 3px; margin-top: 15px; margin-bottom: 8px; font-size: 11pt; }
-                .field { margin-bottom: 3px; display: flex; align-items: center; }
-                .flex-row { display: flex; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; }
-                .flex-row > div { flex-basis: 48%; }
-                .footer { text-align: center; }
-                .clausula { margin-top: 10px; font-size: 7.5pt; color: #6b7280; text-align: justify;}
-                .firma { margin-top: 40px; text-align: center; }
-                .firma-line { border-top: 1px solid #000; width: 250px; margin: 5px auto 0; }
-                .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-                .text-center { text-align: center; }
-                .text-xl { font-size: 1.5rem; }
-                .font-bold { font-weight: 700; }
-                .mt-4 { margin-top: 1rem; }
-                .mb-2 { margin-bottom: 0.5rem; }
-                .text-green-600 { color: #10b981; }
-            </style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');  
+    .pdf-container { 
+        width: 94%; 
+        padding: 2%; 
+        margin: auto; 
+        font-size: 9pt; 
+        color: #1f2937; 
+        font-family: 'Roboto', sans-serif; 
+        letter-spacing: -0.2px; 
+        line-height: 1.2; 
+    }
+    .header { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        border-bottom: 3px solid #e11d48; 
+        padding-bottom: 8px; 
+        margin-bottom: 12px; 
+    }
+    .logo { height: 55px; width: auto; max-width: 140px; }
+    .company-info { 
+        text-align: right; 
+        font-size: 7.5pt; 
+        color: #4b5563; 
+        letter-spacing: -0.2px; 
+        line-height: 1.2; 
+    }
+    .report-info { 
+        margin-top: 10px; 
+        border: 2px solid #039be5; 
+        padding: 12px; 
+        border-radius: 8px; 
+    }
+    .section-title { 
+        font-weight: bold; 
+        color: #1e40af; 
+        border-bottom: 1px dashed #bfdbfe; 
+        padding-bottom: 2px; 
+        margin-top: 12px; 
+        margin-bottom: 6px; 
+        font-size: 10pt; 
+        letter-spacing: -0.3px; 
+    }
+    .field { margin-bottom: 2px; display: flex; align-items: center; letter-spacing: -0.2px; }
+    .flex-row { display: flex; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; }
+    .flex-row > div { flex-basis: 48%; }
+    .footer { text-align: center; }
+    .clausula { 
+        margin-top: 8px; 
+        font-size: 7pt; 
+        color: #6b7280; 
+        text-align: justify; 
+        line-height: 1.05; 
+        letter-spacing: -0.2px; 
+    }
+    .firma { margin-top: 35px; text-align: center; }
+    .firma-line { border-top: 1px solid #000; width: 230px; margin: 4px auto 0; }
+    .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .text-center { text-align: center; }
+    .text-xl { font-size: 1.3rem; letter-spacing: -0.3px; }
+    .font-bold { font-weight: 700; }
+    .mt-4 { margin-top: 0.8rem; }
+    .mb-2 { margin-bottom: 0.4rem; }
+    .text-green-600 { color: #10b981; }
+</style>
+
         </head>
         <body>
           <div class="pdf-container">

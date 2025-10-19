@@ -1,122 +1,138 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getDiagnosticReportById, updateDiagnosticReport } from '../services/diagnosticService';
-import { FaArrowLeft, FaCheck, FaTimes, FaCheckCircle } from 'react-icons/fa';
+import { FaArrowLeft, FaCheck, FaTimes, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/common/Modal';
 
+// --- CONSTANTES GLOBALES (Duplicadas para DetalleHistorial) ---
+
 const FIELD_LABELS = {
-    hw_laptop: "Tipo Equipo - Laptop",
-    hw_pc: "Tipo Equipo - PC",
-    hw_otro: "Tipo Equipo - Otro",
-    hw_otro_spec: "Especificación Otro",
+    clientName: "Cliente",
+    telefono: "Teléfono",
+    tipoEquipo: "Tipo de Equipo",
+    marca: "Marca",
+    modelo: "Modelo",
+    serie: "Serie",
+    sistemaOperativo: "Sistema Operativo",
+    bitlockerKey: "Clave Bitlocker",
+    observaciones: "Observaciones de Recepción",
+    motivoIngreso: "Motivo de Ingreso",
+    area: "Área de Destino",
+    tecnicoRecepcion: "Técnico de Recepción",
+    tecnicoTesteo: "Técnico de Testeo",
+    tecnicoResponsable: "Técnico Responsable",
+    ubicacionFisica: "Ubicación Física",
+    procesador: "Procesador", placaMadre: "Placa Madre", memoriaRam: "Memoria RAM", hdd: "HDD", 
+    ssd: "SSD", m2Nvme: "M2 Nvme", tarjetaVideo: "Tarjeta de video", wifi: "Wi-Fi", 
+    bateria: "Batería", cargador: "Cargador", pantalla: "Pantalla", teclado: "Teclado", 
+    camara: "Cámara", microfono: "Micrófono", parlantes: "Parlantes", auriculares: "Auriculares", 
+    rj45: "RJ 45", hdmi: "HDMI", vga: "VGA", usb: "USB", tipoC: "Tipo C", lectora: "Lectora", 
+    touchpad: "Touchpad", otros: "Otros", rodillos: "Rodillos", cabezal: "Cabezal", tinta: "Cartuchos/Tinta", bandejas: "Bandejas",
     mant_hardware: "Mantenimiento de Hardware",
     reconstruccion: "Reconstrucción",
     adapt_parlantes: "Adaptación de Parlantes",
     cambio_teclado: "Cambio de Teclado",
     cambio_teclado_codigo: "Código de Teclado",
     cambio_pantalla: "Cambio de Pantalla",
-    cambio_pantalla_codigo: "Código",
+    cambio_pantalla_codigo: "Código Pantalla",
     cambio_pantalla_resolucion: "Resolución",
     cambio_pantalla_hz: "Hz",
     cambio_carcasa: "Cambio de Carcasa",
-    cambio_carcasa_obs: "Observación de Carcasa",
+    cambio_carcasa_obs: "Obs. Carcasa",
     cambio_placa: "Cambio de Placa",
-    cambio_placa_codigo: "Código",
-    cambio_placa_especif: "Especificación",
+    cambio_placa_codigo: "Código Placa",
+    cambio_placa_especif: "Especif. Placa",
     cambio_fuente: "Cambio de Fuente",
-    cambio_fuente_codigo: "Código",
-    cambio_fuente_especif: "Especificación",
+    cambio_fuente_codigo: "Código Fuente",
+    cambio_fuente_especif: "Especif. Fuente",
     cambio_video: "Cambio de Tarjeta de Video",
-    cambio_video_codigo: "Código",
-    cambio_video_especif: "Especificación",
-    otros: "Otros",
-    otros_especif: "Especificación de Otros",
+    cambio_video_codigo: "Código Video",
+    cambio_video_especif: "Especif. Video",
+    otros_especif: "Especificación Otros",
     repoten_ssd: "Repotenciación SSD",
-    repoten_ssd_gb: "GB de SSD",
+    repoten_ssd_gb: "GB SSD",
+    repoten_ssd_serie: "Serie SSD",
     repoten_nvme: "Repotenciación NVME",
-    repoten_nvme_gb: "GB de NVME",
+    repoten_nvme_gb: "GB NVME",
+    repoten_nvme_serie: "Serie NVME",
     repoten_m2: "Repotenciación M2 SATA",
-    repoten_m2_gb: "GB de M2 SATA",
+    repoten_m2_gb: "GB M2 SATA",
+    repoten_m2_serie: "Serie M2 SATA",
     repoten_hdd: "Repotenciación HDD",
-    repoten_hdd_gb: "GB de HDD",
+    repoten_hdd_gb: "GB HDD",
     repoten_hdd_serie: "Serie de HDD",
     repoten_hdd_codigo: "Código de HDD",
     repoten_ram: "Repotenciación RAM",
-    repoten_ram_cap: "Capacidad de RAM",
+    repoten_ram_cap: "Capacidad RAM",
     repoten_ram_cod: "Código de RAM",
-    sw_laptop: "Tipo Equipo - Laptop",
-    sw_pc: "Tipo Equipo - PC",
-    sw_otro: "Tipo Equipo - Otro",
-    sw_otro_spec: "Especificación Otro",
     backup: "Backup de Información",
-    backup_obs: "Observación de Backup",
+    backup_obs: "Obs. Backup",
     clonacion: "Clonación de Disco",
-    clonacion_obs: "Observación de Clonación",
+    clonacion_obs: "Obs. Clonación",
     formateo: "Formateo + Programas",
-    formateo_obs: "Observación de Formateo",
+    formateo_obs: "Obs. Formateo",
     drivers: "Instalación de Drivers",
-    drivers_obs: "Observación de Drivers",
-    diseno: "Instalación de Programas de Diseño",
-    diseno_spec: "Especificación de Programas de Diseño",
-    ingenieria: "Instalación de Programas de Ingeniería",
-    ingenieria_spec: "Especificación de Programas de Ingeniería",
+    drivers_obs: "Obs. Drivers",
+    diseno: "Instalación de Prog. de Diseño",
+    diseno_spec: "Especif. Prog. Diseño",
+    ingenieria: "Instalación de Prog. de Ingeniería",
+    ingenieria_spec: "Especif. Prog. Ingeniería",
     act_win: "Activación de Windows",
-    act_win_obs: "Observación de Activación de Windows",
+    act_win_obs: "Obs. Activación Win.",
     act_office: "Activación de Office",
-    act_office_obs: "Observación de Activación de Office",
+    act_office_obs: "Obs. Activación Off.",
     optimizacion: "Optimización de sistema",
-    optimizacion_obs: "Observación de Optimización",
-    sw_otros: "Otros",
-    sw_otros_spec: "Especificación de Otros",
-    elec_video: "Tarjeta de Video",
-    elec_placa: "Placa",
-    elec_otro: "Otro",
-    elec_codigo: "Código",
-    elec_etapa: "Etapa",
-    elec_obs: "Observación",
+    optimizacion_obs: "Obs. Optimización",
+    sw_otros: "Otros Software",
+    sw_otros_spec: "Especif. Otros Software",
+    elec_video: "Rep. Tarj. Video",
+    elec_placa: "Rep. Placa",
+    elec_otro: "Rep. Otro",
+    elec_codigo: "Código Electrónica",
+    elec_etapa: "Etapa Electrónica",
+    elec_obs: "Observación Electrónica",
     tec_apoyo: "Técnico de Apoyo",
     testeo_procesador: "Procesador",
     testeo_video_dedicado: "Video Dedicado",
     testeo_memoria_ram: "Memoria RAM",
-    testeo_disco: "Disco",
-    testeo_disco_obs: "Disco - Observación",
-    testeo_pantalla: "Pantalla",
-    testeo_pantalla_obs: "Pantalla - Observación",
-    testeo_bateria: "Batería",
-    testeo_bateria_obs: "Batería - Observación",
-    testeo_cargador: "Cargador",
-    testeo_cargador_obs: "Cargador - Observación",
-    testeo_camara: "Cámara",
-    testeo_camara_obs: "Cámara - Observación",
-    testeo_microfono: "Micrófono",
-    testeo_microfono_obs: "Micrófono - Observación",
-    testeo_auricular: "Auricular",
-    testeo_auricular_obs: "Auricular - Observación",
-    testeo_parlantes: "Parlantes",
-    testeo_parlantes_obs: "Parlantes - Observación",
-    testeo_teclado: "Teclado",
-    testeo_teclado_obs: "Teclado - Observación",
-    testeo_lectora: "Lectora",
-    testeo_lectora_obs: "Lectora - Observación",
-    testeo_touchpad: "Touchpad",
-    testeo_touchpad_obs: "Touchpad - Observación",
-    testeo_wifi: "WiFi",
-    testeo_wifi_obs: "WiFi - Observación",
-    testeo_rj45: "RJ45",
-    testeo_rj45_obs: "RJ45 - Observación",
-    testeo_usb: "USB",
-    testeo_usb_obs: "USB - Observación",
-    testeo_tipo_c: "Tipo C",
-    testeo_tipo_c_obs: "Tipo C - Observación",
-    testeo_hdmi: "HDMI",
-    testeo_hdmi_obs: "HDMI - Observación",
-    testeo_vga: "VGA",
-    testeo_vga_obs: "VGA - Observación",
-    testeo_otros: "Otros",
-    testeo_otros_obs: "Otros - Observación",
-    testeo_tecnico_final: "Técnico del Testeo Final",
+    testeo_disco: "Disco (SI/NO)",
+    testeo_disco_obs: "Obs. Disco",
+    testeo_pantalla: "Pantalla (SI/NO)",
+    testeo_pantalla_obs: "Obs. Pantalla",
+    testeo_bateria: "Batería (SI/NO)",
+    testeo_bateria_obs: "Obs. Batería",
+    testeo_cargador: "Cargador (SI/NO)",
+    testeo_cargador_obs: "Obs. Cargador",
+    testeo_camara: "Cámara (SI/NO)",
+    testeo_camara_obs: "Obs. Cámara",
+    testeo_microfono: "Micrófono (SI/NO)",
+    testeo_microfono_obs: "Obs. Micrófono",
+    testeo_auricular: "Auricular (SI/NO)",
+    testeo_auricular_obs: "Obs. Auricular",
+    testeo_parlantes: "Parlantes (SI/NO)",
+    testeo_parlantes_obs: "Obs. Parlantes",
+    testeo_teclado: "Teclado (SI/NO)",
+    testeo_teclado_obs: "Obs. Teclado",
+    testeo_lectora: "Lectora (SI/NO)",
+    testeo_lectora_obs: "Obs. Lectora",
+    testeo_touchpad: "Touchpad (SI/NO)",
+    testeo_touchpad_obs: "Obs. Touchpad",
+    testeo_wifi: "WiFi (SI/NO)",
+    testeo_wifi_obs: "Obs. WiFi",
+    testeo_rj45: "RJ45 (SI/NO)",
+    testeo_rj45_obs: "Obs. RJ45",
+    testeo_usb: "USB (SI/NO)",
+    testeo_usb_obs: "Obs. USB",
+    testeo_tipo_c: "Tipo C (SI/NO)",
+    testeo_tipo_c_obs: "Obs. Tipo C",
+    testeo_hdmi: "HDMI (SI/NO)",
+    testeo_hdmi_obs: "Obs. HDMI",
+    testeo_vga: "VGA (SI/NO)",
+    testeo_vga_obs: "Obs. VGA",
+    testeo_otros: "Otros Testeo (SI/NO)",
+    testeo_otros_obs: "Obs. Otros Testeo",
     testeo_servicio_final: "Servicio Realizado Final"
 };
 
@@ -127,6 +143,9 @@ const GROUPED_FIELDS_CONFIG = {
     cambio_placa: ["cambio_placa_codigo", "cambio_placa_especif"],
     cambio_fuente: ["cambio_fuente_codigo", "cambio_fuente_especif"],
     cambio_video: ["cambio_video_codigo", "cambio_video_especif"],
+    repoten_ssd: ["repoten_ssd_gb", "repoten_ssd_serie"],
+    repoten_nvme: ["repoten_nvme_gb", "repoten_nvme_serie"],
+    repoten_m2: ["repoten_m2_gb", "repoten_m2_serie"],
     repoten_hdd: ["repoten_hdd_gb", "repoten_hdd_serie", "repoten_hdd_codigo"],
     repoten_ram: ["repoten_ram_cap", "repoten_ram_cod"],
     backup: ["backup_obs"],
@@ -139,6 +158,7 @@ const GROUPED_FIELDS_CONFIG = {
     act_office: ["act_office_obs"],
     optimizacion: ["optimizacion_obs"],
     sw_otros: ["sw_otros_spec"],
+    elec_otro: ["elec_codigo", "elec_etapa", "elec_obs"],
     testeo_disco: ["testeo_disco_obs"],
     testeo_pantalla: ["testeo_pantalla_obs"],
     testeo_bateria: ["testeo_bateria_obs"],
@@ -156,59 +176,126 @@ const GROUPED_FIELDS_CONFIG = {
     testeo_tipo_c: ["testeo_tipo_c_obs"],
     testeo_hdmi: ["testeo_hdmi_obs"],
     testeo_vga: ["testeo_vga_obs"],
-    testeo_otros: ["testeo_otros_obs"]
+    testeo_otros: ["testeo_otros_obs"],
 };
 
+const IGNORED_KEYS = new Set([
+    'tecnico', 'reparacion', 'fecha_inicio', 'hora_inicio', 'fecha_fin', 'hora_fin', 'estado', 'tecnicoId', 'areaName', 'hw_tipo', 'sw_tipo', 'ubicacionFisica', 'tec_apoyoId'
+]);
+
+const ALL_COMPONENTS_MAP = {
+    "procesador": "Procesador", "placaMadre": "Placa Madre", "memoriaRam": "Memoria RAM", "hdd": "HDD", 
+    "ssd": "SSD", "m2Nvme": "M2 Nvme", "tarjetaVideo": "Tarjeta de video", "wifi": "Wi-Fi", 
+    "bateria": "Batería", "cargador": "Cargador", "pantalla": "Pantalla", "teclado": "Teclado", 
+    "camara": "Cámara", "microfono": "Micrófono", "parlantes": "Parlantes", "auriculares": "Auriculares", 
+    "rj45": "RJ 45", "hdmi": "HDMI", "vga": "VGA", "usb": "USB", "tipoC": "Tipo C", 
+    "lectora": "Lectora", "touchpad": "Touchpad", "otros": "Otros", "rodillos": "Rodillos", 
+    "cabezal": "Cabezal", "tinta": "Cartuchos/Tinta", "bandejas": "Bandejas"
+};
+
+const getComponentName = (itemId) => {
+    return ALL_COMPONENTS_MAP[itemId] || itemId;
+};
+
+// --- COMPONENTES AUXILIARES ---
+
 const ReadOnlyEntry = ({ entry, areaName }) => {
-    const processedKeys = new Set(['tecnico', 'reparacion', 'fecha_inicio', 'hora_inicio', 'fecha_fin', 'hora_fin', 'estado', 'tecnicoId', 'ubicacionFisica']);
+    const processedKeys = new Set(IGNORED_KEYS);
     const detailsToShow = [];
 
-    const allGroupedSubKeys = Object.values(GROUPED_FIELDS_CONFIG).flat();
+    const availableGroups = {};
+    Object.keys(GROUPED_FIELDS_CONFIG).forEach(groupKey => {
+        const isChecked = entry[groupKey] === true;
+        
+        const subDetails = GROUPED_FIELDS_CONFIG[groupKey].map(subKey => ({
+            key: subKey,
+            label: FIELD_LABELS[subKey] || subKey,
+            value: entry[subKey],
+            type: 'text' 
+        })).filter(item => item.value && String(item.value).trim() !== "");
+
+        const hasDetails = subDetails.length > 0;
+        
+        if (isChecked || hasDetails) { 
+            availableGroups[groupKey] = {
+                isChecked: isChecked,
+                subDetails: subDetails
+            };
+            
+            processedKeys.add(groupKey);
+            availableGroups[groupKey].subDetails.forEach(item => processedKeys.add(item.key));
+        } else {
+             GROUPED_FIELDS_CONFIG[groupKey].forEach(subKey => processedKeys.add(subKey));
+        }
+    });
 
     for (const key in entry) {
-        if (processedKeys.has(key) || !entry[key]) continue;
+        if (processedKeys.has(key) || typeof entry[key] === 'object' || key.endsWith('Id') || key.startsWith('sw_tipo') || key.startsWith('hw_tipo')) continue;
 
-        const mainGroupKey = Object.keys(GROUPED_FIELDS_CONFIG).find(groupKey => GROUPED_FIELDS_CONFIG[groupKey].includes(key));
-        if (mainGroupKey) continue;
+        let value = entry[key];
+        let label = FIELD_LABELS[key] || key;
 
-        if (GROUPED_FIELDS_CONFIG[key]) {
-            const groupItems = [
-                entry[key] ? <FaCheck key={`${key}-check`} className="text-green-500" /> : <FaTimes key={`${key}-times`} className="text-red-500" />,
-                ...GROUPED_FIELDS_CONFIG[key].map(subKey => (
-                    entry[subKey] ? <span key={subKey} className="ml-2">{FIELD_LABELS[subKey] || subKey}: {entry[subKey]}</span> : null
-                )).filter(Boolean)
-            ];
-            detailsToShow.push({ key, label: FIELD_LABELS[key] || key, value: <div className="flex items-center gap-1 flex-wrap">{groupItems}</div> });
-            processedKeys.add(key);
-            GROUPED_FIELDS_CONFIG[key].forEach(subKey => processedKeys.add(subKey));
-        } else if (!allGroupedSubKeys.includes(key)) {
+        if (key in availableGroups) {
+             continue; 
+        } else if (typeof value === 'boolean') {
+            if (!value) continue;
+            
             detailsToShow.push({
                 key,
-                label: FIELD_LABELS[key] || key,
-                value: typeof entry[key] === 'boolean' ? (entry[key] ? <FaCheck className="text-green-500" /> : <FaTimes className="text-red-500" />) : entry[key]
+                label,
+                value: value ? <FaCheck className="text-green-500" /> : <FaTimes className="text-red-500" />,
+                type: 'check'
             });
-            processedKeys.add(key);
+        } else if (value && String(value).trim() !== '') {
+            detailsToShow.push({
+                key,
+                label,
+                value: String(value),
+                type: 'text'
+            });
         }
     }
 
+    const taskStatus = entry.estado === 'TERMINADO' ? 'TERMINADO' : 'ASIGNADO';
+
+    const hasAdditionalDetails = detailsToShow.length > 0 || Object.keys(availableGroups).length > 0;
+
     return (
         <div className="border p-3 rounded-md mt-2 bg-gray-100 dark:bg-gray-700 dark:border-gray-600 text-sm">
-            <h3 className="font-bold text-lg">{areaName} - {entry.fecha_fin} {entry.hora_fin}</h3>
-            <div className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
-                <strong className="text-right">Técnico:</strong><span>{entry.tecnico}</span>
-                <strong className="text-right">Reparación:</strong><span>{entry.reparacion || 'N/A'}</span>
-                <strong className="text-right">Fechas:</strong><span>{entry.fecha_inicio} {entry.hora_inicio} - {entry.fecha_fin || 'N/A'} {entry.hora_fin || ''}</span>
-                <strong className="text-right">Estado:</strong><span className="font-semibold">{entry.estado}</span>
+            <h3 className="font-bold text-lg text-blue-500 dark:text-blue-400">Intervención en {areaName}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
+                <div><strong className="font-semibold">Técnico:</strong> {entry.tecnico}</div>
+                <div><strong className="font-semibold">Ubicación Física:</strong> {entry.ubicacionFisica || 'N/A'}</div>
+                <div><strong className="font-semibold">Fechas:</strong> {entry.fecha_inicio} {entry.hora_inicio} - {entry.fecha_fin || 'N/A'} {entry.hora_fin || ''}</div>
+                <div><strong className="font-semibold">Estado:</strong> <span className={`font-semibold ${taskStatus === 'TERMINADO' ? 'text-green-600' : 'text-orange-500'}`}>{taskStatus}</span></div>
             </div>
-            {detailsToShow.length > 0 && (
+            {entry.reparacion && (
+                <div className="mt-2 pt-2 border-t dark:border-gray-600">
+                    <strong className="block font-semibold">Descripción del Trabajo:</strong>
+                    <span>{entry.reparacion}</span>
+                </div>
+            )}
+            
+            {hasAdditionalDetails && (
                 <div className="mt-2 border-t pt-2 dark:border-gray-600">
-                    <h4 className="font-semibold">Detalles de la intervención:</h4>
-                    <div className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
-                        {detailsToShow.map(({ key, label, value }) => (
-                            <React.Fragment key={key}>
-                                <strong className="text-right">{label}:</strong>
-                                <div>{value}</div>
-                            </React.Fragment>
+                    <h4 className="font-semibold mb-2 text-indigo-500">Detalles Adicionales:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                        {Object.keys(availableGroups).map(groupKey => (
+                            <div key={groupKey} className="col-span-full mb-1">
+                                <span className="font-bold">{FIELD_LABELS[groupKey] || groupKey}:</span> 
+                                {availableGroups[groupKey].isChecked && <FaCheck className="text-green-500 inline ml-1 mr-2" />}
+                                {availableGroups[groupKey].subDetails.map(item => (
+                                    <span key={item.key} className="ml-2 block md:inline">
+                                        <em>{item.label}:</em> {item.value}
+                                    </span>
+                                ))}
+                            </div>
+                        ))}
+                        {detailsToShow.map(({ key, label, value, type }) => (
+                            <div key={key} className="flex flex-wrap items-center">
+                                <strong className="mr-1">{label}:</strong>
+                                {type === 'check' ? value : <span>{value}</span>}
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -216,6 +303,23 @@ const ReadOnlyEntry = ({ entry, areaName }) => {
         </div>
     );
 };
+
+const ComponentItem = ({ item }) => {
+    const isChecked = item.checked;
+    const hasDetails = item.detalles && item.detalles.trim() !== '';
+
+    if (!isChecked && !hasDetails) return null;
+    
+    return (
+        <div className="flex items-center space-x-2 text-sm">
+            {isChecked ? <FaCheckCircle className="text-green-500" /> : <FaTimesCircle className="text-gray-400" />}
+            <span className="font-semibold">{item.name}:</span>
+            <span className="text-gray-700 dark:text-gray-300">{item.detalles || (isChecked ? 'OK' : 'N/A')}</span>
+        </div>
+    );
+};
+
+// --- COMPONENTE PRINCIPAL ---
 
 function DetalleHistorial() {
     const { reportId } = useParams();
@@ -243,81 +347,6 @@ function DetalleHistorial() {
         }
     };
 
-    const COMPONENT_OPTIONS = {
-        PC: [
-            { id: "procesador", name: "Procesador" },
-            { id: "placaMadre", name: "Placa Madre" },
-            { id: "memoriaRam", name: "Memoria RAM" },
-            { id: "hdd", name: "HDD" },
-            { id: "ssd", name: "SSD" },
-            { id: "m2Nvme", name: "M2 Nvme" },
-            { id: "tarjetaVideo", name: "Tarjeta de video" },
-            { id: "wifi", name: "Wi-Fi" },
-            { id: "rj45", name: "RJ 45" },
-            { id: "vga", name: "VGA" },
-            { id: "usb", name: "USB" },
-            { id: "lectora", name: "Lectora" },
-            { id: "otros", name: "Otros" },
-        ],
-        Laptop: [
-            { id: "procesador", name: "Procesador" },
-            { id: "placaMadre", name: "Placa Madre" },
-            { id: "memoriaRam", name: "Memoria RAM" },
-            { id: "hdd", name: "HDD" },
-            { id: "ssd", name: "SSD" },
-            { id: "m2Nvme", name: "M2 Nvme" },
-            { id: "tarjetaVideo", name: "Tarjeta de video" },
-            { id: "wifi", name: "Wi-Fi" },
-            { id: "bateria", name: "Batería" },
-            { id: "cargador", name: "Cargador" },
-            { id: "pantalla", name: "Pantalla" },
-            { id: "teclado", name: "Teclado" },
-            { id: "camara", name: "Cámara" },
-            { id: "microfono", name: "Micrófono" },
-            { id: "parlantes", name: "Parlantes" },
-            { id: "auriculares", name: "Auriculares" },
-            { id: "rj45", name: "RJ 45" },
-            { id: "hdmi", name: "HDMI" },
-            { id: "vga", name: "VGA" },
-            { id: "usb", name: "USB" },
-            { id: "tipoC", name: "Tipo C" },
-            { id: "lectora", name: "Lectora" },
-            { id: "touchpad", name: "Touchpad" },
-            { id: "otros", name: "Otros" },
-        ],
-        Allinone: [
-            { id: "procesador", name: "Procesador" },
-            { id: "placaMadre", name: "Placa Madre" },
-            { id: "memoriaRam", name: "Memoria RAM" },
-            { id: "hdd", name: "HDD" },
-            { id: "ssd", name: "SSD" },
-            { id: "m2Nvme", name: "M2 Nvme" },
-            { id: "tarjetaVideo", name: "Tarjeta de video" },
-            { id: "wifi", name: "Wi-Fi" },
-            { id: "rj45", name: "RJ 45" },
-            { id: "usb", name: "USB" },
-            { id: "lector", name: "Lectora" },
-            { id: "otros", name: "Otros" },
-        ],
-        Impresora: [
-            { id: "rodillos", name: "Rodillos" },
-            { id: "cabezal", name: "Cabezal" },
-            { id: "tinta", name: "Cartuchos/Tinta" },
-            { id: "bandejas", name: "Bandejas" },
-            { id: "otros", name: "Otros" },
-        ],
-        Otros: [{ id: "otros", name: "Otros" }],
-    };
-
-    const getComponentName = (itemId, tipoEquipo) => {
-        const options = COMPONENT_OPTIONS[tipoEquipo] || [];
-        return options.find((item) => item.id === itemId)?.name || itemId;
-    };
-
-    const now = new Date();
-    const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
-    const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
     const handleOpenDeliveryModal = () => setIsDeliveryModalOpen(true);
     const handleCloseDeliveryModal = () => {
         setIsDeliveryModalOpen(false);
@@ -339,8 +368,8 @@ function DetalleHistorial() {
                 observacionEntrega: observacionEntrega || ''
             };
 
-            if (currentUser?.id) {
-                updatedData.tecnicoEntregaId = currentUser.id;
+            if (currentUser?.uid) {
+                updatedData.tecnicoEntregaId = currentUser.uid;
             }
 
             await updateDiagnosticReport(reportId, updatedData);
@@ -353,24 +382,39 @@ function DetalleHistorial() {
         }
     };
 
+    const flatHistory = useMemo(() => {
+        if (!report) return [];
+        return report.diagnosticoPorArea 
+            ? Object.entries(report.diagnosticoPorArea)
+                .flatMap(([areaName, entries]) => 
+                    (Array.isArray(entries) ? entries : [entries]).map(entry => ({...entry, areaName}))
+                )
+                .filter(entry => entry.estado === 'TERMINADO')
+                .sort((a, b) => {
+                    const dateA = new Date(`${a.fecha_fin.split('-').reverse().join('-')}T${a.hora_fin}`);
+                    const dateB = new Date(`${b.fecha_fin.split('-').reverse().join('-')}T${b.hora_fin}`);
+                    return dateB - dateA;
+                })
+            : [];
+    }, [report]);
+
+    const componentItems = useMemo(() => {
+        if (!report || !report.items) return [];
+        return report.items
+            .filter(item => item.checked || (item.detalles && item.detalles.trim() !== ''))
+            .map(item => ({...item, name: getComponentName(item.id)}));
+    }, [report]);
+
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
+    const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
     if (isLoading) return <div className="text-center p-8">Cargando historial...</div>;
     if (!report) return <div className="text-center p-8 text-red-500">Informe no encontrado.</div>;
-
-    const filteredItems = report.items?.filter(item => item.checked || item.detalles) || [];
-
-    const flatHistory = report.diagnosticoPorArea 
-        ? Object.entries(report.diagnosticoPorArea)
-            .flatMap(([areaName, entries]) => 
-                (Array.isArray(entries) ? entries : [entries]).map(entry => ({...entry, areaName}))
-            )
-            .filter(entry => entry.estado === 'TERMINADO')
-            .sort((a, b) => {
-                const dateA = new Date(`${a.fecha_fin.split('-').reverse().join('-')}T${a.hora_fin}`);
-                const dateB = new Date(`${b.fecha_fin.split('-').reverse().join('-')}T${b.hora_fin}`);
-                return dateB - dateA;
-            })
-        : [];
     
+    // La acción de entrega solo está disponible si el estado es TERMINADO y no ENTREGADO
+    const canDeliver = report.estado === 'TERMINADO';
+
     return (
         <div className="container mx-auto p-4 md:p-8">
             <div className="flex items-center justify-between mb-6">
@@ -380,7 +424,7 @@ function DetalleHistorial() {
                     </Link>
                     <h1 className="text-2xl font-bold">Diagnóstico Completo N° {report.reportNumber}</h1>
                 </div>
-                {report.estado === 'TERMINADO' && currentUser && (
+                {canDeliver && currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'SUPERUSER') && (
                     <button
                         onClick={handleOpenDeliveryModal}
                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"
@@ -394,11 +438,11 @@ function DetalleHistorial() {
                 
                 <div className="border-b pb-4 dark:border-gray-700">
                     <h2 className="text-xl font-semibold text-blue-500 mb-3">Datos de Recepción</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <p><strong>Cliente:</strong> {report.clientName}</p>
-                        <p><strong>Celular:</strong> {report.telefono || 'N/A'}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <p><strong>Cliente:</strong> {report.clientName || 'N/A'}</p>
+                        <p><strong>Teléfono:</strong> {report.telefono || 'N/A'}</p>
                         <p><strong>Fecha de Ingreso:</strong> {report.fecha} / {report.hora}</p>
-                        <p><strong>Estado Actual:</strong> <span className={`font-bold ${report.estado === 'ENTREGADO' ? 'text-green-500' : 'text-red-500'}`}>{report.estado}</span></p>
+                        <p><strong>Estado Actual:</strong> <span className={`font-bold ${report.estado === 'ENTREGADO' ? 'text-green-500' : report.estado === 'TERMINADO' ? 'text-orange-500' : 'text-red-500'}`}>{report.estado}</span></p>
                         {report.estado === 'ENTREGADO' && (
                             <>
                                 <p><strong>Fecha de Entrega:</strong> {report.fechaEntrega} / {report.horaEntrega}</p>
@@ -408,6 +452,7 @@ function DetalleHistorial() {
                                 )}
                             </>
                         )}
+                        <p><strong>Detalles de Pago:</strong> {report.detallesPago || 'N/A'}</p>
                     </div>
                 </div>
 
@@ -418,26 +463,17 @@ function DetalleHistorial() {
                         <p><strong>Marca:</strong> {report.marca || 'N/A'}</p>
                         <p><strong>Modelo:</strong> {report.modelo || 'N/A'}</p>
                         <p><strong>Serie:</strong> {report.serie || 'N/A'}</p>
+                        <p><strong>Sistema Operativo:</strong> {report.sistemaOperativo || 'N/A'}</p>
+                        <p><strong>Clave Bitlocker:</strong> {report.bitlockerKey ? 'Sí' : 'No'}</p>
                     </div>
                 </div>
 
                 <div className="border-b pb-4 dark:border-gray-700">
-                    <h2 className="text-xl font-semibold text-green-500 mb-3">Componentes y Accesorios</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        {filteredItems.length > 0 ? (
-                            filteredItems.map(item => (
-                                <p key={item.id} className="truncate">
-                                    <strong>{getComponentName(item.id, report.tipoEquipo)}:</strong> {item.detalles || 'OK'}
-                                </p>
-                            ))
-                        ) : (<p className="text-gray-500 col-span-2">No se registraron componentes específicos.</p>)}
-                        
-                        {(report.sistemaOperativo || report.bitlockerKey) && (
-                            <>
-                                {report.sistemaOperativo && <p><strong>S.O.:</strong> {report.sistemaOperativo}</p>}
-                                {report.bitlockerKey && <p><strong>Bitlocker Key:</strong> {report.bitlockerKey}</p>}
-                            </>
-                        )}
+                    <h2 className="text-xl font-semibold text-green-500 mb-3">Componentes y Accesorios (Inicial)</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                        {componentItems.length > 0 ? (
+                            componentItems.map(item => <ComponentItem key={item.id} item={item} />)
+                        ) : (<p className="text-gray-500 col-span-full">No se registraron componentes específicos.</p>)}
                     </div>
                 </div>
 
@@ -449,20 +485,28 @@ function DetalleHistorial() {
                     <p className="text-sm">
                         <strong>Observaciones:</strong> {report.observaciones || 'Sin observaciones adicionales.'}
                     </p>
-                </div>
-                
-                <div className="border-b pb-4 dark:border-gray-700">
-                    <h2 className="text-xl font-semibold text-indigo-500 mb-3">Asignación de Personal</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <p><strong>Técnico Recepción:</strong> {report.tecnicoRecepcion || 'N/A'}</p>
-                        <p><strong>Técnico Testeo:</strong> {report.tecnicoTesteo || 'N/A'}</p>
-                        <p><strong>Técnico Responsable:</strong> {report.tecnicoResponsable || 'N/A'}</p>
-                        <p><strong>Área Actual:</strong> {report.area || 'N/A'}</p>
-                        <p><strong>Técnico Actual:</strong> {report.tecnicoActual || 'N/A'}</p>
-                        <p><strong>Ubicación Física:</strong> {report.ubicacionFisica || 'N/A'}</p>
+                    {(report.hasAdditionalServices || report.additionalServices?.length > 0) && (
+                        <div className="mt-4 border-t pt-4 dark:border-gray-700">
+                            <h3 className="text-lg font-semibold text-pink-500 mb-2">Servicios Adicionales</h3>
+                            <ul className="list-disc list-inside text-sm">
+                                {report.additionalServices.map((service, index) => (
+                                    <li key={index}>{service.description} (S/ {parseFloat(service.amount).toFixed(2)})</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    <div className="mt-4 border-t pt-4 dark:border-gray-700">
+                        <h3 className="text-lg font-semibold text-red-500 mb-2">Resumen de Costos</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm font-bold">
+                            <p>Diagnóstico: S/ {report.diagnostico ? parseFloat(report.diagnostico).toFixed(2) : '0.00'}</p>
+                            <p>Servicio: S/ {report.montoServicio ? parseFloat(report.montoServicio).toFixed(2) : '0.00'}</p>
+                            <p>Total: S/ {report.total ? parseFloat(report.total).toFixed(2) : '0.00'}</p>
+                            <p>A Cuenta: S/ {report.aCuenta ? parseFloat(report.aCuenta).toFixed(2) : '0.00'}</p>
+                            <p>Saldo: S/ {report.saldo ? parseFloat(report.saldo).toFixed(2) : '0.00'}</p>
+                        </div>
                     </div>
                 </div>
-
+                
                 <div>
                     <h2 className="text-xl font-semibold text-red-500 mb-3">Historial Completo de Intervenciones</h2>
                     {flatHistory.length > 0 ? (
@@ -486,6 +530,7 @@ function DetalleHistorial() {
                             <p><strong>Informe N°:</strong> {report.reportNumber}</p>
                             <p><strong>Cliente:</strong> {report.clientName}</p>
                             <p><strong>Equipo:</strong> {report.tipoEquipo} - {report.marca} {report.modelo}</p>
+                            <p className="font-bold text-red-600 mt-2">¡Advertencia! Esta acción marcará el equipo como **ENTREGADO** y no se podrá modificar.</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1">Observación de Entrega (Opcional)</label>

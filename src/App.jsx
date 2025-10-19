@@ -27,7 +27,7 @@ function App() {
                 <Route path="/permission-denied" element={<PermissionDenied />} />
                 
                 <Route path="/" element={<Dashboard />}>
-                    <Route index element={<Home />} />
+                    <Route index element={<Clientes />} />
                     
                     <Route path="clientes" element={
                         <ProtectedRoute permissionId="clientes">
