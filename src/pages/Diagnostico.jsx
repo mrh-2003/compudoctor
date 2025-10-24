@@ -1026,7 +1026,26 @@ function Diagnostico() {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 text-yellow-500">
             Detalles del Servicio
-          </h2>
+          </h2> 
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-1">
+              Observaciones
+            </label>
+            <textarea
+              name="observaciones"
+              value={formData.observaciones}
+              onChange={handleInputChange}
+              rows="3"
+              className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                errors.observaciones ? "ring-2 ring-red-500" : ""
+              }`}
+              required
+              disabled={isReportFinalized}
+            ></textarea>
+            {errors.observaciones && (
+              <p className="text-red-500 text-sm mt-1">{errors.observaciones}</p>
+            )}
+          </div>
           <div>
             <label className="block text-sm font-medium mb-1">
               Motivo por el que ingresa
@@ -1046,25 +1065,6 @@ function Diagnostico() {
               <p className="text-red-500 text-sm mt-1">
                 {errors.motivoIngreso}
               </p>
-            )}
-          </div>
-          <div className="mt-4">
-            <label className="block text-sm font-medium mb-1">
-              Observaciones
-            </label>
-            <textarea
-              name="observaciones"
-              value={formData.observaciones}
-              onChange={handleInputChange}
-              rows="3"
-              className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
-                errors.observaciones ? "ring-2 ring-red-500" : ""
-              }`}
-              required
-              disabled={isReportFinalized}
-            ></textarea>
-            {errors.observaciones && (
-              <p className="text-red-500 text-sm mt-1">{errors.observaciones}</p>
             )}
           </div>
         </div>
