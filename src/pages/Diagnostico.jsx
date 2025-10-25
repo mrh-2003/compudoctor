@@ -91,8 +91,8 @@ function Diagnostico() {
         { id: "microfono", name: "Micrófono" }, { id: "parlantes", name: "Parlantes" },
         { id: "auriculares", name: "Auriculares" }, { id: "rj45", name: "RJ 45" }, { id: "hdmi", name: "HDMI" },
         { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, { id: "tipoC", name: "Tipo C" },
-        { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" }, { id: "otros", name: "Otros" },
-        { id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" }, { id: "tinta", name: "Cartuchos/Tinta" }, { id: "bandejas", name: "Bandejas" }
+        { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" }, { id: "rodillos", name: "Rodillos" }, 
+        { id: "cabezal", name: "Cabezal" }, { id: "tinta", name: "Cartuchos/Tinta" }, { id: "bandejas", name: "Bandejas" }, { id: "otros", name: "Otros" }
   ];
 
   const getComponentDisplayName = (id) => {
@@ -410,8 +410,8 @@ function Diagnostico() {
       return;
     }
 
-    const finalResponsible = formData.tecnicoResponsable || formData.tecnicoTesteo;
-    const finalResponsibleId = formData.tecnicoResponsableId || formData.tecnicoTesteoId;
+    const finalResponsible = formData.tecnicoResponsable;
+    const finalResponsibleId = formData.tecnicoResponsableId;
     
     try {
       const baseData = {

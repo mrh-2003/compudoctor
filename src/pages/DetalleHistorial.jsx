@@ -189,8 +189,8 @@ const ALL_COMPONENTS_MAP = {
     "bateria": "Batería", "cargador": "Cargador", "pantalla": "Pantalla", "teclado": "Teclado", 
     "camara": "Cámara", "microfono": "Micrófono", "parlantes": "Parlantes", "auriculares": "Auriculares", 
     "rj45": "RJ 45", "hdmi": "HDMI", "vga": "VGA", "usb": "USB", "tipoC": "Tipo C", 
-    "lectora": "Lectora", "touchpad": "Touchpad", "otros": "Otros", "rodillos": "Rodillos", 
-    "cabezal": "Cabezal", "tinta": "Cartuchos/Tinta", "bandejas": "Bandejas"
+    "lectora": "Lectora", "touchpad": "Touchpad", "rodillos": "Rodillos", 
+    "cabezal": "Cabezal", "tinta": "Cartuchos/Tinta", "bandejas": "Bandejas", "otros": "Otros"
 };
 
 const getComponentName = (itemId) => {

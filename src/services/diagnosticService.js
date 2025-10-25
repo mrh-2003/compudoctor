@@ -1,4 +1,3 @@
-// src/services/diagnosticService.js
 import { collection, getDocs, addDoc, query, orderBy, limit, doc, getDoc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -53,9 +52,11 @@ export const createDiagnosticReport = async (reportData) => {
 
 export const getAllDiagnosticReports = async () => {
     const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
-    const reportSnapshot = await getDocs(reportsCol);
+    const q = query(reportsCol, orderBy('reportNumber', 'desc'));  
+    const reportSnapshot = await getDocs(q);
     return reportSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
+
 
 export const getDiagnosticReportById = async (reportId) => {
     const reportDocRef = doc(db, DIAGNOSTICO_COLLECTION, reportId);
@@ -95,9 +96,51 @@ export const getClientById = async (clientId) => {
 
 export const getAllDiagnosticReportsByTechnician = async (technicianId) => {
     const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
-    const q = query(reportsCol, where('tecnicoActualId', '==', technicianId), where('estado', 'in', ['PENDIENTE', 'ASIGNADO']));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const qActual = query(
+        reportsCol,
+        where('tecnicoActualId', '==', technicianId),
+        where('estado', 'in', ['PENDIENTE', 'ASIGNADO']),
+        orderBy('reportNumber', 'desc')
+    );
+    const snapshotActual = await getDocs(qActual);
+    const reportsActual = snapshotActual.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const qResponsable = query(
+        reportsCol,
+        where('tecnicoResponsableId', '==', technicianId),
+        where('estado', 'in', ['PENDIENTE', 'ASIGNADO']),
+        orderBy('reportNumber', 'desc')
+    );
+    const snapshotResponsable = await getDocs(qResponsable);
+    let reportsResponsable = snapshotResponsable.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const allReportsMap = new Map();
+    reportsActual.forEach(report => allReportsMap.set(report.id, report));
+    reportsResponsable.forEach(report => {
+        if (!allReportsMap.has(report.id)) {
+            allReportsMap.set(report.id, report);
+        }
+    });
+
+    return Array.from(allReportsMap.values());
+};
+
+export const startDiagnosticReport = async (reportId) => {
+    const reportDocRef = doc(db, DIAGNOSTICO_COLLECTION, reportId);
+    const reportDocSnap = await getDoc(reportDocRef);
+
+    if (reportDocSnap.exists()) {
+        const reportData = reportDocSnap.data();
+        if (reportData.estado === 'ASIGNADO') {
+            await updateDoc(reportDocRef, {
+                estado: 'PENDIENTE',
+            });
+            return true;
+        }
+        return reportData.estado === 'PENDIENTE';
+    }
+    return false;
 };
 
 export const getAllDiagnosticReportsByClientId = async (clientId) => {

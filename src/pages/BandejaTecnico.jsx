@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAllDiagnosticReportsByTechnician } from '../services/diagnosticService';
+import { getAllDiagnosticReportsByTechnician, startDiagnosticReport } from '../services/diagnosticService';
 import { Link } from 'react-router-dom';
 import { FaTasks, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import toast from 'react-hot-toast';
@@ -38,26 +38,35 @@ function BandejaTecnico() {
         setIsLoading(false);
     };
 
+    const handleStartTask = async (reportId, currentStatus, status) => {
+        if (currentStatus === 'ASIGNADO' && status) {
+            const started = await startDiagnosticReport(reportId);
+            if (started) {
+                toast.success('Tarea iniciada. Estado actualizado a PENDIENTE.');
+                fetchReports(); // Refrescar la lista para reflejar el cambio de estado
+            } else {
+                toast('El estado ya fue actualizado o no pudo ser cambiado.', { icon: 'ℹ️' });
+            }
+        }
+    };
+
     const filteredReports = useMemo(() => {
         const reportsFilteredByTaskLogic = allTechReports
             .map(report => {
-                const areaHistory = report.diagnosticoPorArea?.[report.area] || [];
+                const isActualTech = report.tecnicoActualId === currentUser.uid;
+                const isResponsibleTech = report.tecnicoResponsableId === currentUser.uid;
+
+                // Solo mostrar si el estado no es TERMINADO o ENTREGADO
+                if (report.estado === 'TERMINADO' || report.estado === 'ENTREGADO') {
+                    return null;
+                }
                 
-                const currentTask = areaHistory.findLast(
-                    (entry) => entry.tecnicoId === currentUser.uid && entry.estado !== 'TERMINADO'
-                );
-
-                let taskState = report.estado;
-
-                if (currentTask) {
-                    taskState = currentTask.estado;
-                } else if (report.tecnicoActualId === currentUser.uid) {
-                    taskState = report.estado;
+                // Si el usuario es el Tecnico Actual o Responsable, incluimos el reporte.
+                if (isActualTech || isResponsibleTech) {
+                    const taskState = report.estado; 
+                    return { ...report, isActualTech, isResponsibleTech, taskState };
                 }
 
-                if (taskState === 'PENDIENTE' || taskState === 'ASIGNADO') {
-                    return { ...report, taskState };
-                }
                 return null;
             })
             .filter(report => report !== null);
@@ -131,6 +140,8 @@ function BandejaTecnico() {
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Ingreso</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cliente</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Equipo</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Marca / Modelo</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Tecnico Asignado</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Área</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Estado Tarea</th>
                             <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
@@ -143,6 +154,8 @@ function BandejaTecnico() {
                                 <td className="px-6 py-4 whitespace-nowrap">{report.fecha} {report.hora}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.clientName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tipoEquipo}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.marca} / {report.modelo}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoActual}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.area}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${STATUS_COLORS[report.taskState || report.estado]}`}>
@@ -151,7 +164,14 @@ function BandejaTecnico() {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-4">
-                                        <Link to={`/bandeja-tecnico/${report.id}`} className="text-blue-500 hover:text-blue-700" title="Ver y Atender"><FaTasks /></Link>
+                                        <Link 
+                                            to={`/bandeja-tecnico/${report.id}`} 
+                                            onClick={() => handleStartTask(report.id, report.estado, report.tecnicoActual == currentUser.nombre)} 
+                                            className="text-blue-500 hover:text-blue-700" 
+                                            title="Ver y Atender"
+                                        >
+                                            <FaTasks />
+                                        </Link>
                                     </div>
                                 </td>
                             </tr>
@@ -185,7 +205,7 @@ function BandejaTecnico() {
                         disabled={currentPage === totalPages || totalPages === 0}
                         className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                        <FaChevronRight />
+                       < FaChevronRight />
                     </button>
                 </div>
             </div>
