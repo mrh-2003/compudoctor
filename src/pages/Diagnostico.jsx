@@ -736,7 +736,10 @@ function Diagnostico() {
     newWindow.document.write(printContent);
     newWindow.document.close();
     newWindow.focus();
-    newWindow.print();
+    
+    setTimeout(() => {
+  newWindow.print();
+}, 300);
   };
 
 
