@@ -91,6 +91,9 @@ function ClientHistory() {
     if (!client) {
         return <div className="text-center p-8 text-red-500">Cliente no encontrado.</div>;
     }
+    
+    const isJuridica = client.tipoPersona === 'JURIDICA';
+    const contactName = `${client.nombre || ''} ${client.apellido || ''}`.trim();
 
     return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -104,8 +107,20 @@ function ClientHistory() {
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700 mb-6">
                 <h2 className="text-xl font-semibold text-blue-500 mb-4">Datos del Cliente</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <p><strong>Nombre:</strong> {client.nombre}</p> 
-                    <p><strong>Teléfono:</strong> {client.telefono || 'N/A'}</p>
+                    <p><strong>Tipo de Persona:</strong> {isJuridica ? 'Jurídica (Empresa)' : 'Natural'}</p>
+                    
+                    {isJuridica ? (
+                        <>
+                            <p className='col-span-full'><strong>RUC / Razón Social:</strong> {client.ruc || 'N/A'} / {client.razonSocial || 'N/A'}</p>
+                            <p><strong>Nombre de Contacto:</strong> {contactName || 'N/A'}</p>
+                            <p><strong>Teléfono de Contacto:</strong> {client.telefono || 'N/A'}</p>
+                        </>
+                    ) : (
+                        <>
+                            <p><strong>Nombre Completo:</strong> {contactName || 'N/A'}</p> 
+                            <p><strong>Teléfono:</strong> {client.telefono || 'N/A'}</p>
+                        </>
+                    )}
                     <p><strong>Email:</strong> {client.correo || 'N/A'}</p>
                 </div>
             </div>

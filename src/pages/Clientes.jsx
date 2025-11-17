@@ -5,41 +5,119 @@ import { getAllClients, createClient, updateClient, deleteClient } from '../serv
 import Modal from '../components/common/Modal'
 import { FaPlus, FaEdit, FaTrash, FaEye, FaChevronLeft, FaChevronRight } from 'react-icons/fa'
 import { FiPlus } from 'react-icons/fi'
+import toast from 'react-hot-toast'
 
 function ClientForm({ client, onSave, onCancel }) {
   const [formData, setFormData] = useState({
-    nombre: client?.nombre || '',
-    telefono: client?.telefono || '',
-    correo: client?.correo || '',
-  })
+    tipoPersona: client?.tipoPersona || 'NATURAL',
+    nombre: client?.nombre || '', // Nombre de la persona natural o contacto
+    apellido: client?.apellido || '', // Apellido de la persona natural o contacto
+    telefono: client?.telefono || '', // Teléfono de la persona natural o contacto
+    correo: client?.correo || '', // Opcional
+    // Campos Jurídica
+    ruc: client?.ruc || '',
+    razonSocial: client?.razonSocial || '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const isEditing = !!client;
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
   
   const handleSubmit = async (e) => { 
-    e.preventDefault()
-    onSave(formData)
+    e.preventDefault();
+
+    // Validaciones del lado del cliente (para campos obligatorios visibles)
+    const requiredFields = [];
+    if (formData.tipoPersona === 'NATURAL') {
+        requiredFields.push({ field: 'nombre', name: 'Nombre' }, { field: 'apellido', name: 'Apellido' }, { field: 'telefono', name: 'Teléfono' });
+    } else if (formData.tipoPersona === 'JURIDICA') {
+        requiredFields.push(
+            { field: 'ruc', name: 'RUC' }, 
+            { field: 'razonSocial', name: 'Razón Social' }, 
+            { field: 'nombre', name: 'Nombre de Contacto' }, 
+            { field: 'apellido', name: 'Apellido de Contacto' },
+            { field: 'telefono', name: 'Teléfono de Contacto' }
+        );
+    } else {
+        toast.error("El tipo de persona es obligatorio.");
+        return;
+    }
+
+    for (const { field, name } of requiredFields) {
+        if (!formData[field] || String(formData[field]).trim() === '') {
+            toast.error(`El campo "${name}" es obligatorio.`);
+            return;
+        }
+    }
+    
+    setIsSaving(true);
+    await onSave(formData);
+    setIsSaving(false);
   }
 
   return (
     <form onSubmit={handleSubmit}>
       <h2 className="text-xl font-bold p-4 border-b dark:border-gray-600">{client ? 'Editar' : 'Agregar'} Cliente</h2>
       <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+        {/* Tipo de Persona (Obligatorio) */}
         <div>
-          <label className="block text-sm font-medium mb-1">Nombre</label>
-          <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
+            <label className="block text-sm font-medium mb-1">Tipo de Persona (Obligatorio)</label>
+            <select
+                name="tipoPersona"
+                value={formData.tipoPersona}
+                onChange={handleChange}
+                className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600"
+                required
+                disabled={isEditing}
+            >
+                <option value="NATURAL">Persona Natural</option>
+                <option value="JURIDICA">Persona Jurídica (Empresa)</option>
+            </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Teléfono</label>
-          <input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
+        
+        {/* Campos Persona Jurídica */}
+        {formData.tipoPersona === 'JURIDICA' && (
+            <>
+                <div>
+                    <label className="block text-sm font-medium mb-1">RUC (Obligatorio)</label>
+                    <input type="text" name="ruc" value={formData.ruc} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1">Razón Social (Obligatorio)</label>
+                    <input type="text" name="razonSocial" value={formData.razonSocial} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
+                </div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mt-4 border-t pt-4">Datos de Contacto (Obligatorios)</h3>
+            </>
+        )}
+        
+        {/* Campos Persona Natural / Contacto (si es Jurídica) */}
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Nombre (Obligatorio)' : 'Nombre de Contacto (Obligatorio)'}</label>
+                <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
+            </div>
+            <div>
+                <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Apellido (Obligatorio)' : 'Apellido de Contacto (Obligatorio)'}</label>
+                <input type="text" name="apellido" value={formData.apellido} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
+            </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Correo (Opcional)</label>
-          <input type="email" name="correo" value={formData.correo} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" />
+        
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Teléfono (Obligatorio)' : 'Teléfono de Contacto (Obligatorio)'}</label>
+                <input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
+            </div>
+            <div>
+                <label className="block text-sm font-medium mb-1">Correo (Opcional)</label>
+                <input type="email" name="correo" value={formData.correo} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" />
+            </div>
         </div>
       </div>
       <div className="flex justify-end space-x-2 bg-gray-100 dark:bg-gray-900 p-4 border-t dark:border-gray-600">
-        <button type="button" onClick={onCancel} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-        <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Guardar</button>
+        <button type="button" onClick={onCancel} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg" disabled={isSaving}>Cancelar</button>
+        <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg disabled:bg-blue-300" disabled={isSaving}>
+            {isSaving ? (isEditing ? 'Guardando...' : 'Agregando...') : 'Guardar'}
+        </button>
       </div>
     </form>
   )
@@ -117,7 +195,6 @@ function Clientes() {
   }
 
   const handleSaveClient = async (clientData) => {
-    handleCloseModal()
     try {
       if (editingClient && editingClient.id) {
         await updateClient(editingClient.id, clientData)
@@ -126,17 +203,21 @@ function Clientes() {
         await createClient(clientData)
         showNotification('Cliente agregado con éxito', 'success')
       }
+      handleCloseModal()
       fetchClients()
     } catch (error) {
       showNotification(error.message, 'error')
+      // Important: The form component handles re-enabling the button.
+      throw error; // Re-throw the error so the calling component can catch it if needed.
     }
   }
 
   const handleDeleteRequest = (client) => {
+    const displayId = client.tipoPersona === 'JURIDICA' ? client.razonSocial : `${client.nombre} ${client.apellido}`;
     setConfirmation({
       isOpen: true,
       title: 'Eliminar Cliente',
-      message: `¿Estás seguro de que quieres eliminar a ${client.nombre}? Esta acción es irreversible.`,
+      message: `¿Estás seguro de que quieres eliminar a ${displayId}? Esta acción es irreversible.`,
       onConfirm: () => handleDeleteClient(client.id),
     })
   }
@@ -156,9 +237,13 @@ function Clientes() {
     if (!searchTerm) {
       return allClients;
     }
+    const lowerCaseSearch = searchTerm.toLowerCase();
     return allClients.filter(client =>
-      client.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.telefono.toLowerCase().includes(searchTerm.toLowerCase())
+      client.nombre.toLowerCase().includes(lowerCaseSearch) ||
+      client.apellido?.toLowerCase().includes(lowerCaseSearch) ||
+      client.razonSocial?.toLowerCase().includes(lowerCaseSearch) ||
+      client.ruc?.toLowerCase().includes(lowerCaseSearch) ||
+      client.telefono.toLowerCase().includes(lowerCaseSearch)
     );
   }, [allClients, searchTerm]);
 
@@ -206,7 +291,7 @@ function Clientes() {
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Buscar por nombre o teléfono..."
+          placeholder="Buscar por nombre, apellido, RUC o teléfono..."
           value={searchTerm}
           onChange={(e) => {
             setSearchTerm(e.target.value);
@@ -220,7 +305,10 @@ function Clientes() {
         <table className="min-w-full">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Nombre</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Tipo</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">RUC / Razón Social</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Nombre Contacto</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Apellido Contacto</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Teléfono</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Correo</th>
               <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
@@ -229,7 +317,12 @@ function Clientes() {
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {paginatedClients.map((client) => (
               <tr key={client.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <td className="px-6 py-4 whitespace-nowrap">{client.tipoPersona === 'JURIDICA' ? 'Jurídica' : 'Natural'}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                    {client.tipoPersona === 'JURIDICA' ? `${client.ruc} / ${client.razonSocial}` : 'N/A'}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">{client.nombre}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{client.apellido || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{client.telefono}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{client.correo || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap">

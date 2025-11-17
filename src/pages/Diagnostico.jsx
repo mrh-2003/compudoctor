@@ -147,9 +147,15 @@ function Diagnostico() {
           const report = await getDiagnosticReportById(diagnosticoId);
           if (report) {
             const client = await getClientById(report.clientId);
+            
+            // Lógica para formatear la etiqueta del cliente en edición
+            const clientDisplay = client.tipoPersona === 'JURIDICA' 
+                ? `${client.razonSocial} (RUC: ${client.ruc})` 
+                : `${client.nombre} ${client.apellido}`;
+
             setSelectedClient({
               value: client.id,
-              label: client.nombre,
+              label: clientDisplay,
               data: client,
             });
             setReportNumber(report.reportNumber.toString().padStart(6, "0"));
@@ -184,9 +190,12 @@ function Diagnostico() {
           if (clientIdFromUrl) {
             const client = await getClientById(clientIdFromUrl);
             if (client) {
+                const clientDisplay = client.tipoPersona === 'JURIDICA' 
+                    ? `${client.razonSocial} (RUC: ${client.ruc})` 
+                    : `${client.nombre} ${client.apellido}`;
                 setSelectedClient({
                     value: client.id,
-                    label: `${client.nombre} (${client.telefono})`,
+                    label: clientDisplay,
                     data: client,
                 });
             }
@@ -413,14 +422,23 @@ function Diagnostico() {
     const finalResponsible = formData.tecnicoResponsable;
     const finalResponsibleId = formData.tecnicoResponsableId;
     
+    // Lógica para determinar el nombre del cliente y el teléfono de contacto
+    let clientReportName = '';
+    const clientData = selectedClient.data;
+    if (clientData.tipoPersona === 'JURIDICA') {
+        clientReportName = clientData.razonSocial;
+    } else {
+        clientReportName = `${clientData.nombre} ${clientData.apellido}`;
+    }
+
     try {
       const baseData = {
         ...formData,
         tecnicoResponsable: finalResponsible,
         tecnicoResponsableId: finalResponsibleId,
         clientId: selectedClient.value,
-        clientName: selectedClient.label.split('(')[0].trim(),
-        telefono: selectedClient.data?.telefono,
+        clientName: clientReportName, // Guardamos la Razón Social o Nombre Apellido
+        telefono: clientData.telefono, // Guardamos el teléfono de contacto
         additionalServices: showAdditionalServices ? additionalServices : [],
         hasAdditionalServices: showAdditionalServices && additionalServices.length > 0,
         diagnostico: parseFloat(formData.diagnostico),
@@ -515,6 +533,12 @@ function Diagnostico() {
       return;
     }
 
+    const clientDisplay = selectedClient?.data?.tipoPersona === 'JURIDICA' 
+        ? selectedClient.data.razonSocial 
+        : `${selectedClient.data.nombre} ${selectedClient.data.apellido}`;
+
+    const clientPhone = selectedClient?.data?.telefono || "N/A";
+
     const printContent = `
       <html>
         <head>
@@ -602,11 +626,11 @@ function Diagnostico() {
             <div class="report-info">
               <div class="flex-row" style="margin-bottom: 15px;">
                 <div>
-                  <span class="font-bold">Cliente:</span> ${selectedClient?.label.split('(')[0].trim()}
+                  <span class="font-bold">Cliente:</span> ${clientDisplay}
                 </div>
                 <div>
                   <span class="font-bold">Celular:</span> ${
-                    selectedClient?.data?.telefono || "N/A"
+                    clientPhone
                   }
                 </div>
                 <div>
@@ -792,7 +816,7 @@ function Diagnostico() {
             <Select
               options={clients.map((c) => ({
                 value: c.id,
-                label: `${c.nombre} (${c.telefono})`,
+                label: c.display, // Usar el nuevo campo display
                 data: c,
               }))}
               value={selectedClient}

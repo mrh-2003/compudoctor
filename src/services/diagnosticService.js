@@ -81,7 +81,23 @@ export const deleteDiagnosticReport = async (reportId) => {
 export const getAllClientsForSelection = async () => {
     const clientsCollection = collection(db, 'clientes');
     const clientsSnapshot = await getDocs(clientsCollection);
-    return clientsSnapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre, telefono: doc.data().telefono, correo: doc.data().correo }));
+    return clientsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        const clientNameDisplay = data.tipoPersona === 'JURIDICA' 
+            ? `${data.razonSocial} (RUC: ${data.ruc})` 
+            : `${data.nombre} ${data.apellido}`;
+        return { 
+            id: doc.id, 
+            nombre: data.nombre, 
+            apellido: data.apellido,
+            telefono: data.telefono, 
+            correo: data.correo,
+            tipoPersona: data.tipoPersona,
+            ruc: data.ruc,
+            razonSocial: data.razonSocial,
+            display: clientNameDisplay, // Campo para mostrar en el Select
+        }
+    });
 };
 
 export const getClientById = async (clientId) => {
