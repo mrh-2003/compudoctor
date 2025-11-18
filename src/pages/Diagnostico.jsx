@@ -29,6 +29,14 @@ const MANDATORY_COMPONENT_IDS = [
     "microfono", "parlantes"
 ];
 
+const OTHER_EQUIPMENT_OPTIONS = [
+    { value: "", label: "Selecciona el componente principal" },
+    { value: "TARJETA_VIDEO", label: "Tarjeta de Video" },
+    { value: "PLACA_MADRE_LAPTOP", label: "Placa Madre Laptop" },
+    { value: "PLACA_MADRE_PC", label: "Placa Madre PC" },
+    { value: "OTRO_DESCRIPCION", label: "Otro (Especificar)" },
+];
+
 // Componente auxiliar para el formulario de Nuevo Cliente
 function NewClientForm({ onSave, onCancel }) {
     const [formData, setFormData] = useState({
@@ -172,6 +180,8 @@ function Diagnostico() {
   const [reportNumber, setReportNumber] = useState("");
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // ESTADO PARA CONCURRENCIA
+  const [otherComponentType, setOtherComponentType] = useState(""); // NUEVO: Para Tipo de Equipo 'Otros'
+  const [otherDescription, setOtherDescription] = useState(""); // NUEVO: Para Tipo de Equipo 'Otros'
   const [formData, setFormData] = useState({
     tipoEquipo: "",
     marca: "",
@@ -232,7 +242,7 @@ function Diagnostico() {
         { id: "hdmi", name: "HDMI" }, { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, 
         { id: "tipoC", name: "Tipo C" }, { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" },
         { id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" }, { id: "tinta", name: "Cartuchos/Tinta" }, 
-        { id: "bandejas", name: "Bandejas" }, { id: "cables", name: "CABLES" } // NUEVO CABLES
+        { id: "bandejas", name: "Bandejas" }, { id: "cables", name: "Cables" } // Corregido a minúsculas
     ];
     // Asegura que "Otros" esté al final
     return [...standardComponents.filter(c => c.id !== 'otros'), { id: "otros", name: "Otros" }];
@@ -252,26 +262,26 @@ function Diagnostico() {
     
     switch (type) {
         case 'PC':
-            // Excluir elementos móviles, impresora y algunos comunes. INCLUYE HDMI.
+            // Excluir elementos móviles, impresora y algunos comunes. NO CABLES.
             return all.filter(c => 
-                !['bateria', 'cargador', 'pantalla', 'teclado', 'camara', 'microfono', 'parlantes', 'auriculares', 'tipoC', 'touchpad', 'vga', 'lectora', ...printerExclusive].includes(c.id) 
+                !['bateria', 'cargador', 'pantalla', 'teclado', 'camara', 'microfono', 'parlantes', 'auriculares', 'tipoC', 'touchpad', 'vga', 'lectora', 'cables', ...printerExclusive].includes(c.id) 
             ); 
         case 'Laptop':
-            // Excluir elementos de PC fijos e impresora. INCLUYE VGA.
+            // Excluir elementos de PC fijos e impresora. NO CABLES.
             return all.filter(c => 
-                !['lectora', ...printerExclusive].includes(c.id)
+                !['lectora', 'cables', ...printerExclusive].includes(c.id)
             ); 
         case 'Allinone':
-            // Excluir elementos móviles y impresora. INCLUYE HDMI Y PARLANTES.
+            // Excluir elementos móviles y impresora. NO CABLES.
             return all.filter(c => 
-                !['bateria', 'cargador', 'microfono', 'auriculares', 'tipoC', 'touchpad', 'lectora', 'vga', 'teclado', 'pantalla', 'camara', ...printerExclusive].includes(c.id)
+                !['bateria', 'cargador', 'microfono', 'auriculares', 'tipoC', 'touchpad', 'lectora', 'vga', 'teclado', 'pantalla', 'camara', 'cables', ...printerExclusive].includes(c.id)
             );
         case 'Impresora':
-            // Incluir elementos de impresora + cables + otros
+            // Incluir elementos de impresora + cables + otros. SOLO AQUI INCLUYE CABLES.
             return all.filter(c => [...printerExclusive, 'cables', 'otros'].includes(c.id));
         case 'Otros':
-            // Excluir solo elementos de impresora
-            return all.filter(c => !printerExclusive.includes(c.id));
+            // Excluir solo elementos de impresora Y CABLES
+            return all.filter(c => !printerExclusive.includes(c.id) && c.id !== 'cables');
         default:
             return [];
     }
@@ -322,6 +332,12 @@ function Diagnostico() {
             
             const tecnicoTesteoOption = userOptions.find(u => u.label === report.tecnicoTesteo);
             const tecnicoResponsableOption = userOptions.find(u => u.label === report.tecnicoResponsable);
+
+            // Cargar estados específicos del componente 'Otros' si es el caso
+            if (report.tipoEquipo === 'Otros') {
+                setOtherComponentType(report.otherComponentType || "");
+                setOtherDescription(report.otherDescription || "");
+            }
 
             setFormData({
               ...report,
@@ -457,6 +473,21 @@ function Diagnostico() {
       }));
       return;
     }
+    
+    if (name === 'otherComponentType') {
+        setOtherComponentType(value);
+        if (value === 'OTRO_DESCRIPCION') {
+            setOtherDescription('');
+        } else {
+            setOtherDescription(OTHER_EQUIPMENT_OPTIONS.find(o => o.value === value)?.label || '');
+        }
+        return;
+    }
+    
+    if (name === 'otherDescription') {
+        setOtherDescription(value);
+        return;
+    }
 
     setFormData((prev) => ({
       ...prev,
@@ -516,12 +547,16 @@ function Diagnostico() {
           detalles: "",
     })) || [];
     
+    setOtherComponentType("");
+    setOtherDescription("");
+
     setFormData((prev) => ({
       ...prev,
       tipoEquipo: value,
       items: newItems,
       sistemaOperativo: "",
       bitlockerKey: false,
+      modelo: value === 'Otros' ? '' : prev.modelo, // El modelo es opcional si es "Otros"
     }));
   };
 
@@ -575,11 +610,10 @@ function Diagnostico() {
   const validateForm = () => {
     const newErrors = {};
     
-    // Lista de campos obligatorios que no dependen de 'canTurnOn' ni de 'area'
+    // Lista de campos obligatorios generales
     const requiredGeneralFields = [
       { field: "tipoEquipo", message: "El Tipo de Equipo es obligatorio." },
       { field: "marca", message: "La Marca es obligatoria." },
-      { field: "modelo", message: "El Modelo es obligatorio." },
       { field: "motivoIngreso", message: "El Motivo de Ingreso es obligatorio." },
       { field: "observaciones", message: "Las Observaciones son obligatorias." },
       { field: "canTurnOn", message: "La opción '¿Enciende?' es obligatoria." }, 
@@ -589,61 +623,101 @@ function Diagnostico() {
       newErrors.client = "Seleccionar un cliente es obligatorio.";
     }
 
-    // Check General Required Fields (excluyendo 'area' y 'serie' por ahora)
+    // 1. Check General Required Fields
     requiredGeneralFields.forEach(({ field, message }) => {
-      if (!formData[field]) {
-        newErrors[field] = message;
+      if (!String(formData[field])) {
+          // Excluir Modelo si es "Otros"
+          if (field === 'modelo' && formData.tipoEquipo === 'Otros') return;
+          newErrors[field] = message;
       }
     });
 
-    // CONDITIONAL REQUIREMENT FOR SERIE
+    // 2. CONDITIONAL REQUIREMENT FOR SERIE
     const isSerieRequired = !['Allinone', 'PC', 'Otros'].includes(formData.tipoEquipo);
 
     if (isSerieRequired && !formData.serie) {
         newErrors.serie = "La Serie es obligatoria.";
     } 
     
-    // FIX BUG 1: CONDITIONAL REQUIREMENT FOR AREA
-    const isAreaRequired = formData.canTurnOn === 'SI';
-    
-    if (isAreaRequired && !formData.area) {
-        newErrors.area = "El Área de Destino es obligatoria."; // Only enforced if SI PRENDE
+    // 3. CONDITIONAL REQUIREMENTS FOR TIPO DE EQUIPO 'OTROS'
+    if (formData.tipoEquipo === 'Otros') {
+        if (!otherComponentType) {
+            newErrors.otherComponentType = "Debe seleccionar el tipo de componente principal.";
+        }
+        if (otherComponentType === 'OTRO_DESCRIPCION' && !otherDescription) {
+            newErrors.otherDescription = "Debe especificar la descripción.";
+        }
     }
     
-    // Check TecnicoTesteo only if SI PRENDE
-    const technicianRequired = formData.canTurnOn === 'SI';
-    
-    if (technicianRequired && !formData.tecnicoTesteoId) {
-        newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio si el equipo enciende.";
-    }
-    
-    // Check Sistema Operativo only if SI PRENDE
-    const isOSRequired = ['PC', 'Laptop'].includes(formData.tipoEquipo) && formData.canTurnOn === 'SI';
-    if (isOSRequired && !formData.sistemaOperativo) {
-        newErrors.sistemaOperativo = "El Sistema Operativo es obligatorio para PC/Laptop si el equipo enciende.";
-    }
-    
-    // Componentes y Accesorios validation (Mandatory only if SI PRENDE)
-    const componentsValidationEnabled = formData.canTurnOn === 'SI' && !['Impresora'].includes(formData.tipoEquipo);
-    
-    if (componentsValidationEnabled) {
-        const availableComponentIds = COMPONENT_OPTIONS[formData.tipoEquipo]?.map(c => c.id) || [];
-
-        const mandatoryCheckIds = MANDATORY_COMPONENT_IDS.filter(id => availableComponentIds.includes(id));
+    // 4. CONDITIONAL REQUIREMENTS ONLY IF "SI PRENDE"
+    if (formData.canTurnOn === 'SI') {
         
-        mandatoryCheckIds.forEach(mandatoryId => {
-            const item = formData.items.find(i => i.id === mandatoryId);
-            
-            if (!item || !item.detalles) { 
-                newErrors[mandatoryId] = `Detalle de ${getComponentDisplayName(mandatoryId)} es obligatorio.`;
-            }
-        });
-    }
+        // Area de Destino 
+        if (!formData.area) {
+            newErrors.area = "El Área de Destino es obligatoria.";
+        }
+        
+        // Técnico de Testeo
+        if (!formData.tecnicoTesteoId) {
+            newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio si el equipo enciende.";
+        }
+        
+        // Sistema Operativo (if PC/Laptop)
+        const isOSRequired = ['PC', 'Laptop'].includes(formData.tipoEquipo);
+        if (isOSRequired && !formData.sistemaOperativo) {
+            newErrors.sistemaOperativo = "El Sistema Operativo es obligatorio para PC/Laptop si el equipo enciende.";
+        }
+        
+        // Componentes y Accesorios validation (Detalles obligatorios)
+        const componentsValidationEnabled = !['Impresora', 'Otros'].includes(formData.tipoEquipo);
+        
+        if (componentsValidationEnabled) {
+            const availableComponentIds = COMPONENT_OPTIONS[formData.tipoEquipo]?.map(c => c.id) || [];
 
+            const mandatoryCheckIds = MANDATORY_COMPONENT_IDS.filter(id => availableComponentIds.includes(id));
+            
+            mandatoryCheckIds.forEach(mandatoryId => {
+                const item = formData.items.find(i => i.id === mandatoryId);
+                
+                // Requerir el llenado de detalles si es un campo obligatorio y el equipo enciende
+                if (!item || !item.detalles) { 
+                    newErrors[mandatoryId] = `Detalle de ${getComponentDisplayName(mandatoryId)} es obligatorio.`;
+                }
+            });
+        }
+        
+        // Manejar validación de detalles para TIPO EQUIPO 'OTROS'
+        if (formData.tipoEquipo === 'Otros' && otherComponentType) {
+             const itemsToCheck = [];
+             if (otherComponentType === 'TARJETA_VIDEO') {
+                 // Aquí solo es obligatorio 'otros' (representando la Tarjeta de Video)
+                 itemsToCheck.push('otros');
+             } else if (otherComponentType.startsWith('PLACA_MADRE')) {
+                 // Aquí son obligatorios los componentes relacionados a la placa
+                 itemsToCheck.push('procesador', 'tarjetaVideo', 'memoriaRam', 'otros');
+             }
+             
+             itemsToCheck.forEach(itemId => {
+                const item = formData.items.find(i => i.id === itemId);
+                
+                const isDetailRequired = (otherComponentType.startsWith('PLACA_MADRE') || otherComponentType === 'TARJETA_VIDEO');
+
+                if (isDetailRequired && (!item || !item.detalles)) {
+                    // Solo requerir el detalle si no es OTRO_DESCRIPCION
+                    if (otherComponentType === 'OTRO_DESCRIPCION') {
+                         // Detalle es opcional para OTRO_DESCRIPCION
+                    } else {
+                        newErrors[itemId] = `Detalle de ${getComponentDisplayName(itemId)} es obligatorio.`;
+                    }
+                }
+             });
+        }
+    }
+    
+    // 5. Monto Servicio (Always required)
     if (!formData.montoServicio || formData.montoServicio <= 0) {
         newErrors.montoServicio = "El Monto del Servicio es obligatorio y debe ser mayor a 0.";
     }
-
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -694,6 +768,18 @@ function Diagnostico() {
         total: parseFloat(formData.total),
         canTurnOn: formData.canTurnOn, 
       };
+      
+      // Adjuntar la descripción del equipo 'Otros' si aplica
+      if (formData.tipoEquipo === 'Otros') {
+          baseData.otherComponentType = otherComponentType;
+          baseData.otherDescription = otherDescription;
+          // Actualizar observaciones con la descripción si se ha llenado
+          if (otherComponentType !== 'OTRO_DESCRIPCION' && otherDescription) {
+              baseData.observaciones = `${otherDescription}. ${baseData.observaciones}`.trim();
+          } else if (otherComponentType === 'OTRO_DESCRIPCION' && otherDescription) {
+              baseData.observaciones = `${otherDescription} (Tipo: Otro). ${baseData.observaciones}`.trim();
+          }
+      }
 
       if(!baseData.tecnicoActual || !baseData.tecnicoActualId) {
         baseData.tecnicoActual = finalResponsible;
@@ -742,6 +828,74 @@ function Diagnostico() {
   const displayTime = isNewReport ? getToday.time : formData.hora;
 
   const showTecnicoResponsable = currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN');
+  
+  // Lógica para determinar qué campos de Componentes se habilitan/hacen opcionales para "Otros"
+  const getOtherComponentAvailability = (itemId) => {
+    const isCheckOptional = formData.canTurnOn === 'SI'; // Se puede marcar si enciende.
+    let isAvailable = false;
+    let isCheckDisabled = true; 
+    let isDetailRequired = false;
+    let isDetailDisabled = isReportFinalized;
+
+    if (formData.tipoEquipo !== 'Otros') {
+        const isMandatoryInGeneral = isMandatoryComponentForCurrentType(itemId, formData.tipoEquipo);
+        return { 
+            isAvailable: true, 
+            isCheckDisabled: isReportFinalized || formData.canTurnOn === 'NO', 
+            isDetailRequired: isMandatoryInGeneral && formData.canTurnOn === 'SI', 
+            isDetailDisabled: isReportFinalized 
+        };
+    }
+    
+    // Lógica específica para Tipo de Equipo 'Otros'
+    switch (otherComponentType) {
+        case 'TARJETA_VIDEO':
+            // 1.1: Solo 'otros' (representando la Tarjeta de Video)
+            if (itemId === 'otros') { 
+                isAvailable = true;
+                isCheckDisabled = !isCheckOptional; // Checkable si enciende
+                isDetailRequired = isCheckOptional; // Detalle requerido si enciende
+            } else {
+                isAvailable = false; 
+                isCheckDisabled = true;
+            }
+            break;
+        case 'PLACA_MADRE_LAPTOP':
+        case 'PLACA_MADRE_PC':
+            // 1.2: PROCESADOR / TARJETA_VIDEO / MEMORIA_RAM / OTROS
+            if (['procesador', 'tarjetaVideo', 'memoriaRam', 'otros'].includes(itemId)) {
+                isAvailable = true;
+                isCheckDisabled = !isCheckOptional;
+                isDetailRequired = isCheckOptional; // Todos estos son opcionales para marcar/llenar si enciende
+            } else {
+                isAvailable = false;
+                isCheckDisabled = true;
+            }
+            break;
+        case 'OTRO_DESCRIPCION':
+            // 1.3: Solo 'otros' (para rellenar detalles)
+            if (itemId === 'otros') { 
+                 isAvailable = true;
+                 isCheckDisabled = true; // El check no se usa
+                 isDetailRequired = false; // Detalle no es obligatorio
+            } else {
+                isAvailable = false;
+                isCheckDisabled = true;
+            }
+            break;
+        default:
+            // Si no se selecciona nada, solo 'otros' es visible para rellenar detalles.
+            if (itemId === 'otros') { 
+                 isAvailable = true;
+                 isCheckDisabled = true; 
+                 isDetailRequired = false; 
+            }
+            break;
+    }
+    
+    return { isAvailable, isCheckDisabled, isDetailRequired, isDetailDisabled };
+  };
+
 
   const generateComponentHtml = (item) => {
     const componentName = getComponentDisplayName(item.id);
@@ -898,7 +1052,7 @@ function Diagnostico() {
                     formData.marca
                   }</div>
                   <div><span class="font-bold">Modelo:</span> ${
-                    formData.modelo
+                    formData.modelo || 'N/A'
                   }</div>
                   <div><span class="font-bold">Serie:</span> ${
                     formData.serie || 'N/A'
@@ -1184,6 +1338,57 @@ function Diagnostico() {
                 <p className="text-red-500 text-sm mt-1">{errors.tipoEquipo}</p>
               )}
             </div>
+            
+            {formData.tipoEquipo === 'Otros' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Componente Principal
+                  </label>
+                  <select
+                    name="otherComponentType"
+                    value={otherComponentType}
+                    onChange={handleInputChange}
+                    className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                      errors.otherComponentType ? "ring-2 ring-red-500" : ""
+                    }`}
+                    required
+                    disabled={isReportFinalized}
+                  >
+                    {OTHER_EQUIPMENT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.otherComponentType && (
+                    <p className="text-red-500 text-sm mt-1">{errors.otherComponentType}</p>
+                  )}
+                </div>
+            )}
+            
+            {formData.tipoEquipo === 'Otros' && otherComponentType === 'OTRO_DESCRIPCION' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Descripción Específica
+                  </label>
+                  <input
+                    type="text"
+                    name="otherDescription"
+                    value={otherDescription}
+                    onChange={handleInputChange}
+                    className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                      errors.otherDescription ? "ring-2 ring-red-500" : ""
+                    }`}
+                    required
+                    disabled={isReportFinalized}
+                  />
+                  {errors.otherDescription && (
+                    <p className="text-red-500 text-sm mt-1">{errors.otherDescription}</p>
+                  )}
+                </div>
+            )}
+            
+            
             <div>
               <label className="block text-sm font-medium mb-1">Marca</label>
               <input
@@ -1202,7 +1407,11 @@ function Diagnostico() {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Modelo</label>
+              <label className="block text-sm font-medium mb-1">Modelo
+                 {formData.tipoEquipo !== 'Otros' && (
+                     <span className="text-red-500 text-xs ml-1">(Obligatorio)</span>
+                 )}
+              </label>
               <input
                 type="text"
                 name="modelo"
@@ -1211,7 +1420,7 @@ function Diagnostico() {
                 className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
                   errors.modelo ? "ring-2 ring-red-500" : ""
                 }`}
-                required
+                required={formData.tipoEquipo !== 'Otros'}
                 disabled={isReportFinalized}
               />
               {errors.modelo && (
@@ -1254,12 +1463,27 @@ function Diagnostico() {
                 </p>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-              {COMPONENT_OPTIONS[formData.tipoEquipo]?.map((item, index) => {
+              {COMPONENT_OPTIONS[formData.tipoEquipo]?.filter(item => {
+                  // Filtra los componentes solo si el tipo de equipo es 'Otros' y no están disponibles
+                  if (formData.tipoEquipo === 'Otros') {
+                      return getOtherComponentAvailability(item.id).isAvailable;
+                  }
+                  // Asegura que CABLES solo aparezca en Impresora
+                  if (item.id === 'cables') return formData.tipoEquipo === 'Impresora';
+                  return true;
+              }).map((item, index) => {
                 
-                const componentIsMandatory = isMandatoryComponentForCurrentType(item.id, formData.tipoEquipo);
-                const showMandatoryIndicator = componentIsMandatory && formData.canTurnOn === 'SI';
-                const disableCheck = isReportFinalized || formData.canTurnOn === 'NO';
-                const disableDetails = isReportFinalized; // Los detalles se pueden llenar si NO PRENDE
+                const isMandatoryInGeneral = isMandatoryComponentForCurrentType(item.id, formData.tipoEquipo);
+                let { isAvailable, isCheckDisabled, isDetailRequired, isDetailDisabled } = getOtherComponentAvailability(item.id);
+
+                // Si no es 'Otros', usamos la lógica general
+                if (formData.tipoEquipo !== 'Otros') {
+                    isCheckDisabled = isReportFinalized || formData.canTurnOn === 'NO';
+                    isDetailRequired = isMandatoryInGeneral && formData.canTurnOn === 'SI';
+                    isDetailDisabled = isReportFinalized;
+                }
+                
+                const showMandatoryIndicator = isDetailRequired;
 
                 return (
                 <div key={item.id} className="flex items-center space-x-2">
@@ -1273,7 +1497,7 @@ function Diagnostico() {
                     }
                     onChange={handleItemCheck}
                     className={`h-4 w-4 rounded`}
-                    disabled={disableCheck} 
+                    disabled={isCheckDisabled} 
                   />
                   <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
                     {/* ENUMERACIÓN SUCESIVA */}
@@ -1290,7 +1514,7 @@ function Diagnostico() {
                        showMandatoryIndicator && errors[item.id] ? "ring-2 ring-red-500" : ""
                     }`}
                     placeholder="Detalles"
-                    disabled={disableDetails}
+                    disabled={isDetailDisabled}
                   />
                    {showMandatoryIndicator && errors[item.id] && (
                         <FaTimesCircle className="text-red-500" title={errors[item.id]}/>
