@@ -54,6 +54,7 @@ const SERVICE_OPTIONS = [
 ];
 
 const MAX_SERVICES = 6;
+const USER_TECHNICIAN_ROLES = ['USER', 'SUPERUSER'];
 
 
 function NewClientForm({ onSave, onCancel }) {
@@ -171,15 +172,6 @@ function NewClientForm({ onSave, onCancel }) {
 }
 
 
-const isMandatoryComponentForCurrentType = (itemId, tipoEquipo) => {
-    const isComponentMandatory = MANDATORY_COMPONENT_IDS.includes(itemId);
-    
-    if (['Impresora'].includes(tipoEquipo)) return false; 
-    
-    return isComponentMandatory;
-};
-
-
 function Diagnostico() {
   const { diagnosticoId } = useParams();
   const navigate = useNavigate();
@@ -201,6 +193,7 @@ function Diagnostico() {
   const [servicesList, setServicesList] = useState([]); 
   const [newServiceSelection, setNewServiceSelection] = useState({ service: "", amount: 0 }); 
   const [otherServiceText, setOtherServiceText] = useState(""); 
+  const [initialAreaAssignedStatus, setInitialAreaAssignedStatus] = useState(false);
   const [formData, setFormData] = useState({
     tipoEquipo: "",
     marca: "",
@@ -219,6 +212,8 @@ function Diagnostico() {
     saldo: 0,
     tecnicoRecepcion: currentUser?.nombre || "",
     tecnicoRecepcionId: currentUser?.uid || "",
+    tecnicoInicial: "", 
+    tecnicoInicialId: "", 
     tecnicoTesteo: "",
     tecnicoTesteoId: "",
     tecnicoResponsable: "",
@@ -233,7 +228,14 @@ function Diagnostico() {
   
   const isEditMode = !!diagnosticoId;
   const isReportFinalized = isEditMode && ['ENTREGADO', 'TERMINADO'].includes(formData.estado);
+  const isFormLocked = isReportFinalized || initialAreaAssignedStatus; 
+  
   const hasRepairService = servicesList.some(s => s.service === 'Reparación');
+  
+  const isAdminOrSuperadmin = currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN');
+  const showAreaInput = isAdminOrSuperadmin;
+  const isAreaRequired = !isEditMode && isAdminOrSuperadmin; 
+
 
   const getToday = useMemo(() => {
     const date = new Date();
@@ -287,7 +289,7 @@ function Diagnostico() {
             ); 
         case 'Allinone':
             return all.filter(c => 
-                !['bateria', 'cargador', 'microfono', 'auriculares', 'tipoC', 'touchpad', 'lectora', 'vga', 'teclado', 'pantalla', 'camara', 'cables', ...printerExclusive].includes(c.id)
+                !['lectora', 'cables', ...printerExclusive].includes(c.id)
             );
         case 'Impresora':
             return all.filter(c => [...printerExclusive, 'cables', 'otros'].includes(c.id));
@@ -310,720 +312,7 @@ function Diagnostico() {
     "Windows 11", "Windows 10", "Windows 8", "Windows 7", "macOS", "Linux", "Otro",
   ];
   const AREA_OPTIONS = ["SOFTWARE", "HARDWARE", "ELECTRONICA"];
-
-  useEffect(() => {
-    const query = new URLSearchParams(search);
-    const clientIdFromUrl = query.get('clientId');
-
-    const fetchData = async () => {
-      try {
-        const allClients = await getAllClientsForSelection();
-        setClients(allClients);
-        
-        const allUsersData = await getAllUsersDetailed();
-        const userOptions = allUsersData.map((u) => ({ value: u.id, label: u.nombre }));
-        setUsers(userOptions);
-
-        if (diagnosticoId) {
-          const report = await getDiagnosticReportById(diagnosticoId);
-          if (report) {
-            const client = await getClientById(report.clientId);
-            
-            const clientDisplay = client.tipoPersona === 'JURIDICA' 
-                ? `${client.razonSocial} (RUC: ${client.ruc})` 
-                : `${client.nombre} ${client.apellido}`;
-
-            setSelectedClient({
-              value: client.id,
-              label: clientDisplay,
-              data: client,
-            });
-            setReportNumber(report.reportNumber.toString().padStart(6, "0"));
-            
-            const tecnicoTesteoOption = userOptions.find(u => u.label === report.tecnicoTesteo);
-            const tecnicoResponsableOption = userOptions.find(u => u.label === report.tecnicoResponsable);
-
-            if (report.tipoEquipo === 'Otros') {
-                setOtherComponentType(report.otherComponentType || "");
-                setOtherDescription(report.otherDescription || "");
-            }
-            
-            let diagnosisCost = parseFloat(report.diagnostico) || 0;
-
-            if (report.servicesList && Array.isArray(report.servicesList)) {
-                const loadedServices = report.servicesList.map(s => {
-                    const amount = parseFloat(s.amount) || 0;
-                    return {...s, amount: amount};
-                });
-                setServicesList(loadedServices);
-            } else {
-                 setServicesList([]);
-            }
-            
-            if (report.additionalServices) {
-              setAdditionalServices(report.additionalServices.map(s => ({...s, amount: parseFloat(s.amount)})));
-              setShowAdditionalServices(report.hasAdditionalServices || report.additionalServices.length > 0);
-            }
-            
-            setFormData({
-              ...report,
-              diagnostico: diagnosisCost,
-              montoServicio: parseFloat(report.montoServicio) || 0,
-              total: parseFloat(report.total) || 0,
-              aCuenta: parseFloat(report.aCuenta) || 0,
-              saldo: parseFloat(report.saldo) || 0,
-              canTurnOn: report.canTurnOn || "",
-              bitlockerKey: report.bitlockerKey || false,
-              detallesPago: report.detallesPago || "",
-              observaciones: report.observaciones || "",
-              
-              tecnicoRecepcionId: report.tecnicoRecepcionId || currentUser?.uid,
-              tecnicoTesteoId: tecnicoTesteoOption?.value || report.tecnicoTesteoId || "",
-              tecnicoResponsableId: tecnicoResponsableOption?.value || report.tecnicoResponsableId || "",
-            });
-            
-          } else {
-            toast.error("Informe no encontrado.");
-          }
-        } else {
-          const nextReportNumber = await getNextReportNumber();
-          setReportNumber(nextReportNumber.toString().padStart(6, "0"));
-
-          if (clientIdFromUrl) {
-            const client = await getClientById(clientIdFromUrl);
-            if (client) {
-                const clientDisplay = client.tipoPersona === 'JURIDICA' 
-                    ? `${client.razonSocial} (RUC: ${client.ruc})` 
-                    : `${client.nombre} ${client.apellido}`;
-                setSelectedClient({
-                    value: client.id,
-                    label: clientDisplay,
-                    data: client,
-                });
-            }
-          }
-        }
-      } catch (error) {
-        toast.error("Error al cargar datos.");
-        
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [diagnosticoId, search, currentUser?.uid, currentUser?.nombre]);
-
-  useEffect(() => {
-    let diagnosisCost = 0;
-    let serviceTotal = 0; 
-    let diagnosisServiceFound = false;
-
-    servicesList.forEach(item => {
-        const amount = item.amount || 0;
-        
-        if (item.service === 'Revisión') {
-            diagnosisCost = amount; 
-            diagnosisServiceFound = true;
-        } else if (item.service === 'Reparación') {
-            serviceTotal += amount;
-            diagnosisCost = formData.diagnostico; 
-            diagnosisServiceFound = true;
-        } else if (item.service) {
-            serviceTotal += amount;
-        }
-    });
-    
-    if (!diagnosisServiceFound) {
-        diagnosisCost = 0;
-    }
-    
-    const totalAdicionales = additionalServices.reduce(
-      (sum, service) => sum + (service.amount || 0),
-      0
-    );
-    
-    const newMontoServicio = serviceTotal;
-    const newTotal = serviceTotal + totalAdicionales;
-    
-    setFormData((prev) => ({
-      ...prev,
-      diagnostico: diagnosisCost,
-      montoServicio: newMontoServicio,
-      total: newTotal,
-      saldo: newTotal - (parseFloat(prev.aCuenta) || 0),
-    }));
-  }, [
-    additionalServices,
-    servicesList,
-    formData.aCuenta,
-    formData.diagnostico 
-  ]);
   
-  const handleAddServiceItem = () => {
-    const lastService = servicesList[servicesList.length - 1];
-    
-    if (servicesList.length >= MAX_SERVICES) {
-      toast.error(`Solo se permiten un máximo de ${MAX_SERVICES} servicios.`);
-      return;
-    }
-    
-    if (servicesList.some(s => s.service === 'Reparación')) {
-        toast.error("No se pueden añadir más servicios después de Reparación.");
-        return;
-    }
-    
-    if (lastService && (!lastService.service || (lastService.service !== 'Revisión' && lastService.service !== 'Reparación' && (!lastService.amount || parseFloat(lastService.amount) <= 0)))) {
-         toast.error("Por favor, completa el servicio y el monto actual antes de añadir otro.");
-         return;
-    }
-
-    setServicesList((prev) => [
-        ...prev,
-        { id: Date.now(), service: '', amount: 0, description: '' }
-    ]);
-  };
-
-  const handleRemoveServiceItem = (id) => {
-    setServicesList((prev) => {
-        const updatedList = prev.filter(item => item.id !== id);
-        return updatedList.length > 0 ? updatedList : [];
-    });
-    
-    if (!servicesList.some(s => s.service === 'Reparación')) {
-         setFormData(prev => ({...prev, diagnostico: 0}));
-    }
-  };
-
-  const handleServiceChange = (id, field, value) => {
-    const numericValue = (field === 'amount') ? parseFloat(value) || 0 : value;
-    
-    setServicesList((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          const newItem = { ...item, [field]: numericValue };
-          
-          if (field === 'service') {
-              if (value === 'Reparación') {
-                   setFormData(prev => ({ ...prev, diagnostico: 0 })); 
-              } else if (value === 'Revisión') {
-                   setFormData(prev => ({ ...prev, diagnostico: numericValue }));
-              }
-              if (value !== 'Otros') {
-                  newItem.description = ''; 
-              }
-              if (value === 'Reparación') {
-                  toast.success("Servicio 'Reparación' detectado. Se eliminaron otros servicios.");
-                  return newItem;
-              }
-          }
-          
-          if (field === 'amount') {
-               if (item.service === 'Revisión') {
-                   setFormData(prev => ({ ...prev, diagnostico: numericValue }));
-               }
-          }
-          
-          return newItem;
-        }
-        return item;
-      }).filter(item => item.service !== 'Reparación' || item.id === id) 
-    );
-  };
-  
-  const handleDiagnosisChange = (e) => {
-      const { value } = e.target;
-      const numericValue = parseFloat(value) || 0;
-      setFormData(prev => ({ ...prev, diagnostico: numericValue }));
-  };
-
-  const handleAddClient = async (clientData) => {
-        try {
-            await createClient(clientData);
-            toast.success('Cliente agregado con éxito.');
-            
-            const updatedClients = await getAllClientsForSelection();
-            setClients(updatedClients);
-            
-            const newClient = updatedClients.find(c => 
-                c.telefono === clientData.telefono && 
-                c.tipoPersona === clientData.tipoPersona && 
-                (c.tipoPersona === 'JURIDICA' ? c.ruc === clientData.ruc && c.razonSocial === clientData.razonSocial : c.nombre === clientData.nombre && c.apellido === clientData.apellido)
-            );
-
-            if (newClient) {
-                setSelectedClient({ value: newClient.id, label: newClient.display, data: newClient });
-            }
-            
-            setIsNewClientModalOpen(false);
-        } catch (error) {
-            toast.error(error.message);
-            throw error; 
-        }
-  };
-    
-  const handleInputChange = (e) => {
-    if (isReportFinalized) return;
-    const { name, value, type, checked } = e.target;
-
-    if (name === "bitlockerKey" && type === "checkbox") {
-        setFormData((prev) => ({
-            ...prev,
-            [name]: checked,
-        }));
-        return;
-    }
-    
-    if (name === 'canTurnOn') {
-      const newState = { [name]: value };
-      if (value === 'NO') {
-          newState.sistemaOperativo = '';
-          newState.bitlockerKey = false;
-          newState.tecnicoTesteo = '';
-          newState.tecnicoTesteoId = '';
-          newState.tecnicoResponsable = '';
-          newState.tecnicoResponsableId = '';
-          newState.area = ''; 
-          
-          newState.items = formData.items.map(item => ({
-              ...item,
-              checked: false, 
-          }));
-          
-          toast('Campos de Testeo (checks), Software, Técnicos y Área de Destino se han deshabilitado.'); 
-      } 
-      setFormData((prev) => ({
-          ...prev,
-          ...newState,
-      }));
-      return;
-    }
-    
-    if (name === 'otherComponentType') {
-        setOtherComponentType(value);
-        if (value === 'OTRO_DESCRIPCION') {
-            setOtherDescription('');
-        } else {
-            setOtherDescription(OTHER_EQUIPMENT_OPTIONS.find(o => o.value === value)?.label || '');
-        }
-        return;
-    }
-    
-    if (name === 'otherDescription') {
-        setOtherDescription(value);
-        return;
-    }
-
-    if (name === 'diagnostico') {
-        let numericValue = parseFloat(value) || 0;
-        if (hasRepairService) {
-            setFormData(prev => ({ ...prev, diagnostico: numericValue }));
-        }
-        return;
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handlePaymentFocus = (e) => {
-    if (isReportFinalized) return;
-    e.target.value = '';
-  };
-
-  const handlePaymentChange = (e) => {
-    if (isReportFinalized) return;
-    let { name, value } = e.target;
-    
-    let numericValue = parseFloat(value);
-    if (isNaN(numericValue) || numericValue < 0) numericValue = 0;
-    
-    setFormData((prev) => ({
-      ...prev,
-      [name]: numericValue,
-    }));
-  };
-
-  const handleWheel = (e) => {
-    e.preventDefault();
-  };
-
-  const handleClientChange = (selectedOption) => {
-    if (isReportFinalized) return;
-
-    setSelectedClient(selectedOption);
-    if (isEditMode) {
-      toast.error("No se puede cambiar el cliente en modo de edición.");
-    }
-  };
-
-  const handleUserChange = (name, selectedOption) => {
-    if (isReportFinalized) return;
-    const nameKey = name;
-    const idKey = `${name}Id`;
-    
-    setFormData((prev) => ({
-      ...prev,
-      [nameKey]: selectedOption ? selectedOption.label : "",
-      [idKey]: selectedOption ? selectedOption.value : "",
-    }));
-  };
-
-  const handleEquipoChange = (e) => {
-    if (isReportFinalized) return;
-    const { value } = e.target;
-    const newItems = getComponentOptions(value)?.map((item) => ({
-          id: item.id,
-          checked: false,
-          detalles: "",
-    })) || [];
-    
-    setOtherComponentType("");
-    setOtherDescription("");
-
-    setFormData((prev) => ({
-      ...prev,
-      tipoEquipo: value,
-      items: newItems,
-      sistemaOperativo: "",
-      bitlockerKey: false,
-      modelo: value === 'Otros' ? '' : prev.modelo, 
-    }));
-  };
-
-  const handleItemCheck = (e) => {
-    if (isReportFinalized || formData.canTurnOn === 'NO') return;
-    const { name, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      items: prev.items.map((item) =>
-        item.id === name ? { ...item, checked } : item
-      ),
-    }));
-  };
-
-  const handleItemDetailsChange = (e) => {
-    if (isReportFinalized) return;
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      items: prev.items.map((item) =>
-        item.id === name ? { ...item, detalles: value } : item
-      ),
-    }));
-  };
-
-  const handleAddAdditionalService = (e) => {
-    e.preventDefault();
-    if (isReportFinalized) return;
-    const amount = parseFloat(newService.amount);
-    
-    if (!newService.description || !amount || amount <= 0) {
-      toast.error("Debe ingresar la descripción y un monto mayor a 0 antes de agregar un servicio adicional.");
-      return;
-    }
-
-    setAdditionalServices((prev) => [
-        ...prev,
-        { ...newService, amount: amount, id: Date.now() },
-    ]);
-    setNewService({ description: "", amount: 0 });
-  };
-
-  const handleDeleteAdditionalService = (id) => {
-    if (isReportFinalized) return;
-    setAdditionalServices((prev) =>
-      prev.filter((service) => service.id !== id)
-    );
-  };
-
-
-  const validateForm = () => {
-    const newErrors = {};
-    
-    const requiredGeneralFields = [
-      { field: "tipoEquipo", message: "El Tipo de Equipo es obligatorio." },
-      { field: "marca", message: "La Marca es obligatoria." },
-      { field: "observaciones", message: "Las Observaciones son obligatorias." },
-      { field: "canTurnOn", message: "La opción '¿Enciende?' es obligatoria." }, 
-    ];
-
-    if (!selectedClient) {
-      newErrors.client = "Seleccionar un cliente es obligatorio.";
-    }
-
-    requiredGeneralFields.forEach(({ field, message }) => {
-      if (!String(formData[field])) {
-          if (field === 'modelo' && formData.tipoEquipo === 'Otros') return;
-          newErrors[field] = message;
-      }
-    });
-
-    if (servicesList.length === 0) {
-        newErrors.servicesList = "Debe añadir al menos un servicio (Motivo de Ingreso).";
-    } else {
-        servicesList.forEach((item, index) => {
-             if (!item.service) {
-                newErrors[`service-${index}`] = "Debe seleccionar un servicio.";
-             }
-             if (item.service !== 'Revisión' && item.service !== 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
-                newErrors[`amount-${index}`] = "El monto es obligatorio y debe ser mayor a 0.";
-             }
-             if (item.service === 'Otros' && !item.description) {
-                 newErrors[`description-${index}`] = "Debe especificar la descripción del servicio 'Otros'.";
-             }
-             if (item.service === 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
-                 newErrors[`amount-${index}`] = "El monto de la reparación es obligatorio y debe ser mayor a 0.";
-             }
-        });
-    }
-
-    const isSerieRequired = !['Allinone', 'PC', 'Otros'].includes(formData.tipoEquipo);
-
-    if (isSerieRequired && !formData.serie) {
-        newErrors.serie = "La Serie es obligatoria.";
-    } 
-    
-    if (formData.tipoEquipo === 'Otros') {
-        if (!otherComponentType) {
-            newErrors.otherComponentType = "Debe seleccionar el tipo de componente principal.";
-        }
-        if (otherComponentType === 'OTRO_DESCRIPCION' && !otherDescription) {
-            newErrors.otherDescription = "Debe especificar la descripción.";
-        }
-    }
-    
-    if (formData.canTurnOn === 'SI') {
-        
-        if (!formData.area) {
-            newErrors.area = "El Área de Destino es obligatoria.";
-        }
-        
-        if (!formData.tecnicoTesteoId) {
-            newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio si el equipo enciende.";
-        }
-        
-        const isOSRequired = ['PC', 'Laptop'].includes(formData.tipoEquipo);
-        if (isOSRequired && !formData.sistemaOperativo) {
-            newErrors.sistemaOperativo = "El Sistema Operativo es obligatorio para PC/Laptop si el equipo enciende.";
-        }
-        
-        const componentsValidationEnabled = !['Impresora', 'Otros'].includes(formData.tipoEquipo);
-        
-        if (componentsValidationEnabled) {
-            const availableComponentIds = COMPONENT_OPTIONS[formData.tipoEquipo]?.map(c => c.id) || [];
-
-            const mandatoryCheckIds = MANDATORY_COMPONENT_IDS.filter(id => availableComponentIds.includes(id));
-            
-            mandatoryCheckIds.forEach(mandatoryId => {
-                const item = formData.items.find(i => i.id === mandatoryId);
-                
-                if (!item || !item.detalles) { 
-                    newErrors[mandatoryId] = `Detalle de ${getComponentDisplayName(mandatoryId)} es obligatorio.`;
-                }
-            });
-        }
-        
-        if (formData.tipoEquipo === 'Otros' && otherComponentType) {
-             const itemsToCheck = [];
-             if (otherComponentType === 'TARJETA_VIDEO') {
-                 itemsToCheck.push('otros');
-             } else if (otherComponentType.startsWith('PLACA_MADRE')) {
-                 itemsToCheck.push('procesador', 'tarjetaVideo', 'memoriaRam', 'otros');
-             }
-             
-             itemsToCheck.forEach(itemId => {
-                const item = formData.items.find(i => i.id === itemId);
-                
-                const isDetailRequired = (otherComponentType.startsWith('PLACA_MADRE') || otherComponentType === 'TARJETA_VIDEO');
-
-                if (isDetailRequired && (!item || !item.detalles)) {
-                    if (otherComponentType === 'OTRO_DESCRIPCION') {
-                    } else {
-                        newErrors[itemId] = `Detalle de ${getComponentDisplayName(itemId)} es obligatorio.`;
-                    }
-                }
-             });
-        }
-    }
-    
-    if (formData.montoServicio <= 0 && !hasRepairService && !servicesList.some(s => s.service === 'Revisión')) {
-        newErrors.montoServicio = "Debe haber un monto válido para el servicio o para la revisión.";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (isReportFinalized || isSaving) {
-        toast.error("Procesando registro. Por favor, espera.");
-        return; 
-    } 
-
-    if (!validateForm()) {
-      toast.error("Por favor, completa todos los campos obligatorios.");
-      return;
-    }
-
-    setIsSaving(true); 
-
-    const finalResponsible = formData.tecnicoResponsable;
-    const finalResponsibleId = formData.tecnicoResponsableId;
-    
-    let clientReportName = '';
-    const clientData = selectedClient.data;
-    if (clientData.tipoPersona === 'JURIDICA') {
-        clientReportName = clientData.razonSocial;
-    } else {
-        clientReportName = `${clientData.nombre} ${clientData.apellido}`;
-    }
-    
-    const motivoIngresoText = servicesList.map(s => {
-        const amountDisplay = s.service === 'Revisión' ? `(Diagnóstico: S/ ${s.amount.toFixed(2)})` : `(S/ ${s.amount.toFixed(2)})`;
-        return `${s.service.charAt(0).toUpperCase() + s.service.slice(1)} ${amountDisplay}`;
-    }).join(', ');
-
-    try {
-      const baseData = {
-        ...formData,
-        tecnicoResponsable: finalResponsible,
-        tecnicoResponsableId: finalResponsibleId,
-        clientId: selectedClient.value,
-        clientName: clientReportName, 
-        telefono: clientData.telefono, 
-        
-        diagnostico: parseFloat(formData.diagnostico) || 0,
-        montoServicio: parseFloat(formData.montoServicio) || 0,
-        total: parseFloat(formData.total) || 0,
-        aCuenta: parseFloat(formData.aCuenta) || 0,
-        saldo: parseFloat(formData.saldo) || 0,
-        
-        servicesList: servicesList.map(s => ({...s, amount: s.amount.toFixed(2)})),
-        motivoIngreso: motivoIngresoText, 
-        additionalServices: additionalServices.map(s => ({...s, amount: s.amount.toFixed(2)})),
-        hasAdditionalServices: additionalServices.length > 0,
-        canTurnOn: formData.canTurnOn, 
-      };
-      
-      if (formData.tipoEquipo === 'Otros') {
-          baseData.otherComponentType = otherComponentType;
-          baseData.otherDescription = otherDescription;
-      }
-
-      if(!baseData.tecnicoActual || !baseData.tecnicoActualId) {
-        baseData.tecnicoActual = finalResponsible;
-        baseData.tecnicoActualId = finalResponsibleId;
-      }
-
-      if (isEditMode) {
-        await updateDiagnosticReport(diagnosticoId, baseData);
-        toast.success(`Informe #${reportNumber} actualizado con éxito.`);
-      } else {
-        await createDiagnosticReport({
-          ...baseData,
-          reportNumber: parseInt(reportNumber),
-          fecha: `${getToday.day}-${getToday.month}-${getToday.year}`,
-          hora: getToday.time,
-          estado: "PENDIENTE", 
-        });
-        toast.success(`Informe #${reportNumber} creado con éxito.`);
-      }
-      navigate("/ver-estado");
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-        setIsSaving(false); 
-    }
-  };
-
-  const isNewReport = !diagnosticoId;
-
-  let dia, mes, anio, hora;
-
-  if (isNewReport) {
-    dia = getToday.day;
-    mes = getToday.month;
-    anio = getToday.year;
-    hora = getToday.time;
-  } else {
-    [dia, mes, anio] = formData.fecha
-      ? formData.fecha.split("-")
-      : ["N/A", "N/A", "N/A"];
-    hora = formData.hora || "N/A";
-  }
-  const displayDate = isNewReport
-    ? `${getToday.day}/${getToday.month}/${getToday.year}`
-    : formData.fecha;
-  const displayTime = isNewReport ? getToday.time : formData.hora;
-
-  const showTecnicoResponsable = currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN');
-  
-  const getOtherComponentAvailability = (itemId) => {
-    const isCheckOptional = formData.canTurnOn === 'SI';
-    let isAvailable = false;
-    let isCheckDisabled = true; 
-    let isDetailRequired = false;
-    let isDetailDisabled = isReportFinalized;
-
-    if (formData.tipoEquipo !== 'Otros') {
-        const isMandatoryInGeneral = isMandatoryComponentForCurrentType(itemId, formData.tipoEquipo);
-        return { 
-            isAvailable: true, 
-            isCheckDisabled: isReportFinalized || formData.canTurnOn === 'NO', 
-            isDetailRequired: isMandatoryInGeneral && formData.canTurnOn === 'SI', 
-            isDetailDisabled: isReportFinalized 
-        };
-    }
-    
-    switch (otherComponentType) {
-        case 'TARJETA_VIDEO':
-            if (itemId === 'otros') { 
-                isAvailable = true;
-                isCheckDisabled = !isCheckOptional; 
-                isDetailRequired = isCheckOptional; 
-            } else {
-                isAvailable = false; 
-                isCheckDisabled = true;
-            }
-            break;
-        case 'PLACA_MADRE_LAPTOP':
-        case 'PLACA_MADRE_PC':
-            if (['procesador', 'tarjetaVideo', 'memoriaRam', 'otros'].includes(itemId)) {
-                isAvailable = true;
-                isCheckDisabled = !isCheckOptional;
-                isDetailRequired = isCheckOptional; 
-            } else {
-                isAvailable = false;
-                isCheckDisabled = true;
-            }
-            break;
-        case 'OTRO_DESCRIPCION':
-            if (itemId === 'otros') { 
-                 isAvailable = true;
-                 isCheckDisabled = true; 
-                 isDetailRequired = false; 
-            } else {
-                isAvailable = false;
-                isCheckDisabled = true;
-            }
-            break;
-        default:
-            if (itemId === 'otros') { 
-                 isAvailable = true;
-                 isCheckDisabled = true; 
-                 isDetailRequired = false; 
-            }
-            break;
-    }
-    
-    return { isAvailable, isCheckDisabled, isDetailRequired, isDetailDisabled };
-  };
-
-
   const generateComponentHtml = (item) => {
     const componentName = getComponentDisplayName(item.id);
     const hasCheck = item.checked;
@@ -1048,7 +337,7 @@ function Diagnostico() {
     content += `</div>`;
     return content;
   };
-
+  
   const handlePrint = () => {
     if (isEditMode && !formData.reportNumber) {
         toast.error("El informe debe estar cargado para imprimir.");
@@ -1070,7 +359,7 @@ function Diagnostico() {
     
     const motivoIngresoText = servicesList.map(s => {
         const amountDisplay = s.service === 'Revisión' ? `(Diagnóstico: S/ ${s.amount.toFixed(2)})` : `(S/ ${s.amount.toFixed(2)})`;
-        return `${s.service} ${amountDisplay}`;
+        return `${s.service.charAt(0).toUpperCase() + s.service.slice(1)} ${amountDisplay}`;
     }).join(', ');
         
     const additionalServiceHtml = additionalServices.map(s => `<li>${s.description} (Adicional) - S/ ${s.amount.toFixed(2)}</li>`).join('');
@@ -1087,6 +376,20 @@ function Diagnostico() {
         </ul>` : ''}
     ` : '';
 
+    let dia, mes, anio, hora;
+    const isNewReport = !diagnosticoId;
+
+    if (isNewReport) {
+        dia = getToday.day;
+        mes = getToday.month;
+        anio = getToday.year;
+        hora = getToday.time;
+    } else {
+        [dia, mes, anio] = formData.fecha
+        ? formData.fecha.split("-")
+        : ["N/A", "N/A", "N/A"];
+        hora = formData.hora || "N/A";
+    }
 
     const printContent = `
       <html>
@@ -1263,6 +566,9 @@ function Diagnostico() {
                   <div><span class="font-bold">Técnico Recepción:</span> ${
                     formData.tecnicoRecepcion
                   }</div>
+                  <div><span class="font-bold">Técnico Inicial:</span> ${
+                    formData.tecnicoInicial || 'N/A'
+                  }</div>
                   <div><span class="font-bold">Técnico Testeo:</span> ${
                     formData.tecnicoTesteo || 'N/A'
                   }</div>
@@ -1301,7 +607,885 @@ function Diagnostico() {
   newWindow.print();
 }, 300);
   };
+  
+  // Helper interno para la lógica de "Otros"
+  const getOtherComponentAvailabilityInternal = (itemId, otherType, canTurnOn, isFormLocked) => {
+    const isCheckOptional = canTurnOn === 'SI';
+    let isAvailable = false;
+    let isCheckDisabled = true; 
+    let isDetailRequired = false;
+    let isDetailDisabled = isFormLocked; 
 
+    switch (otherType) {
+        case 'TARJETA_VIDEO':
+            if (itemId === 'otros') { 
+                isAvailable = true;
+                isCheckDisabled = !isCheckOptional; 
+                isDetailRequired = isCheckOptional; 
+            } else {
+                isAvailable = false; 
+                isCheckDisabled = true;
+            }
+            break;
+        case 'PLACA_MADRE_LAPTOP':
+        case 'PLACA_MADRE_PC':
+            if (['procesador', 'tarjetaVideo', 'memoriaRam', 'otros'].includes(itemId)) {
+                isAvailable = true;
+                isCheckDisabled = !isCheckOptional;
+                isDetailRequired = isCheckOptional; 
+            } else {
+                isAvailable = false;
+                isCheckDisabled = true;
+            }
+            break;
+        case 'OTRO_DESCRIPCION':
+            if (itemId === 'otros') { 
+                 isAvailable = true;
+                 isCheckDisabled = true; 
+                 isDetailRequired = false; 
+            } else {
+                isAvailable = false;
+                isCheckDisabled = true;
+            }
+            break;
+        default:
+            if (itemId === 'otros') { 
+                 isAvailable = true;
+                 isCheckDisabled = true; 
+                 isDetailRequired = false; 
+            }
+            break;
+    }
+    
+    return { isAvailable, isCheckDisabled, isDetailRequired, isDetailDisabled };
+  };
+  
+  const getComponentStatus = (itemId) => {
+    const tipoEquipo = formData.tipoEquipo;
+    const canTurnOn = formData.canTurnOn;
+    const isSiPrende = canTurnOn === 'SI';
+    const isAIO = tipoEquipo === 'Allinone';
+    const isPrinter = tipoEquipo === 'Impresora';
+
+    let isAvailable = true;
+    let isCheckDisabled = isFormLocked || canTurnOn === 'NO'; 
+    let isDetailDisabled = isFormLocked;
+    
+    // --- Validation Requirements (For Display and Validation) ---
+    let isDetailRequired = false;
+    let isCheckRequired = false;
+    
+    const mandatoryDetailSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
+    const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'wifi', 'camara', 'microfono', 'parlantes'];
+    const mandatoryPrinterIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
+    const diskIds = ['hdd', 'ssd', 'm2Nvme'];
+
+    // Requisito 3: Impresora
+    if (isPrinter) {
+        if (mandatoryPrinterIds.includes(itemId)) {
+            isDetailRequired = true;
+        }
+    }
+    
+    // Requisito 1 & 2: AIO and SI PRENDE checks/details
+    if (['PC', 'Laptop', 'Allinone'].includes(tipoEquipo)) {
+        
+        // Requisito 1: AIO - todos los componentes básicos requieren detalles
+        if (isAIO && MANDATORY_COMPONENT_IDS.includes(itemId)) {
+             isDetailRequired = true;
+        }
+        
+        if (isSiPrende) {
+            // 2.2 Mandatory Details (Sobrescribe AIO si aplica)
+            if (mandatoryDetailSiPrende.includes(itemId)) {
+                isDetailRequired = true;
+            } else if (diskIds.includes(itemId)) {
+                // Detalle de disco es requerido si está marcado (se valida en validateForm)
+                const isDiskChecked = formData.items.find(i => i.id === itemId)?.checked;
+                if (isDiskChecked) isDetailRequired = true;
+            }
+            
+            // 2.1 & 2.4 Mandatory Checks
+            if (mandatoryCheckSiPrende.includes(itemId) || diskIds.includes(itemId)) {
+                isCheckRequired = true;
+                isCheckDisabled = isFormLocked;
+            }
+        }
+    }
+
+    // Lógica específica para "Otros" (Mantenida)
+    if (tipoEquipo === 'Otros') {
+        const otherStatus = getOtherComponentAvailabilityInternal(itemId, otherComponentType, canTurnOn, isFormLocked);
+        isAvailable = otherStatus.isAvailable;
+        isCheckDisabled = otherStatus.isCheckDisabled;
+        isDetailDisabled = otherStatus.isDetailDisabled;
+        if (otherStatus.isDetailRequired) isDetailRequired = true;
+    }
+    
+    // Lógica para deshabilitar el check si NO enciende
+    if (canTurnOn === 'NO' && !isFormLocked) {
+        isCheckDisabled = true;
+    }
+
+    return { 
+        isAvailable, 
+        isCheckDisabled, 
+        isDetailDisabled, 
+        isDetailRequired,
+        isCheckRequired 
+    };
+  };
+
+  useEffect(() => {
+    const query = new URLSearchParams(search);
+    const clientIdFromUrl = query.get('clientId');
+
+    const fetchData = async () => {
+      try {
+        const allClients = await getAllClientsForSelection();
+        setClients(allClients);
+        
+        const allUsersData = await getAllUsersDetailed();
+        const userOptions = allUsersData.map((u) => ({ value: u.id, label: u.nombre })); 
+
+        const technicianOptions = allUsersData
+            .filter(u => USER_TECHNICIAN_ROLES.includes(u.rol))
+            .map((u) => ({ value: u.id, label: u.nombre }));
+
+        setUsers(technicianOptions);
+
+        if (diagnosticoId) {
+          const report = await getDiagnosticReportById(diagnosticoId);
+          if (report) {
+            const client = await getClientById(report.clientId);
+            
+            const clientDisplay = client.tipoPersona === 'JURIDICA' 
+                ? `${client.razonSocial} (RUC: ${client.ruc})` 
+                : `${client.nombre} ${client.apellido}`;
+
+            setSelectedClient({
+              value: client.id,
+              label: clientDisplay,
+              data: client,
+            });
+            setReportNumber(report.reportNumber.toString().padStart(6, "0"));
+            
+            const tecnicoInicialOption = userOptions.find(u => u.value === report.tecnicoInicialId); 
+            const tecnicoTesteoOption = userOptions.find(u => u.value === report.tecnicoTesteoId);
+            const tecnicoResponsableOption = userOptions.find(u => u.value === report.tecnicoResponsableId);
+
+            if (report.tipoEquipo === 'Otros') {
+                setOtherComponentType(report.otherComponentType || "");
+                setOtherDescription(report.otherDescription || "");
+            }
+            
+            let diagnosisCost = parseFloat(report.diagnostico) || 0;
+
+            if (report.servicesList && Array.isArray(report.servicesList)) {
+                const loadedServices = report.servicesList.map(s => {
+                    const amount = parseFloat(s.amount) || 0;
+                    return {...s, amount: amount};
+                });
+                setServicesList(loadedServices);
+            } else {
+                 setServicesList([]);
+            }
+            
+            if (report.additionalServices) {
+              setAdditionalServices(report.additionalServices.map(s => ({...s, amount: parseFloat(s.amount)})));
+              setShowAdditionalServices(report.hasAdditionalServices || report.additionalServices.length > 0);
+            }
+            
+            const isReportLockedOnLoad = ['ENTREGADO', 'TERMINADO'].includes(report.estado) || (!!report.area && report.area !== 'N/A');
+            setInitialAreaAssignedStatus(isReportLockedOnLoad);
+            
+            setFormData({
+              ...report,
+              diagnostico: diagnosisCost,
+              montoServicio: parseFloat(report.montoServicio) || 0,
+              total: parseFloat(report.total) || 0,
+              aCuenta: parseFloat(report.aCuenta) || 0,
+              saldo: parseFloat(report.saldo) || 0,
+              canTurnOn: report.canTurnOn || "",
+              bitlockerKey: report.bitlockerKey || false,
+              detallesPago: report.detallesPago || "",
+              observaciones: report.observaciones || "",
+              
+              tecnicoRecepcion: report.tecnicoRecepcion || currentUser?.nombre,
+              tecnicoRecepcionId: report.tecnicoRecepcionId || currentUser?.uid,
+              
+              tecnicoInicial: tecnicoInicialOption?.label || report.tecnicoInicial || "",
+              tecnicoInicialId: tecnicoInicialOption?.value || report.tecnicoInicialId || "",
+              
+              tecnicoTesteo: tecnicoTesteoOption?.label || report.tecnicoTesteo || "",
+              tecnicoTesteoId: tecnicoTesteoOption?.value || report.tecnicoTesteoId || "",
+              tecnicoResponsable: tecnicoResponsableOption?.label || report.tecnicoResponsable || "",
+              tecnicoResponsableId: tecnicoResponsableOption?.value || report.tecnicoResponsableId || "",
+            });
+            
+          } else {
+            toast.error("Informe no encontrado.");
+          }
+        } else {
+          const nextReportNumber = await getNextReportNumber();
+          setReportNumber(nextReportNumber.toString().padStart(6, "0"));
+          setInitialAreaAssignedStatus(false); 
+
+          if (clientIdFromUrl) {
+            const client = await getClientById(clientIdFromUrl);
+            if (client) {
+                const clientDisplay = client.tipoPersona === 'JURIDICA' 
+                    ? `${client.razonSocial} (RUC: ${client.ruc})` 
+                    : `${client.nombre} ${client.apellido}`;
+                setSelectedClient({
+                    value: client.id,
+                    label: clientDisplay,
+                    data: client,
+                });
+            }
+          }
+        }
+      } catch (error) {
+        toast.error("Error al cargar datos.");
+        
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [diagnosticoId, search, currentUser?.uid, currentUser?.nombre]);
+
+  useEffect(() => {
+    let diagnosisCost = 0;
+    let serviceTotal = 0; 
+    let diagnosisServiceFound = false;
+
+    servicesList.forEach(item => {
+        const amount = item.amount || 0;
+        
+        if (item.service === 'Revisión') {
+            diagnosisCost = amount; 
+            diagnosisServiceFound = true;
+        } else if (item.service === 'Reparación') {
+            serviceTotal += amount;
+            diagnosisCost = formData.diagnostico; 
+            diagnosisServiceFound = true;
+        } else if (item.service) {
+            serviceTotal += amount;
+        }
+    });
+    
+    if (!diagnosisServiceFound) {
+        diagnosisCost = 0;
+    }
+    
+    const totalAdicionales = additionalServices.reduce(
+      (sum, service) => sum + (service.amount || 0),
+      0
+    );
+    
+    const newMontoServicio = serviceTotal;
+    const newTotal = serviceTotal + totalAdicionales;
+    
+    setFormData((prev) => ({
+      ...prev,
+      diagnostico: diagnosisCost,
+      montoServicio: newMontoServicio,
+      total: newTotal,
+      saldo: newTotal - (parseFloat(prev.aCuenta) || 0),
+    }));
+  }, [
+    additionalServices,
+    servicesList,
+    formData.aCuenta,
+    formData.diagnostico 
+  ]);
+  
+  const handleAddServiceItem = () => {
+    const lastService = servicesList[servicesList.length - 1];
+    
+    if (servicesList.length >= MAX_SERVICES) {
+      toast.error(`Solo se permiten un máximo de ${MAX_SERVICES} servicios.`);
+      return;
+    }
+    
+    if (servicesList.some(s => s.service === 'Reparación')) {
+        toast.error("No se pueden añadir más servicios después de Reparación.");
+        return;
+    }
+    
+    if (lastService && (!lastService.service || (lastService.service !== 'Revisión' && lastService.service !== 'Reparación' && (!lastService.amount || parseFloat(lastService.amount) <= 0)))) {
+         toast.error("Por favor, completa el servicio y el monto actual antes de añadir otro.");
+         return;
+    }
+
+    setServicesList((prev) => [
+        ...prev,
+        { id: Date.now(), service: '', amount: 0, description: '' }
+    ]);
+  };
+
+  const handleRemoveServiceItem = (id) => {
+    if (isFormLocked) return;
+    setServicesList((prev) => {
+        const updatedList = prev.filter(item => item.id !== id);
+        return updatedList.length > 0 ? updatedList : [];
+    });
+    
+    if (!servicesList.some(s => s.service === 'Reparación')) {
+         setFormData(prev => ({...prev, diagnostico: 0}));
+    }
+  };
+
+  const handleServiceChange = (id, field, value) => {
+    if (isFormLocked) return;
+    const numericValue = (field === 'amount') ? parseFloat(value) || 0 : value;
+    
+    setServicesList((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const newItem = { ...item, [field]: numericValue };
+          
+          if (field === 'service') {
+              if (value === 'Reparación') {
+                   setFormData(prev => ({ ...prev, diagnostico: 0 })); 
+              } else if (value === 'Revisión') {
+                   setFormData(prev => ({ ...prev, diagnostico: numericValue }));
+              }
+              if (value !== 'Otros') {
+                  newItem.description = ''; 
+              }
+              if (value === 'Reparación') {
+                  toast.success("Servicio 'Reparación' detectado. Se eliminaron otros servicios.");
+                  return newItem;
+              }
+          }
+          
+          if (field === 'amount') {
+               if (item.service === 'Revisión') {
+                   setFormData(prev => ({ ...prev, diagnostico: numericValue }));
+               }
+          }
+          
+          return newItem;
+        }
+        return item;
+      }).filter(item => item.service !== 'Reparación' || item.id === id) 
+    );
+  };
+  
+  const handleDiagnosisChange = (e) => {
+      if (isFormLocked) return;
+      const { value } = e.target;
+      const numericValue = parseFloat(value) || 0;
+      if (hasRepairService) {
+          setFormData(prev => ({ ...prev, diagnostico: numericValue }));
+      }
+  };
+
+  const handleAddClient = async (clientData) => {
+        try {
+            await createClient(clientData);
+            toast.success('Cliente agregado con éxito.');
+            
+            const updatedClients = await getAllClientsForSelection();
+            setClients(updatedClients);
+            
+            const newClient = updatedClients.find(c => 
+                c.telefono === clientData.telefono && 
+                c.tipoPersona === clientData.tipoPersona && 
+                (c.tipoPersona === 'JURIDICA' ? c.ruc === clientData.ruc && c.razonSocial === clientData.razonSocial : c.nombre === clientData.nombre && c.apellido === clientData.apellido)
+            );
+
+            if (newClient) {
+                setSelectedClient({ value: newClient.id, label: newClient.display, data: newClient });
+            }
+            
+            setIsNewClientModalOpen(false);
+        } catch (error) {
+            toast.error(error.message);
+            throw error; 
+        }
+  };
+    
+  const handleInputChange = (e) => {
+    if (isFormLocked) return; 
+    const { name, value, type, checked } = e.target;
+
+    if (name === "bitlockerKey" && type === "checkbox") {
+        setFormData((prev) => ({
+            ...prev,
+            [name]: checked,
+        }));
+        return;
+    }
+    
+    if (name === 'canTurnOn') {
+      const newState = { [name]: value };
+      if (value === 'NO') {
+          newState.sistemaOperativo = '';
+          newState.bitlockerKey = false;
+          newState.tecnicoTesteo = '';
+          newState.tecnicoTesteoId = '';
+          newState.tecnicoResponsable = '';
+          newState.tecnicoResponsableId = '';
+          newState.tecnicoInicial = '';
+          newState.tecnicoInicialId = '';
+          newState.area = ''; 
+          
+          newState.items = formData.items.map(item => ({
+              ...item,
+              checked: false, 
+          }));
+          
+          toast('Campos de Testeo (checks), Software, Técnicos Inicial/Testeo/Responsable y Área de Destino se han deshabilitado.'); 
+      } 
+      setFormData((prev) => ({
+          ...prev,
+          ...newState,
+      }));
+      return;
+    }
+    
+    if (name === 'otherComponentType') {
+        setOtherComponentType(value);
+        if (value === 'OTRO_DESCRIPCION') {
+            setOtherDescription('');
+        } else {
+            setOtherDescription(OTHER_EQUIPMENT_OPTIONS.find(o => o.value === value)?.label || '');
+        }
+        return;
+    }
+    
+    if (name === 'otherDescription') {
+        setOtherDescription(value);
+        return;
+    }
+
+    if (name === 'diagnostico') {
+        let numericValue = parseFloat(value) || 0;
+        if (hasRepairService) {
+            setFormData(prev => ({ ...prev, diagnostico: numericValue }));
+        }
+        return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handlePaymentFocus = (e) => {
+    if (isFormLocked) return; 
+    e.target.value = '';
+  };
+
+  const handlePaymentChange = (e) => {
+    if (isFormLocked) return; 
+    let { name, value } = e.target;
+    
+    let numericValue = parseFloat(value);
+    if (isNaN(numericValue) || numericValue < 0) numericValue = 0;
+    
+    setFormData((prev) => ({
+      ...prev,
+      [name]: numericValue,
+    }));
+  };
+
+  const handleWheel = (e) => {
+    e.preventDefault();
+  };
+
+  const handleClientChange = (selectedOption) => {
+    if (isFormLocked) return; 
+
+    setSelectedClient(selectedOption);
+    if (isEditMode) {
+      toast.error("No se puede cambiar el cliente en modo de edición.");
+    }
+  };
+
+  const handleUserChange = (name, selectedOption) => {
+    if (isFormLocked) return; 
+    const nameKey = name;
+    const idKey = `${name}Id`;
+    
+    setFormData((prev) => ({
+      ...prev,
+      [nameKey]: selectedOption ? selectedOption.label : "",
+      [idKey]: selectedOption ? selectedOption.value : "",
+    }));
+  };
+
+  const handleEquipoChange = (e) => {
+    if (isFormLocked) return; 
+    const { value } = e.target;
+    const newItems = getComponentOptions(value)?.map((item) => ({
+          id: item.id,
+          checked: false,
+          detalles: "",
+    })) || [];
+    
+    setOtherComponentType("");
+    setOtherDescription("");
+
+    setFormData((prev) => ({
+      ...prev,
+      tipoEquipo: value,
+      items: newItems,
+      sistemaOperativo: "",
+      bitlockerKey: false,
+      modelo: value === 'Otros' ? '' : prev.modelo, 
+    }));
+  };
+
+  const handleItemCheck = (e) => {
+    if (isFormLocked || formData.canTurnOn === 'NO') return; 
+    const { name, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === name ? { ...item, checked } : item
+      ),
+    }));
+  };
+
+  const handleItemDetailsChange = (e) => {
+    if (isFormLocked) return; 
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === name ? { ...item, detalles: value } : item
+      ),
+    }));
+  };
+
+  const handleAddAdditionalService = (e) => {
+    e.preventDefault();
+    if (isFormLocked) return; 
+    const amount = parseFloat(newService.amount);
+    
+    if (!newService.description || !amount || amount <= 0) {
+      toast.error("Debe ingresar la descripción y un monto mayor a 0 antes de agregar un servicio adicional.");
+      return;
+    }
+
+    setAdditionalServices((prev) => [
+        ...prev,
+        { ...newService, amount: amount, id: Date.now() },
+    ]);
+    setNewService({ description: "", amount: 0 });
+  };
+
+  const handleDeleteAdditionalService = (id) => {
+    if (isFormLocked) return; 
+    setAdditionalServices((prev) =>
+      prev.filter((service) => service.id !== id)
+    );
+  };
+
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    const requiredGeneralFields = [
+      { field: "tipoEquipo", message: "El Tipo de Equipo es obligatorio." },
+      { field: "marca", message: "La Marca es obligatoria." },
+      { field: "observaciones", message: "Las Observaciones son obligatorias." },
+      { field: "canTurnOn", message: "La opción '¿Enciende?' es obligatoria." }, 
+    ];
+
+    if (!selectedClient) {
+      newErrors.client = "Seleccionar un cliente es obligatorio.";
+    }
+
+    requiredGeneralFields.forEach(({ field, message }) => {
+      if (!String(formData[field])) {
+          if (field === 'modelo' && formData.tipoEquipo === 'Otros') return;
+          newErrors[field] = message;
+      }
+    });
+
+    if (servicesList.length === 0) {
+        newErrors.servicesList = "Debe añadir al menos un servicio (Motivo de Ingreso).";
+    } else {
+        servicesList.forEach((item, index) => {
+             if (!item.service) {
+                newErrors[`service-${index}`] = "Debe seleccionar un servicio.";
+             }
+             if (item.service !== 'Revisión' && item.service !== 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
+                newErrors[`amount-${index}`] = "El monto es obligatorio y debe ser mayor a 0.";
+             }
+             if (item.service === 'Otros' && !item.description) {
+                 newErrors[`description-${index}`] = "Debe especificar la descripción del servicio 'Otros'.";
+             }
+             if (item.service === 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
+                 newErrors[`amount-${index}`] = "El monto de la reparación es obligatorio y debe ser mayor a 0.";
+             }
+        });
+    }
+
+    const isSerieRequired = !['Allinone', 'PC', 'Otros'].includes(formData.tipoEquipo);
+
+    if (isSerieRequired && !formData.serie) {
+        newErrors.serie = "La Serie es obligatoria.";
+    } 
+    
+    // -----------------------------------------------------------
+    // REQUISITO 1: AIO - todos los campos relevantes requieren detalles.
+    if (formData.tipoEquipo === 'Allinone') { 
+        COMPONENT_OPTIONS[formData.tipoEquipo]?.forEach(item => {
+            const currentItem = formData.items.find(i => i.id === item.id);
+            if (MANDATORY_COMPONENT_IDS.includes(item.id) && (!currentItem || !currentItem.detalles)) {
+                 newErrors[item.id] = `Detalle de ${getComponentDisplayName(item.id)} es obligatorio para All in One.`;
+            }
+        });
+    }
+
+    // REQUISITO 3: Impresora - campos de impresión obligatorios
+    if (formData.tipoEquipo === 'Impresora') { 
+        const printerMandatoryIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
+        printerMandatoryIds.forEach(mandatoryId => {
+            const item = formData.items.find(i => i.id === mandatoryId);
+            if (!item || !item.detalles) {
+                 newErrors[mandatoryId] = `Detalle de ${getComponentDisplayName(mandatoryId)} es obligatorio para Impresora.`;
+            }
+        });
+    }
+    // -----------------------------------------------------------
+    
+    if (formData.tipoEquipo === 'Otros') {
+        if (!otherComponentType) {
+            newErrors.otherComponentType = "Debe seleccionar el tipo de componente principal.";
+        }
+        if (otherComponentType === 'OTRO_DESCRIPCION' && !otherDescription) {
+            newErrors.otherDescription = "Debe especificar la descripción.";
+        }
+    }
+    
+    if (formData.canTurnOn === 'SI') {
+        
+        if (showAreaInput && isAreaRequired && !formData.area) { 
+            newErrors.area = "El Área de Destino es obligatoria.";
+        }
+        
+        if (!formData.tecnicoInicialId) { 
+            newErrors.tecnicoInicialId = "El Técnico Inicial es obligatorio si el equipo enciende.";
+        }
+        
+        if (!formData.tecnicoTesteoId) {
+            newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio si el equipo enciende.";
+        }
+        
+        const isOSRequired = ['PC', 'Laptop'].includes(formData.tipoEquipo);
+        if (isOSRequired && !formData.sistemaOperativo) {
+            newErrors.sistemaOperativo = "El Sistema Operativo es obligatorio para PC/Laptop si el equipo enciende.";
+        }
+        
+        // REQUISITO 2: VALIDACIONES SI ENCIENDE
+        const items = formData.items;
+        
+        // 2.2 OBLIGATORIO LLENADO DE DETALLES
+        const mandatoryDetailIds = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
+        mandatoryDetailIds.forEach(mandatoryId => {
+            const item = items.find(i => i.id === mandatoryId);
+            const isAvailable = COMPONENT_OPTIONS[formData.tipoEquipo]?.some(c => c.id === mandatoryId);
+
+            if (isAvailable && (!item || !item.detalles)) {
+                 newErrors[mandatoryId] = `Detalle de ${getComponentDisplayName(mandatoryId)} es obligatorio si enciende.`;
+            }
+        });
+
+        // 2.1 OBLIGATORIO MARCAR LA CASILLA
+        const mandatoryCheckIds = ['procesador', 'placaMadre', 'memoriaRam', 'wifi'];
+        mandatoryCheckIds.forEach(mandatoryId => {
+            const item = items.find(i => i.id === mandatoryId);
+            const isAvailable = COMPONENT_OPTIONS[formData.tipoEquipo]?.some(c => c.id === mandatoryId);
+
+            if (isAvailable && item && !item.checked) {
+                 newErrors[mandatoryId + '_check'] = `La casilla de ${getComponentDisplayName(mandatoryId)} es obligatoria si enciende.`;
+            }
+        });
+        
+        // 2.1 DISCO CHECK OBLIGATORIO (at least one of HDD/SSD/NVME must be checked)
+        const diskIds = ['hdd', 'ssd', 'm2Nvme'];
+        const diskItems = items.filter(i => diskIds.includes(i.id));
+        const anyDiskChecked = diskItems.some(i => i.checked);
+        
+        if (diskItems.length > 0 && !anyDiskChecked && ['PC', 'Laptop', 'Allinone'].includes(formData.tipoEquipo)) {
+             newErrors.disk_check = "Debe marcar al menos un tipo de disco (HDD, SSD o M2 NVME) si enciende.";
+        }
+        
+        // 2.1/2.2 DISCO DETAIL OBLIGATORIO: Detalle del disco es OBLIGATORIO si está marcado
+        diskItems.forEach(item => {
+            if (item.checked && !item.detalles) {
+                newErrors[item.id] = `Detalle de ${getComponentDisplayName(item.id)} es obligatorio si está marcado.`;
+            }
+        });
+        
+        // 2.4 MARCAR OBLIGATORIO PARA TESTEO BASICO: CÁMARA / MICRÓFONO / PARLANTE
+        const basicTestCheckIds = ['camara', 'microfono', 'parlantes'];
+        basicTestCheckIds.forEach(testId => {
+            const item = items.find(i => i.id === testId);
+            const isAvailable = COMPONENT_OPTIONS[formData.tipoEquipo]?.some(c => c.id === testId);
+            
+            if (isAvailable && item && !item.checked) {
+                newErrors[testId + '_check'] = `La casilla de ${getComponentDisplayName(testId)} es obligatoria para testeo si enciende.`;
+            }
+        });
+
+        // Other component validation logic for "Otros"
+        if (formData.tipoEquipo === 'Otros' && otherComponentType) {
+             const itemsToCheck = [];
+             if (otherComponentType === 'TARJETA_VIDEO') {
+                 itemsToCheck.push('otros');
+             } else if (otherComponentType.startsWith('PLACA_MADRE')) {
+                 itemsToCheck.push('procesador', 'tarjetaVideo', 'memoriaRam', 'otros');
+             }
+             
+             itemsToCheck.forEach(itemId => {
+                const item = formData.items.find(i => i.id === itemId);
+                const isDetailRequired = (otherComponentType.startsWith('PLACA_MADRE') || otherComponentType === 'TARJETA_VIDEO');
+
+                if (isDetailRequired && (!item || !item.detalles)) {
+                    if (otherComponentType === 'OTRO_DESCRIPCION') {
+                    } else {
+                        newErrors[itemId] = `Detalle de ${getComponentDisplayName(itemId)} es obligatorio.`;
+                    }
+                }
+             });
+        }
+    }
+    
+    if (formData.montoServicio <= 0 && !hasRepairService && !servicesList.some(s => s.service === 'Revisión')) {
+        newErrors.montoServicio = "Debe haber un monto válido para el servicio o para la revisión.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (isFormLocked || isSaving) { 
+        toast.error("Procesando registro. Por favor, espera.");
+        return; 
+    } 
+
+    if (!validateForm()) {
+      toast.error("Por favor, completa todos los campos obligatorios.");
+      return;
+    }
+
+    setIsSaving(true); 
+
+    const finalResponsible = formData.tecnicoResponsable;
+    const finalResponsibleId = formData.tecnicoResponsableId;
+    
+    let clientReportName = '';
+    const clientData = selectedClient.data;
+    if (clientData.tipoPersona === 'JURIDICA') {
+        clientReportName = clientData.razonSocial;
+    } else {
+        clientReportName = `${clientData.nombre} ${clientData.apellido}`;
+    }
+    
+    const motivoIngresoText = servicesList.map(s => {
+        const amountDisplay = s.service === 'Revisión' ? `(Diagnóstico: S/ ${s.amount.toFixed(2)})` : `(S/ ${s.amount.toFixed(2)})`;
+        return `${s.service.charAt(0).toUpperCase() + s.service.slice(1)} ${amountDisplay}`;
+    }).join(', ');
+
+    try {
+      const baseData = {
+        ...formData,
+        tecnicoResponsable: finalResponsible,
+        tecnicoResponsableId: finalResponsibleId,
+        clientId: selectedClient.value,
+        clientName: clientReportName, 
+        telefono: clientData.telefono, 
+        
+        diagnostico: parseFloat(formData.diagnostico) || 0,
+        montoServicio: parseFloat(formData.montoServicio) || 0,
+        total: parseFloat(formData.total) || 0,
+        aCuenta: parseFloat(formData.aCuenta) || 0,
+        saldo: parseFloat(formData.saldo) || 0,
+        
+        servicesList: servicesList.map(s => ({...s, amount: s.amount.toFixed(2)})),
+        motivoIngreso: motivoIngresoText, 
+        additionalServices: additionalServices.map(s => ({...s, amount: s.amount.toFixed(2)})),
+        hasAdditionalServices: additionalServices.length > 0,
+        canTurnOn: formData.canTurnOn, 
+      };
+      
+      if (formData.tipoEquipo === 'Otros') {
+          baseData.otherComponentType = otherComponentType;
+          baseData.otherDescription = otherDescription;
+      }
+      
+      if (isEditMode) {
+          if (isAdminOrSuperadmin && baseData.area && baseData.area !== 'N/A') {
+              // Si se asigna un área, el técnico actual es el responsable.
+              baseData.tecnicoActual = baseData.tecnicoResponsable;
+              baseData.tecnicoActualId = baseData.tecnicoResponsableId;
+          }
+          
+          await updateDiagnosticReport(diagnosticoId, baseData);
+          toast.success(`Informe #${reportNumber} actualizado con éxito.`);
+      } else {
+          // En modo creación:
+          // El Técnico Responsable es el primer Técnico Asignado (tecnicoActual).
+          baseData.tecnicoActual = finalResponsible; 
+          baseData.tecnicoActualId = finalResponsibleId; 
+          
+          // Si no es Admin/Superadmin, no debe tener área de destino.
+          if (!isAdminOrSuperadmin) {
+              baseData.area = 'N/A';
+          }
+
+          await createDiagnosticReport({
+            ...baseData,
+            reportNumber: parseInt(reportNumber),
+            fecha: `${getToday.day}-${getToday.month}-${getToday.year}`,
+            hora: getToday.time,
+            estado: "ASIGNADO", 
+          });
+          toast.success(`Informe #${reportNumber} creado con éxito.`);
+      }
+      
+      navigate("/ver-estado");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+        setIsSaving(false); 
+    }
+  };
+
+  const showTecnicoResponsable = isAdminOrSuperadmin;
+
+  let dia, mes, anio, hora;
+  const isNewReport = !diagnosticoId;
+
+  if (isNewReport) {
+    dia = getToday.day;
+    mes = getToday.month;
+    anio = getToday.year;
+    hora = getToday.time;
+  } else {
+    [dia, mes, anio] = formData.fecha
+      ? formData.fecha.split("-")
+      : ["N/A", "N/A", "N/A"];
+    hora = formData.hora || "N/A";
+  }
+  const displayDate = isNewReport
+    ? `${getToday.day}/${getToday.month}/${getToday.year}`
+    : formData.fecha;
+  const displayTime = isNewReport ? getToday.time : formData.hora;
+  
+  if (isLoading) return <div className="text-center p-8">Cargando informe...</div>;
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -1335,9 +1519,9 @@ function Diagnostico() {
               {displayTime}
             </div>
           </div>
-          {isReportFinalized && (
+          {isFormLocked && (
             <p className="text-red-500 font-bold mt-4">
-                El informe se encuentra en estado "{formData.estado}" y no puede ser modificado.
+              El informe ya tiene un área asignada ({formData.area} - Estado: {formData.estado}) y no puede ser modificado.
             </p>
           )}
         </div>
@@ -1361,7 +1545,7 @@ function Diagnostico() {
                 onChange={handleClientChange}
                 placeholder="Buscar o seleccionar cliente..."
                 isClearable
-                isDisabled={isLoading || isEditMode || isReportFinalized}
+                isDisabled={isFormLocked || isEditMode} 
                 className={`${errors.client ? "ring-2 ring-red-500" : ""}`}
                 styles={{
                     control: (baseStyles) => ({
@@ -1406,7 +1590,7 @@ function Diagnostico() {
                 type="button"
                 onClick={() => setIsNewClientModalOpen(true)}
                 className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex items-center h-10 disabled:bg-green-400"
-                disabled={isLoading || isEditMode || isReportFinalized}
+                disabled={isLoading || isFormLocked || isEditMode} 
             >
                 <FaUserPlus className="mr-2" /> Nuevo
             </button>
@@ -1431,7 +1615,7 @@ function Diagnostico() {
                   errors.canTurnOn ? "ring-2 ring-red-500" : ""
                 }`}
                 required
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               >
                 <option value="">Selecciona una opción</option>
                 <option value="SI">SI PRENDE</option>
@@ -1454,7 +1638,7 @@ function Diagnostico() {
                   errors.tipoEquipo ? "ring-2 ring-red-500" : ""
                 }`}
                 required
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               >
                 <option value="">Selecciona un tipo</option>
                 {Object.keys(COMPONENT_OPTIONS).map((type) => (
@@ -1481,7 +1665,7 @@ function Diagnostico() {
                       errors.otherComponentType ? "ring-2 ring-red-500" : ""
                     }`}
                     required
-                    disabled={isReportFinalized}
+                    disabled={isFormLocked} 
                   >
                     {OTHER_EQUIPMENT_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -1509,7 +1693,7 @@ function Diagnostico() {
                       errors.otherDescription ? "ring-2 ring-red-500" : ""
                     }`}
                     required
-                    disabled={isReportFinalized}
+                    disabled={isFormLocked} 
                   />
                   {errors.otherDescription && (
                     <p className="text-red-500 text-sm mt-1">{errors.otherDescription}</p>
@@ -1529,7 +1713,7 @@ function Diagnostico() {
                   errors.marca ? "ring-2 ring-red-500" : ""
                 }`}
                 required
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               />
               {errors.marca && (
                 <p className="text-red-500 text-sm mt-1">{errors.marca}</p>
@@ -1550,7 +1734,7 @@ function Diagnostico() {
                   errors.modelo ? "ring-2 ring-red-500" : ""
                 }`}
                 required={formData.tipoEquipo !== 'Otros'}
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               />
               {errors.modelo && (
                 <p className="text-red-500 text-sm mt-1">{errors.modelo}</p>
@@ -1572,7 +1756,7 @@ function Diagnostico() {
                   errors.serie ? "ring-2 ring-red-500" : ""
                 }`}
                 required={!['Allinone', 'PC', 'Otros'].includes(formData.tipoEquipo)}
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               />
               {errors.serie && (
                 <p className="text-red-500 text-sm mt-1">{errors.serie}</p>
@@ -1588,27 +1772,23 @@ function Diagnostico() {
             </h2>
             {['Impresora'].includes(formData.tipoEquipo) && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Para el tipo de equipo "{formData.tipoEquipo}", los campos de componentes son opcionales.
+                    Para el tipo de equipo "{formData.tipoEquipo}", los campos de componentes son obligatorios (detalles) o para testeo (check).
                 </p>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
               {COMPONENT_OPTIONS[formData.tipoEquipo]?.filter(item => {
                   if (formData.tipoEquipo === 'Otros') {
-                      return getOtherComponentAvailability(item.id).isAvailable;
+                      return getComponentStatus(item.id).isAvailable;
                   }
                   return true;
               }).map((item, index) => {
                 
-                const isMandatoryInGeneral = isMandatoryComponentForCurrentType(item.id, formData.tipoEquipo);
-                let { isAvailable, isCheckDisabled, isDetailRequired, isDetailDisabled } = getOtherComponentAvailability(item.id);
-
-                if (formData.tipoEquipo !== 'Otros') {
-                    isCheckDisabled = isReportFinalized || formData.canTurnOn === 'NO';
-                    isDetailRequired = isMandatoryInGeneral && formData.canTurnOn === 'SI';
-                    isDetailDisabled = isReportFinalized;
-                }
+                const { isAvailable, isCheckDisabled, isDetailDisabled, isDetailRequired, isCheckRequired } = getComponentStatus(item.id);
                 
+                const showDetailError = isDetailRequired && errors[item.id];
+                const showCheckError = isCheckRequired && errors[item.id + '_check'];
                 const showMandatoryIndicator = isDetailRequired;
+
 
                 return (
                 <div key={item.id} className="flex items-center space-x-2">
@@ -1621,13 +1801,14 @@ function Diagnostico() {
                       false
                     }
                     onChange={handleItemCheck}
-                    className={`h-4 w-4 rounded`}
+                    className={`h-4 w-4 rounded ${showCheckError ? "ring-2 ring-red-500" : ""}`}
                     disabled={isCheckDisabled} 
                   />
                   <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
                     <span className="font-bold mr-1">{index + 1}.</span> 
                     {item.name}
                     {showMandatoryIndicator && <FaCheckCircle className="ml-1 text-xs text-blue-500" title="Detalle obligatorio"/>}
+                    {isCheckRequired && !isDetailRequired && <FaCheck className="ml-1 text-xs text-green-500" title="Check Obligatorio"/>}
                   </label>
                   <input
                     type="text"
@@ -1635,17 +1816,24 @@ function Diagnostico() {
                     value={formData.items.find((i) => i.id === item.id)?.detalles || ""}
                     onChange={handleItemDetailsChange}
                     className={`flex-1 p-1 text-xs border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
-                       showMandatoryIndicator && errors[item.id] ? "ring-2 ring-red-500" : ""
+                       showDetailError ? "ring-2 ring-red-500" : ""
                     }`}
                     placeholder="Detalles"
                     disabled={isDetailDisabled}
                   />
-                   {showMandatoryIndicator && errors[item.id] && (
+                   {showDetailError && (
                         <FaTimesCircle className="text-red-500" title={errors[item.id]}/>
+                   )}
+                   {showCheckError && !showDetailError && (
+                        <FaTimesCircle className="text-red-500" title={errors[item.id + '_check']}/>
                    )}
                 </div>
               )})}
             </div>
+            
+            {errors.disk_check && (
+              <p className="text-red-500 text-sm mt-4">{errors.disk_check}</p>
+            )}
           </div>
         )}
 
@@ -1670,7 +1858,7 @@ function Diagnostico() {
                       errors.sistemaOperativo ? "ring-2 ring-red-500" : ""
                   }`}
                   required={formData.canTurnOn === 'SI' && ['PC', 'Laptop'].includes(formData.tipoEquipo)}
-                  disabled={isReportFinalized || formData.canTurnOn === 'NO'} 
+                  disabled={isFormLocked || formData.canTurnOn === 'NO'} 
                 >
                   <option value="">Selecciona un SO</option>
                   {OS_OPTIONS.map((os) => (
@@ -1691,7 +1879,7 @@ function Diagnostico() {
                     checked={formData.bitlockerKey}
                     onChange={handleInputChange}
                     className="h-4 w-4 mr-2"
-                    disabled={isReportFinalized || formData.canTurnOn === 'NO'} 
+                    disabled={isFormLocked || formData.canTurnOn === 'NO'} 
                 />
                 <label className="text-sm font-medium" htmlFor="bitlockerKey">Clave de Bitlocker</label>
               </div>
@@ -1717,7 +1905,7 @@ function Diagnostico() {
                 errors.observaciones ? "ring-2 ring-red-500" : ""
               }`}
               required
-              disabled={isReportFinalized}
+              disabled={isFormLocked} 
             ></textarea>
             {errors.observaciones && (
               <p className="text-red-500 text-sm mt-1">{errors.observaciones}</p>
@@ -1736,7 +1924,7 @@ function Diagnostico() {
                             value={newServiceSelection.service}
                             onChange={(e) => setNewServiceSelection(prev => ({...prev, service: e.target.value}))}
                             className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                            disabled={isReportFinalized || (hasRepairService && servicesList.length >= 1)}
+                            disabled={isFormLocked || (hasRepairService && servicesList.length >= 1)} 
                         >
                             <option value="">Añadir servicio</option>
                             {SERVICE_OPTIONS.filter(s => s !== 'Reparación' || !hasRepairService).map((service) => (
@@ -1756,7 +1944,7 @@ function Diagnostico() {
                                 onChange={(e) => setOtherServiceText(e.target.value)}
                                 placeholder="Especifique el servicio"
                                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                disabled={isReportFinalized}
+                                disabled={isFormLocked} 
                             />
                     </div>
                 ) : (
@@ -1774,7 +1962,7 @@ function Diagnostico() {
                         onChange={(e) => setNewServiceSelection(prev => ({...prev, amount: parseFloat(e.target.value)}))}
                         placeholder="Costo"
                         className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                        disabled={isReportFinalized || newServiceSelection.service === 'Revisión' || newServiceSelection.service === ''}
+                        disabled={isFormLocked || newServiceSelection.service === 'Revisión' || newServiceSelection.service === ''} 
                     />
                 </div>
                 
@@ -1782,10 +1970,17 @@ function Diagnostico() {
                     type="button"
                     onClick={() => {
                         const amount = newServiceSelection.service === 'Revisión' ? (newServiceSelection.amount || 0) : newServiceSelection.amount;
-                        handleServiceChange(Date.now(), 'service', newServiceSelection.service);
-                        handleServiceChange(Date.now(), 'amount', amount);
+                        
+                        if (newServiceSelection.service && newServiceSelection.service !== 'Revisión' && newServiceSelection.service !== 'Reparación' && (!amount || amount <= 0)) {
+                             toast.error("El monto debe ser mayor a 0 para este servicio.");
+                             return;
+                        }
                         
                         let serviceDesc = newServiceSelection.service === 'Otros' ? otherServiceText : newServiceSelection.service;
+                        if (newServiceSelection.service === 'Otros' && !otherServiceText) {
+                            toast.error("Debe especificar la descripción del servicio 'Otros'.");
+                            return;
+                        }
                         
                         setServicesList(prev => {
                             if (servicesList.some(s => s.service === 'Reparación') && serviceDesc !== 'Reparación') return prev;
@@ -1812,7 +2007,7 @@ function Diagnostico() {
                         setOtherServiceText("");
                     }}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center disabled:bg-blue-300 h-10"
-                    disabled={isReportFinalized || (hasRepairService && servicesList.length >= 1) || servicesList.length >= MAX_SERVICES || !newServiceSelection.service}
+                    disabled={isFormLocked || (hasRepairService && servicesList.length >= 1) || servicesList.length >= MAX_SERVICES || !newServiceSelection.service} 
                 >
                     <FaPlus />
                 </button>
@@ -1832,7 +2027,7 @@ function Diagnostico() {
                             type="button"
                             onClick={() => handleRemoveServiceItem(s.id)}
                             className="ml-4 text-red-500 hover:text-red-700"
-                            disabled={isReportFinalized}
+                            disabled={isFormLocked} 
                         >
                             <FaTimes />
                         </button>
@@ -1860,7 +2055,7 @@ function Diagnostico() {
                             onChange={handleDiagnosisChange}
                             className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${errors.diagnostico ? "ring-2 ring-red-500" : ""}`}
                             required
-                            disabled={isReportFinalized}
+                            disabled={isFormLocked} 
                         />
                          {errors.diagnostico && (
                             <p className="text-red-500 text-xs mt-1">{errors.diagnostico}</p>
@@ -1883,7 +2078,7 @@ function Diagnostico() {
               checked={showAdditionalServices}
               onChange={() => setShowAdditionalServices((prev) => !prev)}
               className="h-4 w-4"
-              disabled={isReportFinalized}
+              disabled={isFormLocked} 
             />
             <label className="ml-2 text-xl font-semibold text-pink-500">
               Agregar Servicios Adicionales
@@ -1905,7 +2100,7 @@ function Diagnostico() {
                     }))
                   }
                   className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  disabled={isReportFinalized}
+                  disabled={isFormLocked} 
                 />
                 <input
                   type="number"
@@ -1923,13 +2118,13 @@ function Diagnostico() {
                   }
                   className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                   style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
-                  disabled={isReportFinalized}
+                  disabled={isFormLocked} 
                 />
                 <button
                   type="button"
                   onClick={handleAddAdditionalService}
                   className="bg-blue-500 text-white font-bold px-4 rounded-lg disabled:bg-blue-300"
-                  disabled={isReportFinalized}
+                  disabled={isFormLocked} 
                 >
                   <FaPlus />
                 </button>
@@ -1948,7 +2143,7 @@ function Diagnostico() {
                       type="button"
                       onClick={() => handleDeleteAdditionalService(service.id)}
                       className="ml-4 text-red-500 hover:text-red-700"
-                      disabled={isReportFinalized}
+                      disabled={isFormLocked} 
                     >
                       <FaTimes />
                     </button>
@@ -1969,7 +2164,7 @@ function Diagnostico() {
                 rows="2"
                 placeholder="Detalles del pago (ej. depósito en cuenta, efectivo, etc.)"
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               ></textarea>
             </div>
           
@@ -1999,7 +2194,7 @@ function Diagnostico() {
                 value={formData.montoServicio.toFixed(2)}
                 readOnly
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed font-bold"
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               />
             </div>
             
@@ -2013,7 +2208,7 @@ function Diagnostico() {
                 value={formData.total.toFixed(2)}
                 readOnly
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed font-bold"
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               />
             </div>
             
@@ -2033,7 +2228,7 @@ function Diagnostico() {
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                 style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
                 required
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               />
             </div>
             
@@ -2047,7 +2242,7 @@ function Diagnostico() {
                 value={formData.saldo.toFixed(2)}
                 readOnly
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
-                disabled={isReportFinalized}
+                disabled={isFormLocked} 
               />
             </div>
           </div>
@@ -2058,6 +2253,8 @@ function Diagnostico() {
             Asignación de Personal
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            
+            {/* 1. Técnico de Recepción (currentUser) - Requerimiento: Mostrar primero */}
             <div>
               <label className="block text-sm font-medium mb-1">
                 Técnico de Recepción
@@ -2067,26 +2264,28 @@ function Diagnostico() {
                 value={formData.tecnicoRecepcion}
                 readOnly
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
-                disabled={isReportFinalized}
+                disabled={isFormLocked}
               />
             </div>
+            
+            {/* 2. Técnico Inicial (Nuevo campo) */}
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico de Testeo
+                Técnico Inicial
               </label>
               <Select
                 options={users}
-                value={users.find((u) => u.value === formData.tecnicoTesteoId)}
-                onChange={(option) => handleUserChange("tecnicoTesteo", option)}
+                value={users.find((u) => u.value === formData.tecnicoInicialId)}
+                onChange={(option) => handleUserChange("tecnicoInicial", option)}
                 placeholder="Selecciona un técnico..."
-                className={`${errors.tecnicoTesteoId ? "ring-2 ring-red-500 rounded-lg" : ""}`}
-                isDisabled={isReportFinalized || formData.canTurnOn === 'NO'} 
+                isClearable
+                className={`${errors.tecnicoInicialId ? "ring-2 ring-red-500 rounded-lg" : ""}`}
+                isDisabled={isFormLocked || formData.canTurnOn === 'NO'}
                 styles={{
                   control: (baseStyles) => ({
                     ...baseStyles,
                     backgroundColor: theme === "dark" ? "#374151" : "#fff",
-                    borderColor:
-                      theme === "dark" ? "#4B5563" : baseStyles.borderColor,
+                    borderColor: theme === "dark" ? "#4B5563" : baseStyles.borderColor,
                   }),
                   singleValue: (baseStyles) => ({
                     ...baseStyles,
@@ -2098,11 +2297,46 @@ function Diagnostico() {
                   }),
                   option: (baseStyles, state) => ({
                     ...baseStyles,
-                    backgroundColor: state.isFocused
-                      ? theme === "dark"
-                        ? "#4B5563"
-                        : "#e5e7eb"
-                      : "transparent",
+                    backgroundColor: state.isFocused ? (theme === "dark" ? "#4B5563" : "#e5e7eb") : "transparent",
+                    color: theme === "dark" ? "#fff" : "#000",
+                  }),
+                }}
+              />
+              {errors.tecnicoInicialId && (
+                  <p className="text-red-500 text-sm mt-1">{errors.tecnicoInicialId}</p>
+              )}
+            </div>
+            
+            {/* 3. Técnico de Testeo */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Técnico de Testeo
+              </label>
+              <Select
+                options={users}
+                value={users.find((u) => u.value === formData.tecnicoTesteoId)}
+                onChange={(option) => handleUserChange("tecnicoTesteo", option)}
+                placeholder="Selecciona un técnico..."
+                className={`${errors.tecnicoTesteoId ? "ring-2 ring-red-500 rounded-lg" : ""}`}
+                isClearable
+                isDisabled={isFormLocked || formData.canTurnOn === 'NO'} 
+                styles={{
+                  control: (baseStyles) => ({
+                    ...baseStyles,
+                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                    borderColor: theme === "dark" ? "#4B5563" : baseStyles.borderColor,
+                  }),
+                  singleValue: (baseStyles) => ({
+                    ...baseStyles,
+                    color: theme === "dark" ? "#fff" : "#000",
+                  }),
+                  menu: (baseStyles) => ({
+                    ...baseStyles,
+                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                  }),
+                  option: (baseStyles, state) => ({
+                    ...baseStyles,
+                    backgroundColor: state.isFocused ? (theme === "dark" ? "#4B5563" : "#e5e7eb") : "transparent",
                     color: theme === "dark" ? "#fff" : "#000",
                   }),
                 }}
@@ -2111,7 +2345,9 @@ function Diagnostico() {
                   <p className="text-red-500 text-sm mt-1">{errors.tecnicoTesteoId}</p>
               )}
             </div>
-            {showTecnicoResponsable && (
+            
+            {/* 4. Técnico Responsable (Solo visible si es Admin/Superadmin) */}
+            {isAdminOrSuperadmin && (
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Técnico Responsable (Opcional)
@@ -2125,7 +2361,8 @@ function Diagnostico() {
                       handleUserChange("tecnicoResponsable", option)
                     }
                     placeholder="Selecciona un técnico..."
-                    isDisabled={isReportFinalized || formData.canTurnOn === 'NO'} 
+                    isClearable
+                    isDisabled={isFormLocked || formData.canTurnOn === 'NO'} 
                     styles={{
                       control: (baseStyles) => ({
                         ...baseStyles,
@@ -2154,34 +2391,42 @@ function Diagnostico() {
                   />
                 </div>
             )}
+            
           </div>
+          
+          {/* Área de Destino (Solo visible si es Admin/Superadmin) */}
           <div className="mt-4">
-            <label className="block text-sm font-medium mb-1">
-              Área de Destino
-            </label>
-            <select
-              name="area"
-              value={formData.area}
-              onChange={handleInputChange}
-              className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
-                errors.area ? "ring-2 ring-red-500" : ""
-              }`}
-              disabled={isReportFinalized || formData.canTurnOn === 'NO'}
-            >
-              <option value="">Selecciona un área</option>
-              {AREA_OPTIONS.map((area) => (
-                <option key={area} value={area}>
-                  {area}
-                </option>
-              ))}
-            </select>
-            {errors.area && (
-              <p className="text-red-500 text-sm mt-1">{errors.area}</p>
+            {showAreaInput && (
+              <>
+                <label className="block text-sm font-medium mb-1">
+                  Área de Destino
+                </label>
+                <select
+                  name="area"
+                  value={formData.area}
+                  onChange={handleInputChange}
+                  className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                    errors.area ? "ring-2 ring-red-500" : ""
+                  }`}
+                  required={isAreaRequired}
+                  disabled={isFormLocked || formData.canTurnOn === 'NO'}
+                >
+                  <option value="">Selecciona un área</option>
+                  {AREA_OPTIONS.map((area) => (
+                    <option key={area} value={area}>
+                      {area}
+                    </option>
+                  ))}
+                </select>
+                {errors.area && (
+                  <p className="text-red-500 text-sm mt-1">{errors.area}</p>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {!isReportFinalized && (
+        {!isFormLocked && ( 
             <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center disabled:bg-blue-400"

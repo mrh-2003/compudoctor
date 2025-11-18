@@ -314,7 +314,7 @@ const ComponentItem = ({ item }) => {
         <div className="flex items-center space-x-2 text-sm">
             {isChecked ? <FaCheckCircle className="text-green-500" /> : <FaTimesCircle className="text-gray-400" />}
             <span className="font-semibold">{item.name}:</span>
-            <span className="text-gray-700 dark:text-gray-300">{item.detalles || (isChecked ? 'OK' : 'N/A')}</span>
+            <span className="text-gray-700 dark:text-gray-300">{item.detalles || (isChecked ? '' : 'N/A')}</span>
         </div>
     );
 };
