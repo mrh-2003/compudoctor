@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useContext } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Select from "react-select";
-import { FaPlus, FaSave, FaPrint, FaTrash, FaPen, FaCheckCircle, FaTimesCircle, FaCheck, FaUserPlus } from "react-icons/fa";
+import { FaPlus, FaSave, FaPrint, FaTrash, FaPen, FaCheckCircle, FaTimesCircle, FaCheck, FaUserPlus, FaTimes } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
   createDiagnosticReport,
@@ -20,7 +20,6 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import logo from '../assets/images/compudoctor-logo.png';
 
-// Componentes cuyo DETALLE es OBLIGATORIO si el equipo ENCIENDE (para Laptop/PC/AIO/Otros)
 const MANDATORY_COMPONENT_IDS = [
     "procesador", "placaMadre", "memoriaRam", "tarjetaVideo", 
     "hdd", "ssd", "m2Nvme", 
@@ -37,7 +36,26 @@ const OTHER_EQUIPMENT_OPTIONS = [
     { value: "OTRO_DESCRIPCION", label: "Otro (Especificar)" },
 ];
 
-// Componente auxiliar para el formulario de Nuevo Cliente
+const SERVICE_OPTIONS = [
+    "Revisión", 
+    "Mantenimiento de Software", 
+    "Mantenimiento de Hardware", 
+    "Reparación", 
+    "Cambio de Teclado", 
+    "Cambio de Pantalla", 
+    "Cambio de Disco", 
+    "Memoria RAM", 
+    "Mantenimiento de Hardware con Reconstrucción", 
+    "Mantenimiento de Hardware con Teclado", 
+    "Solo Reconstrucción", 
+    "Limpieza de Cabezal de Impresora", 
+    "Cambio de Placa", 
+    "Otros"
+];
+
+const MAX_SERVICES = 6;
+
+
 function NewClientForm({ onSave, onCancel }) {
     const [formData, setFormData] = useState({
         tipoPersona: 'NATURAL',
@@ -82,7 +100,7 @@ function NewClientForm({ onSave, onCancel }) {
         try {
             await onSave(formData);
         } catch (error) {
-            // El error se maneja en la función de llamada.
+            
         }
         setIsSaving(false);
     }
@@ -153,11 +171,9 @@ function NewClientForm({ onSave, onCancel }) {
 }
 
 
-// Helper to determine if a component is mandatory to detail for the current equipo type
 const isMandatoryComponentForCurrentType = (itemId, tipoEquipo) => {
     const isComponentMandatory = MANDATORY_COMPONENT_IDS.includes(itemId);
     
-    // Solo aplica reglas obligatorias a PC, Laptop, Allinone, Otros (excluyendo Impresora)
     if (['Impresora'].includes(tipoEquipo)) return false; 
     
     return isComponentMandatory;
@@ -175,13 +191,16 @@ function Diagnostico() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [errors, setErrors] = useState({});
   const [additionalServices, setAdditionalServices] = useState([]);
-  const [newService, setNewService] = useState({ description: "", amount: "" });
-  const [showAdditionalServices, setShowAdditionalServices] = useState(false);
+  const [newService, setNewService] = useState({ description: "", amount: 0 });
+  const [showAdditionalServices, setShowAdditionalServices] = useState(false); 
   const [reportNumber, setReportNumber] = useState("");
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // ESTADO PARA CONCURRENCIA
-  const [otherComponentType, setOtherComponentType] = useState(""); // NUEVO: Para Tipo de Equipo 'Otros'
-  const [otherDescription, setOtherDescription] = useState(""); // NUEVO: Para Tipo de Equipo 'Otros'
+  const [isSaving, setIsSaving] = useState(false); 
+  const [otherComponentType, setOtherComponentType] = useState(""); 
+  const [otherDescription, setOtherDescription] = useState(""); 
+  const [servicesList, setServicesList] = useState([]); 
+  const [newServiceSelection, setNewServiceSelection] = useState({ service: "", amount: 0 }); 
+  const [otherServiceText, setOtherServiceText] = useState(""); 
   const [formData, setFormData] = useState({
     tipoEquipo: "",
     marca: "",
@@ -191,13 +210,13 @@ function Diagnostico() {
     sistemaOperativo: "",
     bitlockerKey: false,
     observaciones: "",
-    motivoIngreso: "",
+    motivoIngreso: "", 
     detallesPago: "",
-    diagnostico: 30,
-    montoServicio: 0,
-    total: 30,
+    diagnostico: 0, 
+    montoServicio: 0, 
+    total: 0,
     aCuenta: 0,
-    saldo: 30,
+    saldo: 0,
     tecnicoRecepcion: currentUser?.nombre || "",
     tecnicoRecepcionId: currentUser?.uid || "",
     tecnicoTesteo: "",
@@ -208,12 +227,13 @@ function Diagnostico() {
     fecha: "",
     hora: "",
     estado: "",
-    canTurnOn: "", // NEW STATE: "SI", "NO", or ""
+    canTurnOn: "", 
   });
   const [isLoading, setIsLoading] = useState(true);
   
   const isEditMode = !!diagnosticoId;
   const isReportFinalized = isEditMode && ['ENTREGADO', 'TERMINADO'].includes(formData.estado);
+  const hasRepairService = servicesList.some(s => s.service === 'Reparación');
 
   const getToday = useMemo(() => {
     const date = new Date();
@@ -230,7 +250,6 @@ function Diagnostico() {
     };
   }, []);
   
-    // Componentes en el orden solicitado (Otros al final)
   const ALL_COMPONENTS = useMemo(() => {
     const standardComponents = [
         { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
@@ -242,9 +261,8 @@ function Diagnostico() {
         { id: "hdmi", name: "HDMI" }, { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, 
         { id: "tipoC", name: "Tipo C" }, { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" },
         { id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" }, { id: "tinta", name: "Cartuchos/Tinta" }, 
-        { id: "bandejas", name: "Bandejas" }, { id: "cables", name: "Cables" } // Corregido a minúsculas
+        { id: "bandejas", name: "Bandejas" }, { id: "cables", name: "cables" } 
     ];
-    // Asegura que "Otros" esté al final
     return [...standardComponents.filter(c => c.id !== 'otros'), { id: "otros", name: "Otros" }];
   }, []);
 
@@ -255,32 +273,25 @@ function Diagnostico() {
   };
 
   const getComponentOptions = (type) => {
-    // Todos los componentes
     const all = ALL_COMPONENTS;
-    // Componentes exclusivos de impresora
     const printerExclusive = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
     
     switch (type) {
         case 'PC':
-            // Excluir elementos móviles, impresora y algunos comunes. NO CABLES.
             return all.filter(c => 
                 !['bateria', 'cargador', 'pantalla', 'teclado', 'camara', 'microfono', 'parlantes', 'auriculares', 'tipoC', 'touchpad', 'vga', 'lectora', 'cables', ...printerExclusive].includes(c.id) 
             ); 
         case 'Laptop':
-            // Excluir elementos de PC fijos e impresora. NO CABLES.
             return all.filter(c => 
                 !['lectora', 'cables', ...printerExclusive].includes(c.id)
             ); 
         case 'Allinone':
-            // Excluir elementos móviles y impresora. NO CABLES.
             return all.filter(c => 
                 !['bateria', 'cargador', 'microfono', 'auriculares', 'tipoC', 'touchpad', 'lectora', 'vga', 'teclado', 'pantalla', 'camara', 'cables', ...printerExclusive].includes(c.id)
             );
         case 'Impresora':
-            // Incluir elementos de impresora + cables + otros. SOLO AQUI INCLUYE CABLES.
             return all.filter(c => [...printerExclusive, 'cables', 'otros'].includes(c.id));
         case 'Otros':
-            // Excluir solo elementos de impresora Y CABLES
             return all.filter(c => !printerExclusive.includes(c.id) && c.id !== 'cables');
         default:
             return [];
@@ -318,7 +329,6 @@ function Diagnostico() {
           if (report) {
             const client = await getClientById(report.clientId);
             
-            // Lógica para formatear la etiqueta del cliente en edición
             const clientDisplay = client.tipoPersona === 'JURIDICA' 
                 ? `${client.razonSocial} (RUC: ${client.ruc})` 
                 : `${client.nombre} ${client.apellido}`;
@@ -333,30 +343,45 @@ function Diagnostico() {
             const tecnicoTesteoOption = userOptions.find(u => u.label === report.tecnicoTesteo);
             const tecnicoResponsableOption = userOptions.find(u => u.label === report.tecnicoResponsable);
 
-            // Cargar estados específicos del componente 'Otros' si es el caso
             if (report.tipoEquipo === 'Otros') {
                 setOtherComponentType(report.otherComponentType || "");
                 setOtherDescription(report.otherDescription || "");
             }
+            
+            let diagnosisCost = parseFloat(report.diagnostico) || 0;
 
+            if (report.servicesList && Array.isArray(report.servicesList)) {
+                const loadedServices = report.servicesList.map(s => {
+                    const amount = parseFloat(s.amount) || 0;
+                    return {...s, amount: amount};
+                });
+                setServicesList(loadedServices);
+            } else {
+                 setServicesList([]);
+            }
+            
+            if (report.additionalServices) {
+              setAdditionalServices(report.additionalServices.map(s => ({...s, amount: parseFloat(s.amount)})));
+              setShowAdditionalServices(report.hasAdditionalServices || report.additionalServices.length > 0);
+            }
+            
             setFormData({
               ...report,
+              diagnostico: diagnosisCost,
+              montoServicio: parseFloat(report.montoServicio) || 0,
+              total: parseFloat(report.total) || 0,
+              aCuenta: parseFloat(report.aCuenta) || 0,
+              saldo: parseFloat(report.saldo) || 0,
               canTurnOn: report.canTurnOn || "",
               bitlockerKey: report.bitlockerKey || false,
               detallesPago: report.detallesPago || "",
-              diagnostico: parseFloat(report.diagnostico),
-              montoServicio: parseFloat(report.montoServicio),
-              aCuenta: parseFloat(report.aCuenta),
-              saldo: parseFloat(report.saldo),
-              total: parseFloat(report.total),
+              observaciones: report.observaciones || "",
+              
               tecnicoRecepcionId: report.tecnicoRecepcionId || currentUser?.uid,
               tecnicoTesteoId: tecnicoTesteoOption?.value || report.tecnicoTesteoId || "",
               tecnicoResponsableId: tecnicoResponsableOption?.value || report.tecnicoResponsableId || "",
             });
-            if (report.additionalServices) {
-              setAdditionalServices(report.additionalServices);
-              setShowAdditionalServices(report.hasAdditionalServices);
-            }
+            
           } else {
             toast.error("Informe no encontrado.");
           }
@@ -380,7 +405,7 @@ function Diagnostico() {
         }
       } catch (error) {
         toast.error("Error al cargar datos.");
-        console.error(error);
+        
       } finally {
         setIsLoading(false);
       }
@@ -389,34 +414,136 @@ function Diagnostico() {
   }, [diagnosticoId, search, currentUser?.uid, currentUser?.nombre]);
 
   useEffect(() => {
+    let diagnosisCost = 0;
+    let serviceTotal = 0; 
+    let diagnosisServiceFound = false;
+
+    servicesList.forEach(item => {
+        const amount = item.amount || 0;
+        
+        if (item.service === 'Revisión') {
+            diagnosisCost = amount; 
+            diagnosisServiceFound = true;
+        } else if (item.service === 'Reparación') {
+            serviceTotal += amount;
+            diagnosisCost = formData.diagnostico; 
+            diagnosisServiceFound = true;
+        } else if (item.service) {
+            serviceTotal += amount;
+        }
+    });
+    
+    if (!diagnosisServiceFound) {
+        diagnosisCost = 0;
+    }
+    
     const totalAdicionales = additionalServices.reduce(
-      (sum, service) => sum + parseFloat(service.amount),
+      (sum, service) => sum + (service.amount || 0),
       0
     );
-    const newTotal = (parseFloat(formData.montoServicio) || 0) + totalAdicionales;
+    
+    const newMontoServicio = serviceTotal;
+    const newTotal = serviceTotal + totalAdicionales;
+    
     setFormData((prev) => ({
       ...prev,
+      diagnostico: diagnosisCost,
+      montoServicio: newMontoServicio,
       total: newTotal,
       saldo: newTotal - (parseFloat(prev.aCuenta) || 0),
     }));
   }, [
     additionalServices,
-    formData.diagnostico,
-    formData.montoServicio,
+    servicesList,
     formData.aCuenta,
+    formData.diagnostico 
   ]);
   
-    // Función para guardar un nuevo cliente y seleccionarlo
-    const handleSaveNewClient = async (clientData) => {
+  const handleAddServiceItem = () => {
+    const lastService = servicesList[servicesList.length - 1];
+    
+    if (servicesList.length >= MAX_SERVICES) {
+      toast.error(`Solo se permiten un máximo de ${MAX_SERVICES} servicios.`);
+      return;
+    }
+    
+    if (servicesList.some(s => s.service === 'Reparación')) {
+        toast.error("No se pueden añadir más servicios después de Reparación.");
+        return;
+    }
+    
+    if (lastService && (!lastService.service || (lastService.service !== 'Revisión' && lastService.service !== 'Reparación' && (!lastService.amount || parseFloat(lastService.amount) <= 0)))) {
+         toast.error("Por favor, completa el servicio y el monto actual antes de añadir otro.");
+         return;
+    }
+
+    setServicesList((prev) => [
+        ...prev,
+        { id: Date.now(), service: '', amount: 0, description: '' }
+    ]);
+  };
+
+  const handleRemoveServiceItem = (id) => {
+    setServicesList((prev) => {
+        const updatedList = prev.filter(item => item.id !== id);
+        return updatedList.length > 0 ? updatedList : [];
+    });
+    
+    if (!servicesList.some(s => s.service === 'Reparación')) {
+         setFormData(prev => ({...prev, diagnostico: 0}));
+    }
+  };
+
+  const handleServiceChange = (id, field, value) => {
+    const numericValue = (field === 'amount') ? parseFloat(value) || 0 : value;
+    
+    setServicesList((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const newItem = { ...item, [field]: numericValue };
+          
+          if (field === 'service') {
+              if (value === 'Reparación') {
+                   setFormData(prev => ({ ...prev, diagnostico: 0 })); 
+              } else if (value === 'Revisión') {
+                   setFormData(prev => ({ ...prev, diagnostico: numericValue }));
+              }
+              if (value !== 'Otros') {
+                  newItem.description = ''; 
+              }
+              if (value === 'Reparación') {
+                  toast.success("Servicio 'Reparación' detectado. Se eliminaron otros servicios.");
+                  return newItem;
+              }
+          }
+          
+          if (field === 'amount') {
+               if (item.service === 'Revisión') {
+                   setFormData(prev => ({ ...prev, diagnostico: numericValue }));
+               }
+          }
+          
+          return newItem;
+        }
+        return item;
+      }).filter(item => item.service !== 'Reparación' || item.id === id) 
+    );
+  };
+  
+  const handleDiagnosisChange = (e) => {
+      const { value } = e.target;
+      const numericValue = parseFloat(value) || 0;
+      setFormData(prev => ({ ...prev, diagnostico: numericValue }));
+  };
+
+  const handleAddClient = async (clientData) => {
         try {
             await createClient(clientData);
             toast.success('Cliente agregado con éxito.');
             
-            // 1. Re-fetch client list
             const updatedClients = await getAllClientsForSelection();
             setClients(updatedClients);
             
-            // 2. Automatically select the new client
             const newClient = updatedClients.find(c => 
                 c.telefono === clientData.telefono && 
                 c.tipoPersona === clientData.tipoPersona && 
@@ -430,10 +557,9 @@ function Diagnostico() {
             setIsNewClientModalOpen(false);
         } catch (error) {
             toast.error(error.message);
-            console.error(error);
             throw error; 
         }
-    };
+  };
     
   const handleInputChange = (e) => {
     if (isReportFinalized) return;
@@ -450,16 +576,14 @@ function Diagnostico() {
     if (name === 'canTurnOn') {
       const newState = { [name]: value };
       if (value === 'NO') {
-          // Deshabilita checks, software, asignación de técnicos Y Área de Destino
           newState.sistemaOperativo = '';
           newState.bitlockerKey = false;
           newState.tecnicoTesteo = '';
           newState.tecnicoTesteoId = '';
           newState.tecnicoResponsable = '';
           newState.tecnicoResponsableId = '';
-          newState.area = ''; // DESHABILITAR ÁREA DE DESTINO
+          newState.area = ''; 
           
-          // Deshabilita checks de componentes (pero mantiene detalles)
           newState.items = formData.items.map(item => ({
               ...item,
               checked: false, 
@@ -486,6 +610,14 @@ function Diagnostico() {
     
     if (name === 'otherDescription') {
         setOtherDescription(value);
+        return;
+    }
+
+    if (name === 'diagnostico') {
+        let numericValue = parseFloat(value) || 0;
+        if (hasRepairService) {
+            setFormData(prev => ({ ...prev, diagnostico: numericValue }));
+        }
         return;
     }
 
@@ -556,7 +688,7 @@ function Diagnostico() {
       items: newItems,
       sistemaOperativo: "",
       bitlockerKey: false,
-      modelo: value === 'Otros' ? '' : prev.modelo, // El modelo es opcional si es "Otros"
+      modelo: value === 'Otros' ? '' : prev.modelo, 
     }));
   };
 
@@ -582,7 +714,7 @@ function Diagnostico() {
     }));
   };
 
-  const handleAddService = (e) => {
+  const handleAddAdditionalService = (e) => {
     e.preventDefault();
     if (isReportFinalized) return;
     const amount = parseFloat(newService.amount);
@@ -594,12 +726,12 @@ function Diagnostico() {
 
     setAdditionalServices((prev) => [
         ...prev,
-        { ...newService, amount: amount.toFixed(2), id: Date.now() },
+        { ...newService, amount: amount, id: Date.now() },
     ]);
-    setNewService({ description: "", amount: "" });
+    setNewService({ description: "", amount: 0 });
   };
 
-  const handleDeleteService = (id) => {
+  const handleDeleteAdditionalService = (id) => {
     if (isReportFinalized) return;
     setAdditionalServices((prev) =>
       prev.filter((service) => service.id !== id)
@@ -610,11 +742,9 @@ function Diagnostico() {
   const validateForm = () => {
     const newErrors = {};
     
-    // Lista de campos obligatorios generales
     const requiredGeneralFields = [
       { field: "tipoEquipo", message: "El Tipo de Equipo es obligatorio." },
       { field: "marca", message: "La Marca es obligatoria." },
-      { field: "motivoIngreso", message: "El Motivo de Ingreso es obligatorio." },
       { field: "observaciones", message: "Las Observaciones son obligatorias." },
       { field: "canTurnOn", message: "La opción '¿Enciende?' es obligatoria." }, 
     ];
@@ -623,23 +753,38 @@ function Diagnostico() {
       newErrors.client = "Seleccionar un cliente es obligatorio.";
     }
 
-    // 1. Check General Required Fields
     requiredGeneralFields.forEach(({ field, message }) => {
       if (!String(formData[field])) {
-          // Excluir Modelo si es "Otros"
           if (field === 'modelo' && formData.tipoEquipo === 'Otros') return;
           newErrors[field] = message;
       }
     });
 
-    // 2. CONDITIONAL REQUIREMENT FOR SERIE
+    if (servicesList.length === 0) {
+        newErrors.servicesList = "Debe añadir al menos un servicio (Motivo de Ingreso).";
+    } else {
+        servicesList.forEach((item, index) => {
+             if (!item.service) {
+                newErrors[`service-${index}`] = "Debe seleccionar un servicio.";
+             }
+             if (item.service !== 'Revisión' && item.service !== 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
+                newErrors[`amount-${index}`] = "El monto es obligatorio y debe ser mayor a 0.";
+             }
+             if (item.service === 'Otros' && !item.description) {
+                 newErrors[`description-${index}`] = "Debe especificar la descripción del servicio 'Otros'.";
+             }
+             if (item.service === 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
+                 newErrors[`amount-${index}`] = "El monto de la reparación es obligatorio y debe ser mayor a 0.";
+             }
+        });
+    }
+
     const isSerieRequired = !['Allinone', 'PC', 'Otros'].includes(formData.tipoEquipo);
 
     if (isSerieRequired && !formData.serie) {
         newErrors.serie = "La Serie es obligatoria.";
     } 
     
-    // 3. CONDITIONAL REQUIREMENTS FOR TIPO DE EQUIPO 'OTROS'
     if (formData.tipoEquipo === 'Otros') {
         if (!otherComponentType) {
             newErrors.otherComponentType = "Debe seleccionar el tipo de componente principal.";
@@ -649,26 +794,21 @@ function Diagnostico() {
         }
     }
     
-    // 4. CONDITIONAL REQUIREMENTS ONLY IF "SI PRENDE"
     if (formData.canTurnOn === 'SI') {
         
-        // Area de Destino 
         if (!formData.area) {
             newErrors.area = "El Área de Destino es obligatoria.";
         }
         
-        // Técnico de Testeo
         if (!formData.tecnicoTesteoId) {
             newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio si el equipo enciende.";
         }
         
-        // Sistema Operativo (if PC/Laptop)
         const isOSRequired = ['PC', 'Laptop'].includes(formData.tipoEquipo);
         if (isOSRequired && !formData.sistemaOperativo) {
             newErrors.sistemaOperativo = "El Sistema Operativo es obligatorio para PC/Laptop si el equipo enciende.";
         }
         
-        // Componentes y Accesorios validation (Detalles obligatorios)
         const componentsValidationEnabled = !['Impresora', 'Otros'].includes(formData.tipoEquipo);
         
         if (componentsValidationEnabled) {
@@ -679,21 +819,17 @@ function Diagnostico() {
             mandatoryCheckIds.forEach(mandatoryId => {
                 const item = formData.items.find(i => i.id === mandatoryId);
                 
-                // Requerir el llenado de detalles si es un campo obligatorio y el equipo enciende
                 if (!item || !item.detalles) { 
                     newErrors[mandatoryId] = `Detalle de ${getComponentDisplayName(mandatoryId)} es obligatorio.`;
                 }
             });
         }
         
-        // Manejar validación de detalles para TIPO EQUIPO 'OTROS'
         if (formData.tipoEquipo === 'Otros' && otherComponentType) {
              const itemsToCheck = [];
              if (otherComponentType === 'TARJETA_VIDEO') {
-                 // Aquí solo es obligatorio 'otros' (representando la Tarjeta de Video)
                  itemsToCheck.push('otros');
              } else if (otherComponentType.startsWith('PLACA_MADRE')) {
-                 // Aquí son obligatorios los componentes relacionados a la placa
                  itemsToCheck.push('procesador', 'tarjetaVideo', 'memoriaRam', 'otros');
              }
              
@@ -703,9 +839,7 @@ function Diagnostico() {
                 const isDetailRequired = (otherComponentType.startsWith('PLACA_MADRE') || otherComponentType === 'TARJETA_VIDEO');
 
                 if (isDetailRequired && (!item || !item.detalles)) {
-                    // Solo requerir el detalle si no es OTRO_DESCRIPCION
                     if (otherComponentType === 'OTRO_DESCRIPCION') {
-                         // Detalle es opcional para OTRO_DESCRIPCION
                     } else {
                         newErrors[itemId] = `Detalle de ${getComponentDisplayName(itemId)} es obligatorio.`;
                     }
@@ -714,9 +848,8 @@ function Diagnostico() {
         }
     }
     
-    // 5. Monto Servicio (Always required)
-    if (!formData.montoServicio || formData.montoServicio <= 0) {
-        newErrors.montoServicio = "El Monto del Servicio es obligatorio y debe ser mayor a 0.";
+    if (formData.montoServicio <= 0 && !hasRepairService && !servicesList.some(s => s.service === 'Revisión')) {
+        newErrors.montoServicio = "Debe haber un monto válido para el servicio o para la revisión.";
     }
 
     setErrors(newErrors);
@@ -726,7 +859,6 @@ function Diagnostico() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // FIX BUG 2: Early check to prevent multiple executions
     if (isReportFinalized || isSaving) {
         toast.error("Procesando registro. Por favor, espera.");
         return; 
@@ -737,12 +869,11 @@ function Diagnostico() {
       return;
     }
 
-    setIsSaving(true); // INICIAR BLOQUEO
+    setIsSaving(true); 
 
     const finalResponsible = formData.tecnicoResponsable;
     const finalResponsibleId = formData.tecnicoResponsableId;
     
-    // Lógica para determinar el nombre del cliente y el teléfono de contacto
     let clientReportName = '';
     const clientData = selectedClient.data;
     if (clientData.tipoPersona === 'JURIDICA') {
@@ -750,6 +881,11 @@ function Diagnostico() {
     } else {
         clientReportName = `${clientData.nombre} ${clientData.apellido}`;
     }
+    
+    const motivoIngresoText = servicesList.map(s => {
+        const amountDisplay = s.service === 'Revisión' ? `(Diagnóstico: S/ ${s.amount.toFixed(2)})` : `(S/ ${s.amount.toFixed(2)})`;
+        return `${s.service.charAt(0).toUpperCase() + s.service.slice(1)} ${amountDisplay}`;
+    }).join(', ');
 
     try {
       const baseData = {
@@ -759,26 +895,23 @@ function Diagnostico() {
         clientId: selectedClient.value,
         clientName: clientReportName, 
         telefono: clientData.telefono, 
-        additionalServices: showAdditionalServices ? additionalServices : [],
-        hasAdditionalServices: showAdditionalServices && additionalServices.length > 0,
-        diagnostico: parseFloat(formData.diagnostico),
-        montoServicio: parseFloat(formData.montoServicio),
-        aCuenta: parseFloat(formData.aCuenta),
-        saldo: parseFloat(formData.saldo),
-        total: parseFloat(formData.total),
+        
+        diagnostico: parseFloat(formData.diagnostico) || 0,
+        montoServicio: parseFloat(formData.montoServicio) || 0,
+        total: parseFloat(formData.total) || 0,
+        aCuenta: parseFloat(formData.aCuenta) || 0,
+        saldo: parseFloat(formData.saldo) || 0,
+        
+        servicesList: servicesList.map(s => ({...s, amount: s.amount.toFixed(2)})),
+        motivoIngreso: motivoIngresoText, 
+        additionalServices: additionalServices.map(s => ({...s, amount: s.amount.toFixed(2)})),
+        hasAdditionalServices: additionalServices.length > 0,
         canTurnOn: formData.canTurnOn, 
       };
       
-      // Adjuntar la descripción del equipo 'Otros' si aplica
       if (formData.tipoEquipo === 'Otros') {
           baseData.otherComponentType = otherComponentType;
           baseData.otherDescription = otherDescription;
-          // Actualizar observaciones con la descripción si se ha llenado
-          if (otherComponentType !== 'OTRO_DESCRIPCION' && otherDescription) {
-              baseData.observaciones = `${otherDescription}. ${baseData.observaciones}`.trim();
-          } else if (otherComponentType === 'OTRO_DESCRIPCION' && otherDescription) {
-              baseData.observaciones = `${otherDescription} (Tipo: Otro). ${baseData.observaciones}`.trim();
-          }
       }
 
       if(!baseData.tecnicoActual || !baseData.tecnicoActualId) {
@@ -803,7 +936,7 @@ function Diagnostico() {
     } catch (error) {
       toast.error(error.message);
     } finally {
-        setIsSaving(false); // FINALIZAR BLOQUEO
+        setIsSaving(false); 
     }
   };
 
@@ -829,9 +962,8 @@ function Diagnostico() {
 
   const showTecnicoResponsable = currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN');
   
-  // Lógica para determinar qué campos de Componentes se habilitan/hacen opcionales para "Otros"
   const getOtherComponentAvailability = (itemId) => {
-    const isCheckOptional = formData.canTurnOn === 'SI'; // Se puede marcar si enciende.
+    const isCheckOptional = formData.canTurnOn === 'SI';
     let isAvailable = false;
     let isCheckDisabled = true; 
     let isDetailRequired = false;
@@ -847,14 +979,12 @@ function Diagnostico() {
         };
     }
     
-    // Lógica específica para Tipo de Equipo 'Otros'
     switch (otherComponentType) {
         case 'TARJETA_VIDEO':
-            // 1.1: Solo 'otros' (representando la Tarjeta de Video)
             if (itemId === 'otros') { 
                 isAvailable = true;
-                isCheckDisabled = !isCheckOptional; // Checkable si enciende
-                isDetailRequired = isCheckOptional; // Detalle requerido si enciende
+                isCheckDisabled = !isCheckOptional; 
+                isDetailRequired = isCheckOptional; 
             } else {
                 isAvailable = false; 
                 isCheckDisabled = true;
@@ -862,29 +992,26 @@ function Diagnostico() {
             break;
         case 'PLACA_MADRE_LAPTOP':
         case 'PLACA_MADRE_PC':
-            // 1.2: PROCESADOR / TARJETA_VIDEO / MEMORIA_RAM / OTROS
             if (['procesador', 'tarjetaVideo', 'memoriaRam', 'otros'].includes(itemId)) {
                 isAvailable = true;
                 isCheckDisabled = !isCheckOptional;
-                isDetailRequired = isCheckOptional; // Todos estos son opcionales para marcar/llenar si enciende
+                isDetailRequired = isCheckOptional; 
             } else {
                 isAvailable = false;
                 isCheckDisabled = true;
             }
             break;
         case 'OTRO_DESCRIPCION':
-            // 1.3: Solo 'otros' (para rellenar detalles)
             if (itemId === 'otros') { 
                  isAvailable = true;
-                 isCheckDisabled = true; // El check no se usa
-                 isDetailRequired = false; // Detalle no es obligatorio
+                 isCheckDisabled = true; 
+                 isDetailRequired = false; 
             } else {
                 isAvailable = false;
                 isCheckDisabled = true;
             }
             break;
         default:
-            // Si no se selecciona nada, solo 'otros' es visible para rellenar detalles.
             if (itemId === 'otros') { 
                  isAvailable = true;
                  isCheckDisabled = true; 
@@ -940,6 +1067,26 @@ function Diagnostico() {
         : `${selectedClient.data.nombre} ${selectedClient.data.apellido}`;
 
     const clientPhone = selectedClient?.data?.telefono || "N/A";
+    
+    const motivoIngresoText = servicesList.map(s => {
+        const amountDisplay = s.service === 'Revisión' ? `(Diagnóstico: S/ ${s.amount.toFixed(2)})` : `(S/ ${s.amount.toFixed(2)})`;
+        return `${s.service} ${amountDisplay}`;
+    }).join(', ');
+        
+    const additionalServiceHtml = additionalServices.map(s => `<li>${s.description} (Adicional) - S/ ${s.amount.toFixed(2)}</li>`).join('');
+    
+    const allServicesList = servicesList.length > 0 || additionalServices.length > 0 ? `
+        <div class="section-title">SERVICIOS SOLICITADOS</div>
+        <div class="field">
+            <span class="font-bold">Motivo:</span> ${motivoIngresoText}
+        </div>
+        ${additionalServiceHtml ? `
+        <div class="section-title">SERVICIOS ADICIONALES</div>
+        <ul style="list-style-type: disc; padding-left: 20px;">
+            ${additionalServiceHtml}
+        </ul>` : ''}
+    ` : '';
+
 
     const printContent = `
       <html>
@@ -1061,6 +1208,8 @@ function Diagnostico() {
                     formData.canTurnOn || 'N/A'
                   }</div>
               </div>
+              
+              ${allServicesList}
 
               <div class="section-title">COMPONENTES Y ACCESORIOS</div>
               <div class="grid-cols-2">
@@ -1082,28 +1231,10 @@ function Diagnostico() {
               
               <div class="section-title">DETALLES DEL SERVICIO</div>
               <div class="field">
-                  <span class="font-bold">Motivo de Ingreso:</span> ${
-                    formData.motivoIngreso
-                  }
-              </div>
-              <div class="field">
                   <span class="font-bold">Observaciones:</span> ${
                     formData.observaciones || "Sin observaciones adicionales."
                   }
               </div>
-
-              ${
-                showAdditionalServices
-                  ? `
-                <div class="section-title">SERVICIOS ADICIONALES</div>
-                <ul class="mb-2" style="list-style-type: disc; padding-left: 20px;">
-                    ${additionalServices
-                      .map((s) => `<li>${s.description} - S/ ${s.amount}</li>`)
-                      .join("")}
-                </ul>
-              `
-                  : ""
-              }
 
               <div class="section-title">INFORMACIÓN DE PAGO</div>
               <div class="field mb-2">
@@ -1187,7 +1318,7 @@ function Diagnostico() {
               type="button"
               onClick={handlePrint}
               className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex items-center disabled:bg-green-400"
-              disabled={isSaving} // BLOQUEO
+              disabled={isSaving}
             >
               <FaPrint className="mr-2" /> Imprimir
             </button>
@@ -1288,7 +1419,6 @@ function Diagnostico() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             
-            {/* 1. Opción ¿Enciende? */}
             <div>
               <label className="block text-sm font-medium mb-1">
                 ¿El equipo enciende?
@@ -1312,7 +1442,6 @@ function Diagnostico() {
               )}
             </div>
             
-            {/* Campos de Descripción del Equipo */}
             <div>
               <label className="block text-sm font-medium mb-1">
                 Tipo de Equipo
@@ -1464,19 +1593,15 @@ function Diagnostico() {
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
               {COMPONENT_OPTIONS[formData.tipoEquipo]?.filter(item => {
-                  // Filtra los componentes solo si el tipo de equipo es 'Otros' y no están disponibles
                   if (formData.tipoEquipo === 'Otros') {
                       return getOtherComponentAvailability(item.id).isAvailable;
                   }
-                  // Asegura que CABLES solo aparezca en Impresora
-                  if (item.id === 'cables') return formData.tipoEquipo === 'Impresora';
                   return true;
               }).map((item, index) => {
                 
                 const isMandatoryInGeneral = isMandatoryComponentForCurrentType(item.id, formData.tipoEquipo);
                 let { isAvailable, isCheckDisabled, isDetailRequired, isDetailDisabled } = getOtherComponentAvailability(item.id);
 
-                // Si no es 'Otros', usamos la lógica general
                 if (formData.tipoEquipo !== 'Otros') {
                     isCheckDisabled = isReportFinalized || formData.canTurnOn === 'NO';
                     isDetailRequired = isMandatoryInGeneral && formData.canTurnOn === 'SI';
@@ -1500,7 +1625,6 @@ function Diagnostico() {
                     disabled={isCheckDisabled} 
                   />
                   <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
-                    {/* ENUMERACIÓN SUCESIVA */}
                     <span className="font-bold mr-1">{index + 1}.</span> 
                     {item.name}
                     {showMandatoryIndicator && <FaCheckCircle className="ml-1 text-xs text-blue-500" title="Detalle obligatorio"/>}
@@ -1534,7 +1658,6 @@ function Diagnostico() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
-            {/* Sistema Operativo deshabilitado si NO PRENDE */}
             <div>
                 <label className="block text-sm font-medium mb-1">
                     Sistema Operativo
@@ -1580,6 +1703,7 @@ function Diagnostico() {
           <h2 className="text-xl font-semibold mb-4 text-yellow-500">
             Detalles del Servicio
           </h2> 
+          
           <div className="mt-4">
             <label className="block text-sm font-medium mb-1">
               Observaciones
@@ -1599,35 +1723,242 @@ function Diagnostico() {
               <p className="text-red-500 text-sm mt-1">{errors.observaciones}</p>
             )}
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Motivo por el que ingresa
-            </label>
-            <textarea
-              name="motivoIngreso"
-              value={formData.motivoIngreso}
-              onChange={handleInputChange}
-              rows="3"
-              className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
-                errors.motivoIngreso ? "ring-2 ring-red-500" : ""
-              }`}
-              required
-              disabled={isReportFinalized}
-            ></textarea>
-            {errors.motivoIngreso && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.motivoIngreso}
-              </p>
+          
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold mb-2">Servicios Solicitados</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end mb-4">
+                <div className="md:col-span-1">
+                    <label className="block text-sm font-medium mb-1">Servicio</label>
+                    <div className="flex items-center gap-1">
+                        <select
+                            name="service"
+                            value={newServiceSelection.service}
+                            onChange={(e) => setNewServiceSelection(prev => ({...prev, service: e.target.value}))}
+                            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                            disabled={isReportFinalized || (hasRepairService && servicesList.length >= 1)}
+                        >
+                            <option value="">Añadir servicio</option>
+                            {SERVICE_OPTIONS.filter(s => s !== 'Reparación' || !hasRepairService).map((service) => (
+                                <option key={service} value={service}>{service}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                
+                {newServiceSelection.service === 'Otros' ? (
+                    <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-1">Detalle (Otros)</label>
+                            <input
+                                type="text"
+                                name="otherServiceText"
+                                value={otherServiceText}
+                                onChange={(e) => setOtherServiceText(e.target.value)}
+                                placeholder="Especifique el servicio"
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                disabled={isReportFinalized}
+                            />
+                    </div>
+                ) : (
+                    <div className="md:col-span-2"></div>
+                )}
+                
+                <div className="md:col-span-1">
+                    <label className="block text-sm font-medium mb-1">Monto (S/)</label>
+                    <input
+                        type="number"
+                        name="amount"
+                        min="0"
+                        step="any"
+                        value={newServiceSelection.amount}
+                        onChange={(e) => setNewServiceSelection(prev => ({...prev, amount: parseFloat(e.target.value)}))}
+                        placeholder="Costo"
+                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        disabled={isReportFinalized || newServiceSelection.service === 'Revisión' || newServiceSelection.service === ''}
+                    />
+                </div>
+                
+                <button
+                    type="button"
+                    onClick={() => {
+                        const amount = newServiceSelection.service === 'Revisión' ? (newServiceSelection.amount || 0) : newServiceSelection.amount;
+                        handleServiceChange(Date.now(), 'service', newServiceSelection.service);
+                        handleServiceChange(Date.now(), 'amount', amount);
+                        
+                        let serviceDesc = newServiceSelection.service === 'Otros' ? otherServiceText : newServiceSelection.service;
+                        
+                        setServicesList(prev => {
+                            if (servicesList.some(s => s.service === 'Reparación') && serviceDesc !== 'Reparación') return prev;
+                            if (servicesList.length >= MAX_SERVICES) return prev;
+                            
+                            const newEntry = {
+                                id: Date.now(),
+                                service: serviceDesc,
+                                amount: amount,
+                            };
+                            
+                            if (serviceDesc === 'Reparación') {
+                                setFormData(p => ({ ...p, diagnostico: amount }));
+                                return [newEntry];
+                            } else if (serviceDesc === 'Revisión') {
+                                setFormData(p => ({ ...p, diagnostico: amount }));
+                                return [...prev.filter(s => s.service !== 'Reparación'), newEntry];
+                            } else {
+                                return [...prev.filter(s => s.service !== 'Reparación'), newEntry];
+                            }
+                        });
+
+                        setNewServiceSelection({ service: "", amount: 0 });
+                        setOtherServiceText("");
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center disabled:bg-blue-300 h-10"
+                    disabled={isReportFinalized || (hasRepairService && servicesList.length >= 1) || servicesList.length >= MAX_SERVICES || !newServiceSelection.service}
+                >
+                    <FaPlus />
+                </button>
+            </div>
+            
+            <ul className="space-y-2">
+                {servicesList.map((s, index) => (
+                    <li key={s.id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md">
+                        <span className="flex-1">
+                            {index + 1}. {s.service}
+                            {s.service === 'Reparación' && <span className="ml-2 text-red-500">(Habilita Diagnóstico)</span>}
+                        </span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                            {s.service === 'Revisión' ? 'Diagnóstico' : 'Monto'} S/ {s.amount.toFixed(2)}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => handleRemoveServiceItem(s.id)}
+                            className="ml-4 text-red-500 hover:text-red-700"
+                            disabled={isReportFinalized}
+                        >
+                            <FaTimes />
+                        </button>
+                    </li>
+                ))}
+            </ul>
+             {errors.servicesList && (
+              <p className="text-red-500 text-sm mt-1">{errors.servicesList}</p>
             )}
           </div>
+          
+          {servicesList.some(s => s.service === 'Reparación') && (
+            <div className="mt-4 p-4 border border-red-300 dark:border-red-700 rounded-lg bg-red-50 dark:bg-red-900/20">
+                <h3 className="text-lg font-semibold text-red-500 mb-2">Costo de Diagnóstico (Reparación)</h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mb-2">Este monto NO suma al Monto de Servicios (Solo informativo para reparación).</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Costo Diagnóstico (S/)</label>
+                        <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            name="diagnostico"
+                            value={formData.diagnostico}
+                            onChange={handleDiagnosisChange}
+                            className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${errors.diagnostico ? "ring-2 ring-red-500" : ""}`}
+                            required
+                            disabled={isReportFinalized}
+                        />
+                         {errors.diagnostico && (
+                            <p className="text-red-500 text-xs mt-1">{errors.diagnostico}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+          )}
         </div>
+
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 text-red-500">
             Información de Pago
           </h2>
           
-          <div className="mb-4">
+          <div className="flex items-center mb-4">
+            <input
+              type="checkbox"
+              checked={showAdditionalServices}
+              onChange={() => setShowAdditionalServices((prev) => !prev)}
+              className="h-4 w-4"
+              disabled={isReportFinalized}
+            />
+            <label className="ml-2 text-xl font-semibold text-pink-500">
+              Agregar Servicios Adicionales
+            </label>
+          </div>
+          
+          {showAdditionalServices && (
+            <div className="mt-4 border p-4 rounded-lg dark:border-gray-600">
+              <h3 className="text-lg font-semibold mb-2">Detalle Servicios Adicionales</h3>
+              <div className="flex space-x-2 mb-2">
+                <input
+                  type="text"
+                  placeholder="Descripción del servicio"
+                  value={newService.description}
+                  onChange={(e) =>
+                    setNewService((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  disabled={isReportFinalized}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  onFocus={handlePaymentFocus}
+                  onWheel={handleWheel}
+                  placeholder="Monto (S/)"
+                  value={newService.amount}
+                  onChange={(e) =>
+                    setNewService((prev) => ({
+                      ...prev,
+                      amount: parseFloat(e.target.value),
+                    }))
+                  }
+                  className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
+                  disabled={isReportFinalized}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddAdditionalService}
+                  className="bg-blue-500 text-white font-bold px-4 rounded-lg disabled:bg-blue-300"
+                  disabled={isReportFinalized}
+                >
+                  <FaPlus />
+                </button>
+              </div>
+              
+              <ul className="space-y-1">
+                {additionalServices.map((service) => (
+                  <li
+                    key={service.id}
+                    className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md"
+                  >
+                    <span>
+                      {service.description} - S/ {service.amount.toFixed(2)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAdditionalService(service.id)}
+                      className="ml-4 text-red-500 hover:text-red-700"
+                      disabled={isReportFinalized}
+                    >
+                      <FaTimes />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          <div className="mb-4 mt-6">
               <label className="block text-sm font-medium mb-1">
                 Detalles del Pago
               </label>
@@ -1643,51 +1974,49 @@ function Diagnostico() {
             </div>
           
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            
             <div>
               <label className="block text-sm font-medium mb-1">
-                Monto Servicio (S/)
+                Costo Diagnóstico (S/)
               </label>
               <input
                 type="number"
-                min="0"
-                step="any"
-                onFocus={handlePaymentFocus}
-                onWheel={handleWheel}
-                name="montoServicio"
-                value={formData.montoServicio}
-                onChange={handlePaymentChange}
-                className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
-                  errors.montoServicio ? "ring-2 ring-red-500" : ""
-                }`}
-                style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
-                required
-                disabled={isReportFinalized}
-              />
-              {errors.montoServicio && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.montoServicio}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Diagnóstico (S/)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                onFocus={handlePaymentFocus}
-                onWheel={handleWheel}
                 name="diagnostico"
-                value={formData.diagnostico}
-                onChange={handlePaymentChange}
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
-                required
+                value={formData.diagnostico.toFixed(2)}
+                readOnly
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
+                disabled={true}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Monto Servicios (S/)
+              </label>
+              <input
+                type="number"
+                name="montoServicio"
+                value={formData.montoServicio.toFixed(2)}
+                readOnly
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed font-bold"
                 disabled={isReportFinalized}
               />
             </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Total (S/)
+              </label>
+              <input
+                type="number"
+                name="total"
+                value={formData.total.toFixed(2)}
+                readOnly
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed font-bold"
+                disabled={isReportFinalized}
+              />
+            </div>
+            
             <div>
               <label className="block text-sm font-medium mb-1">
                 A Cuenta (S/)
@@ -1707,19 +2036,7 @@ function Diagnostico() {
                 disabled={isReportFinalized}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Total (S/)
-              </label>
-              <input
-                type="number"
-                name="total"
-                value={formData.total}
-                readOnly
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
-                disabled={isReportFinalized}
-              />
-            </div>
+            
             <div>
               <label className="block text-sm font-medium mb-1">
                 Saldo (S/)
@@ -1727,7 +2044,7 @@ function Diagnostico() {
               <input
                 type="number"
                 name="saldo"
-                value={formData.saldo}
+                value={formData.saldo.toFixed(2)}
                 readOnly
                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed"
                 disabled={isReportFinalized}
@@ -1849,7 +2166,7 @@ function Diagnostico() {
               className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
                 errors.area ? "ring-2 ring-red-500" : ""
               }`}
-              disabled={isReportFinalized || formData.canTurnOn === 'NO'} // Deshabilitar Área de Destino
+              disabled={isReportFinalized || formData.canTurnOn === 'NO'}
             >
               <option value="">Selecciona un área</option>
               {AREA_OPTIONS.map((area) => (
@@ -1868,7 +2185,7 @@ function Diagnostico() {
             <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center disabled:bg-blue-400"
-            disabled={isSaving} // BLOQUEO
+            disabled={isSaving}
             >
             {isSaving ? (
                 'Guardando...'
@@ -1888,7 +2205,7 @@ function Diagnostico() {
       {isNewClientModalOpen && (
         <Modal onClose={() => setIsNewClientModalOpen(false)}>
             <NewClientForm
-                onSave={handleSaveNewClient}
+                onSave={handleAddClient}
                 onCancel={() => setIsNewClientModalOpen(false)}
             />
         </Modal>
