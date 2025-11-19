@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useContext } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Select from "react-select";
-import { FaPlus, FaSave, FaPrint, FaTrash, FaPen, FaCheckCircle, FaTimesCircle, FaCheck, FaUserPlus, FaTimes } from "react-icons/fa";
+import { FaPlus, FaSave, FaPrint, FaPen, FaCheckCircle, FaUserPlus, FaTimes } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
   createDiagnosticReport,
@@ -16,8 +16,6 @@ import { getAllUsersDetailed } from "../services/userService";
 import { useAuth } from "../context/AuthContext";
 import { ThemeContext } from "../context/ThemeContext";
 import Modal from '../components/common/Modal';
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 import logo from '../assets/images/compudoctor-logo.png';
 
 const MANDATORY_COMPONENT_IDS = [
@@ -54,8 +52,33 @@ const SERVICE_OPTIONS = [
 ];
 
 const MAX_SERVICES = 6;
-const USER_TECHNICIAN_ROLES = ['USER', 'SUPERUSER'];
 
+const PRINT_ORDER_MAP = [
+    { num: 1, id: "procesador", label: "Procesador" },
+    { num: 2, id: "placaMadre", label: "Placa Madre" },
+    { num: 3, id: "memoriaRam", label: "Memoria RAM" },
+    { num: 4, id: "hdd", label: "HDD" },
+    { num: 5, id: "ssd", label: "SSD" },
+    { num: 6, id: "m2Nvme", label: "M.2 Nvme" },
+    { num: 7, id: "tarjetaVideo", label: "Tarj. de video" },
+    { num: 8, id: "wifi", label: "WI-FI" },
+    { num: 9, id: "bateria", label: "Batería" },
+    { num: 10, id: "cargador", label: "Cargador" },
+    { num: 11, id: "pantalla", label: "Pantalla" },
+    { num: 12, id: "teclado", label: "Teclado" },
+    { num: 13, id: "camara", label: "Cámara" },
+    { num: 14, id: "microfono", label: "Micrófono" },
+    { num: 15, id: "parlantes", label: "Parlantes" },
+    { num: 16, id: "auriculares", label: "Auriculares" },
+    { num: 17, id: "rj45", label: "RJ 45" },
+    { num: 18, id: "hdmi", label: "HDMI" },
+    { num: 19, id: "vga", label: "VGA" },
+    { num: 20, id: "usb", label: "USB" },
+    { num: 21, id: "tipoC", label: "Tipo C" },
+    { num: 22, id: "lectora", label: "Lectora" },
+    { num: 23, id: "touchpad", label: "Touchpad" },
+    { num: 24, id: "otros", label: "Otros" },
+];
 
 function NewClientForm({ onSave, onCancel }) {
     const [formData, setFormData] = useState({
@@ -101,7 +124,7 @@ function NewClientForm({ onSave, onCancel }) {
         try {
             await onSave(formData);
         } catch (error) {
-            
+            // Error handled by parent
         }
         setIsSaving(false);
     }
@@ -110,9 +133,8 @@ function NewClientForm({ onSave, onCancel }) {
         <form onSubmit={handleSubmit}>
             <h2 className="text-xl font-bold p-4 border-b dark:border-gray-600">Agregar Nuevo Cliente</h2>
             <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                
                 <div>
-                    <label className="block text-sm font-medium mb-1">Tipo de Persona</label>
+                    <label className="block text-sm font-medium mb-1">Tipo de Persona <span className="text-red-500">*</span></label>
                     <select
                         name="tipoPersona"
                         value={formData.tipoPersona}
@@ -128,11 +150,11 @@ function NewClientForm({ onSave, onCancel }) {
                 {formData.tipoPersona === 'JURIDICA' && (
                     <>
                         <div>
-                            <label className="block text-sm font-medium mb-1">RUC</label>
+                            <label className="block text-sm font-medium mb-1">RUC <span className="text-red-500">*</span></label>
                             <input type="text" name="ruc" value={formData.ruc} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1">Razón Social</label>
+                            <label className="block text-sm font-medium mb-1">Razón Social <span className="text-red-500">*</span></label>
                             <input type="text" name="razonSocial" value={formData.razonSocial} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
                         </div>
                         <h3 className="font-semibold text-gray-700 dark:text-gray-300 mt-4 border-t pt-4">Datos de Contacto</h3>
@@ -141,18 +163,18 @@ function NewClientForm({ onSave, onCancel }) {
                 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Nombre' : 'Nombre de Contacto'}</label>
+                        <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Nombre' : 'Nombre de Contacto'} <span className="text-red-500">*</span></label>
                         <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Apellido' : 'Apellido de Contacto'}</label>
+                        <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Apellido' : 'Apellido de Contacto'} <span className="text-red-500">*</span></label>
                         <input type="text" name="apellido" value={formData.apellido} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
                     </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Teléfono' : 'Teléfono de Contacto'}</label>
+                        <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Teléfono' : 'Teléfono de Contacto'} <span className="text-red-500">*</span></label>
                         <input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
                     </div>
                     <div>
@@ -170,7 +192,6 @@ function NewClientForm({ onSave, onCancel }) {
         </form>
     )
 }
-
 
 function Diagnostico() {
   const { diagnosticoId } = useParams();
@@ -253,21 +274,8 @@ function Diagnostico() {
   }, []);
   
   const ALL_COMPONENTS = useMemo(() => {
-    const standardComponents = [
-        { id: "procesador", name: "Procesador" }, { id: "placaMadre", name: "Placa Madre" },
-        { id: "memoriaRam", name: "Memoria RAM" }, { id: "hdd", name: "HDD" }, { id: "ssd", name: "SSD" },
-        { id: "m2Nvme", name: "M2 Nvme." }, { id: "tarjetaVideo", name: "Tarj. de video" }, { id: "wifi", name: "Wi-Fi" }, 
-        { id: "bateria", name: "Batería" }, { id: "cargador", name: "Cargador" }, { id: "pantalla", name: "Pantalla" }, 
-        { id: "teclado", name: "Teclado" }, { id: "camara", name: "Cámara" }, { id: "microfono", name: "Micrófono" }, 
-        { id: "parlantes", name: "Parlantes" }, { id: "auriculares", name: "Auriculares" }, { id: "rj45", name: "RJ 45" }, 
-        { id: "hdmi", name: "HDMI" }, { id: "vga", name: "VGA" }, { id: "usb", name: "USB" }, 
-        { id: "tipoC", name: "Tipo C" }, { id: "lectora", name: "Lectora" }, { id: "touchpad", name: "Touchpad" },
-        { id: "rodillos", name: "Rodillos" }, { id: "cabezal", name: "Cabezal" }, { id: "tinta", name: "Cartuchos/Tinta" }, 
-        { id: "bandejas", name: "Bandejas" }, { id: "cables", name: "cables" } 
-    ];
-    return [...standardComponents.filter(c => c.id !== 'otros'), { id: "otros", name: "Otros" }];
+    return PRINT_ORDER_MAP.map(item => ({ id: item.id, name: item.label }));
   }, []);
-
 
   const getComponentDisplayName = (id) => {
     const component = ALL_COMPONENTS.find(c => c.id === id);
@@ -312,32 +320,7 @@ function Diagnostico() {
     "Windows 11", "Windows 10", "Windows 8", "Windows 7", "macOS", "Linux", "Otro",
   ];
   const AREA_OPTIONS = ["SOFTWARE", "HARDWARE", "ELECTRONICA"];
-  
-  const generateComponentHtml = (item) => {
-    const componentName = getComponentDisplayName(item.id);
-    const hasCheck = item.checked;
-    const hasDetails = item.detalles && item.detalles.trim() !== "";
 
-    if (!hasCheck && !hasDetails) return "";
-
-    let content = `<div class="field">`;
-    
-    if (hasCheck) {
-        content += `<span class="text-green-600 mr-1" style="color: #10b981;">&#x2713;</span>`; 
-    }
-
-    content += `<span class="font-bold">${componentName}:</span>`;
-    
-    if (hasDetails) {
-        content += ` ${item.detalles}`;
-    } else if (hasCheck) {
-        content += ` OK`;
-    }
-    
-    content += `</div>`;
-    return content;
-  };
-  
   const handlePrint = () => {
     if (isEditMode && !formData.reportNumber) {
         toast.error("El informe debe estar cargado para imprimir.");
@@ -345,270 +328,260 @@ function Diagnostico() {
     }
     
     if (!isEditMode && !validateForm()) {
-      toast.error(
-        "Por favor, completa todos los campos obligatorios antes de imprimir (sólo para nuevos informes)."
-      );
+      toast.error("Completa los campos obligatorios marcados en rojo.");
       return;
     }
 
     const clientDisplay = selectedClient?.data?.tipoPersona === 'JURIDICA' 
         ? selectedClient.data.razonSocial 
         : `${selectedClient.data.nombre} ${selectedClient.data.apellido}`;
-
     const clientPhone = selectedClient?.data?.telefono || "N/A";
-    
-    const motivoIngresoText = servicesList.map(s => {
-        const amountDisplay = s.service === 'Revisión' ? `(Diagnóstico: S/ ${s.amount.toFixed(2)})` : `(S/ ${s.amount.toFixed(2)})`;
-        return `${s.service.charAt(0).toUpperCase() + s.service.slice(1)} ${amountDisplay}`;
-    }).join(', ');
-        
-    const additionalServiceHtml = additionalServices.map(s => `<li>${s.description} (Adicional) - S/ ${s.amount.toFixed(2)}</li>`).join('');
-    
-    const allServicesList = servicesList.length > 0 || additionalServices.length > 0 ? `
-        <div class="section-title">SERVICIOS SOLICITADOS</div>
-        <div class="field">
-            <span class="font-bold">Motivo:</span> ${motivoIngresoText}
-        </div>
-        ${additionalServiceHtml ? `
-        <div class="section-title">SERVICIOS ADICIONALES</div>
-        <ul style="list-style-type: disc; padding-left: 20px;">
-            ${additionalServiceHtml}
-        </ul>` : ''}
-    ` : '';
 
     let dia, mes, anio, hora;
-    const isNewReport = !diagnosticoId;
-
-    if (isNewReport) {
-        dia = getToday.day;
-        mes = getToday.month;
-        anio = getToday.year;
-        hora = getToday.time;
+    if (!diagnosticoId) {
+        dia = getToday.day; mes = getToday.month; anio = getToday.year; hora = getToday.time;
     } else {
-        [dia, mes, anio] = formData.fecha
-        ? formData.fecha.split("-")
-        : ["N/A", "N/A", "N/A"];
-        hora = formData.hora || "N/A";
+        [dia, mes, anio] = formData.fecha ? formData.fecha.split("-") : ["", "", ""];
+        hora = formData.hora || "";
     }
+
+    const getCheckItemData = (id) => {
+         const item = formData.items.find(i => i.id === id);
+         const isChecked = item?.checked || false;
+         let detailText = (item?.detalles && item.detalles.trim() !== '') ? item.detalles : '';
+         return { isChecked, detailText };
+    }
+
+    const getObservaciones = () => {
+        let obs = formData.observaciones || "";
+        const notes = [];
+        if(formData.sistemaOperativo) notes.push(`S.O: ${formData.sistemaOperativo}`);
+        if(formData.bitlockerKey) notes.push("Bitlocker: SI");
+        
+        if(notes.length > 0) {
+            obs += " | " + notes.join(". ");
+        }
+        return obs;
+    };
+
+    const motivoText = servicesList.map(s => s.service).join(', ') + (additionalServices.length > 0 ? ', ' + additionalServices.map(s => s.description).join(', ') : '');
+    const otherTypeDesc = otherComponentType === 'OTRO_DESCRIPCION' ? otherDescription : (OTHER_EQUIPMENT_OPTIONS.find(o => o.value === otherComponentType)?.label || '');
 
     const printContent = `
       <html>
         <head>
+            <title>Informe Técnico ${reportNumber}</title>
             <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');  
-    .pdf-container { 
-        width: 94%; 
-        padding: 2%; 
-        margin: auto; 
-        font-size: 9pt; 
-        color: #1f2937; 
-        font-family: 'Roboto', sans-serif; 
-        letter-spacing: -0.2px; 
-        line-height: 1.2; 
-    }
-    .header { 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        border-bottom: 3px solid #e11d48; 
-        padding-bottom: 8px; 
-        margin-bottom: 12px; 
-    }
-    .logo { height: 55px; width: auto; max-width: 140px; }
-    .company-info { 
-        text-align: right; 
-        font-size: 7.5pt; 
-        color: #4b5563; 
-        letter-spacing: -0.2px; 
-        line-height: 1.2; 
-    }
-    .report-info { 
-        margin-top: 10px; 
-        border: 2px solid #039be5; 
-        padding: 12px; 
-        border-radius: 8px; 
-    }
-    .section-title { 
-        font-weight: bold; 
-        color: #1e40af; 
-        border-bottom: 1px dashed #bfdbfe; 
-        padding-bottom: 2px; 
-        margin-top: 12px; 
-        margin-bottom: 6px; 
-        font-size: 10pt; 
-        letter-spacing: -0.3px; 
-    }
-    .field { margin-bottom: 2px; display: flex; align-items: center; letter-spacing: -0.2px; }
-    .flex-row { display: flex; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; }
-    .flex-row > div { flex-basis: 48%; }
-    .footer { text-align: center; }
-    .clausula { 
-        margin-top: 8px; 
-        font-size: 7pt; 
-        color: #6b7280; 
-        text-align: justify; 
-        line-height: 1.05; 
-        letter-spacing: -0.2px; 
-    }
-    .firma { margin-top: 35px; text-align: center; }
-    .firma-line { border-top: 1px solid #000; width: 230px; margin: 4px auto 0; }
-    .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .text-center { text-align: center; }
-    .text-xl { font-size: 1.3rem; letter-spacing: -0.3px; }
-    .font-bold { font-weight: 700; }
-    .mt-4 { margin-top: 0.8rem; }
-    .mb-2 { margin-bottom: 0.4rem; }
-    .text-green-600 { color: #10b981; }
-</style>
+                @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+                body { font-family: 'Roboto', sans-serif; margin: 0; padding: 20px; color: #000; box-sizing: border-box; font-size: 10pt; }
+                .container { width: 100%; max-width: 800px; margin: 0 auto; border: 1px solid white; }
+                
+                .magenta { color: #ec008c; }
+                .bg-magenta { background-color: #ec008c; color: white; }
+                .border-magenta { border: 1px solid #ec008c; }
+                .border-black { border: 1px solid #000; }
 
+                .header { display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-start; }
+                .logo-section { width: 55%; }
+                .logo-img { max-width: 250px; display: block; margin-bottom: 5px; }
+                .company-info { font-size: 8pt; line-height: 1.3; font-weight: bold; }
+                .company-info i { color: #ec008c; margin-right: 4px; font-style: normal; }
+
+                .report-box { width: 40%; border: 2px solid #ec008c; border-radius: 8px; overflow: hidden; }
+                .report-title { background-color: #ec008c; color: white; text-align: center; font-weight: 900; padding: 4px; font-size: 12pt; letter-spacing: 1px; }
+                .date-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; border-bottom: 1px solid #ec008c; }
+                .date-header { background-color: #ec008c; color: white; font-size: 8pt; padding: 2px; font-weight: bold; border-right: 1px solid white; }
+                .date-cell { padding: 5px; font-weight: bold; font-size: 11pt; border-right: 1px solid #ec008c; }
+                .time-row { display: flex; border-top: 1px solid #ec008c; }
+                .time-label { background-color: #ec008c; color: white; padding: 2px 8px; font-size: 9pt; font-weight: bold; display: flex; align-items: center; }
+                .time-value { padding: 4px 10px; font-weight: bold; font-size: 11pt; flex-grow: 1; text-align: center; }
+
+                .client-row { display: flex; margin-bottom: 5px; gap: 10px; }
+                .input-group { display: flex; align-items: center; border: 1px solid #000; padding: 3px 5px; border-radius: 5px; height: 24px; }
+                .input-label { font-weight: 800; margin-right: 5px; font-size: 9pt; }
+                .input-value { flex-grow: 1; font-weight: normal; font-size: 10pt; white-space: nowrap; overflow: hidden; }
+
+                .section-header { background-color: #ec008c; color: white; text-align: center; font-weight: 800; padding: 4px; font-size: 10pt; border-radius: 6px 6px 0 0; margin-top: 5px; }
+                .desc-box { border: 1px solid #ec008c; border-radius: 0 0 6px 6px; padding: 5px; }
+                
+                .equip-types { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 700; font-size: 9pt; flex-wrap: wrap; }
+                .checkbox-box { width: 14px; height: 14px; border: 1px solid #000; display: inline-block; vertical-align: middle; margin-left: 4px; text-align: center; line-height: 12px; font-size: 12px; }
+                
+                .equip-details { display: flex; gap: 10px; margin-top: 6px; }
+                .line-input { display: flex; align-items: flex-end; flex-grow: 1; }
+                .line-label { font-weight: 800; font-size: 9pt; margin-right: 5px; }
+                .line-value { flex-grow: 1; border-bottom: 1px solid #000; font-size: 9pt; padding-left: 5px; }
+                .other-detail { font-weight: normal; font-size: 9pt; border-bottom: 1px solid #000; min-width: 100px; padding-left: 4px; margin-left: 4px; }
+
+                .checklist-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 15px; padding: 5px 0; border: 1px solid #ec008c; margin-top: -1px; padding: 8px; }
+                .component-item { display: flex; align-items: flex-end; margin-bottom: 2px; width: 100%; }
+                .comp-label { width: 120px; flex-shrink: 0; font-weight: bold; font-size: 9pt; margin-right: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .comp-checkbox-container { width: 16px; margin-right: 5px; padding-bottom: 1px; display: flex; justify-content: center; }
+                .comp-checkbox { width: 14px; height: 14px; border: 1px solid #000; text-align: center; line-height: 13px; font-size: 11px; flex-shrink: 0; }
+                .comp-line { flex-grow: 1; border-bottom: 1px solid #000; min-height: 14px; font-size: 8pt; padding-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+                .text-area-container { margin-top: 8px; }
+                .text-area-label { font-weight: 800; font-size: 9pt; margin-bottom: 4px; }
+                .text-block { width: 100%; border: 1px solid #000; padding: 6px; font-size: 9pt; min-height: 40px; border-radius: 4px; }
+
+                .financials { display: flex; justify-content: space-between; margin: 10px 0; padding: 0 20px; }
+                .money-box { display: flex; align-items: center; border: 1px solid #000; padding: 4px 8px; border-radius: 6px; width: 28%; }
+                .money-label { font-weight: 800; margin-right: 10px; font-size: 10pt; }
+                .money-value { font-weight: normal; flex-grow: 1; text-align: right; }
+
+                .warning-box { background-color: #ec008c; color: white; text-align: center; font-size: 8pt; font-weight: 700; padding: 6px; border-radius: 4px; margin-bottom: 8px; line-height: 1.2; }
+
+                .clauses { font-size: 7pt; text-align: justify; line-height: 1.1; color: #e11d48; }
+                .clause-title { background-color: #ec008c; color: white; padding: 1px 4px; font-weight: bold; font-size: 7pt; margin-right: 3px; }
+
+                .checked::after { content: "X"; font-weight: bold; font-size: 10px; }
+            </style>
         </head>
         <body>
-          <div class="pdf-container">
-            <div class="header">
-              <img src="${logo}" class="logo" />
-              <div class="company-info">
-                <div style="font-size: 10pt; font-weight: bold; color: #e11d48;">COMPUDOCTOR</div>
-                <div>Jr. Camaná 1190 - 2do piso - Ofi 203, Cercado de Lima</div>
-                <div>Cel. 998 371 086 / 960 350 483 | Tel. 014242142</div>
-                <div>compudoctor_@hotmail.com | www.compudoctor.pe</div>
-              </div>
-            </div>
-            <h1 class="text-center text-xl font-bold mt-4" style="color: #e11d48;">INFORME TÉCNICO N° ${reportNumber}</h1>
-
-            <div class="report-info">
-              <div class="flex-row" style="margin-bottom: 15px;">
-                <div>
-                  <span class="font-bold">Cliente:</span> ${clientDisplay}
+            <div class="container">
+                <div class="header">
+                    <div class="logo-section">
+                        <img src="${logo}" class="logo-img" alt="COMPUDOCTOR" />
+                        <div class="company-info">
+                            <div><i>&#9830;</i> Jr. Camaná 1190 - 2do piso - Ofi 203, Cercado de Lima</div>
+                            <div style="display:flex; gap: 15px;">
+                                <span><i>&#9990;</i> 998 371 086 / 960 350 483</span>
+                                <span><i>&#9742;</i> 014242142</span>
+                            </div>
+                            <div><i>&#9993;</i> compudoctor_@hotmail.com &nbsp;&nbsp; <i>&#127760;</i> www.compudoctor.pe</div>
+                        </div>
+                    </div>
+                    <div class="report-box">
+                        <div class="report-title">INFORME TÉCNICO <span style="float:right; font-size:10pt; margin-top:2px">N° ${reportNumber}</span></div>
+                        <div class="date-grid">
+                            <div style="border-right:1px solid white"><div class="date-header">DIA</div><div class="date-cell" style="border-right:1px solid #ec008c">${dia}</div></div>
+                            <div style="border-right:1px solid white"><div class="date-header">MES</div><div class="date-cell" style="border-right:1px solid #ec008c">${mes}</div></div>
+                            <div><div class="date-header" style="border-right:none">AÑO</div><div class="date-cell" style="border-right:none">${anio}</div></div>
+                        </div>
+                        <div class="time-row">
+                            <div class="time-label">HORA</div>
+                            <div class="time-value">${hora}</div>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                  <span class="font-bold">Celular:</span> ${
-                    clientPhone
-                  }
-                </div>
-                <div>
-                  <span class="font-bold">Fecha:</span> ${dia}/${mes}/${anio}
-                </div>
-                <div>
-                  <span class="font-bold">Hora:</span> ${hora}
-                </div>
-              </div>
-              
-              <div class="section-title">DESCRIPCIÓN DEL EQUIPO</div>
-              <div class="flex-row">
-                  <div><span class="font-bold">Tipo:</span> ${
-                    formData.tipoEquipo
-                  }</div>
-                  <div><span class="font-bold">Marca:</span> ${
-                    formData.marca
-                  }</div>
-                  <div><span class="font-bold">Modelo:</span> ${
-                    formData.modelo || 'N/A'
-                  }</div>
-                  <div><span class="font-bold">Serie:</span> ${
-                    formData.serie || 'N/A'
-                  }</div>
-                  <div><span class="font-bold">¿Enciende?:</span> ${
-                    formData.canTurnOn || 'N/A'
-                  }</div>
-              </div>
-              
-              ${allServicesList}
 
-              <div class="section-title">COMPONENTES Y ACCESORIOS</div>
-              <div class="grid-cols-2">
-                  ${formData.items
-                    .filter((item) => item.checked || (item.detalles && item.detalles.trim() !== ""))
-                    .map(generateComponentHtml)
-                    .join("")}
-                  ${
-                    formData.sistemaOperativo
-                      ? `<div class="field"><span class="font-bold">S.O.:</span> ${formData.sistemaOperativo}</div>`
-                      : ""
-                  }
-                  ${
-                    formData.bitlockerKey
-                      ? `<div class="field"><span class="font-bold">Bitlocker:</span> Activado</div>`
-                      : ""
-                  }
-              </div>
-              
-              <div class="section-title">DETALLES DEL SERVICIO</div>
-              <div class="field">
-                  <span class="font-bold">Observaciones:</span> ${
-                    formData.observaciones || "Sin observaciones adicionales."
-                  }
-              </div>
+                <div class="client-row">
+                    <div class="input-group" style="width: 70%">
+                        <span class="input-label">Sres.</span>
+                        <span class="input-value">${clientDisplay.substring(0, 55)}</span>
+                    </div>
+                    <div class="input-group" style="width: 30%">
+                        <span class="input-label">Cel.</span>
+                        <span class="input-value">${clientPhone}</span>
+                    </div>
+                </div>
 
-              <div class="section-title">INFORMACIÓN DE PAGO</div>
-              <div class="field mb-2">
-                  <span class="font-bold">Detalles de Pago:</span> ${formData.detallesPago || 'N/A'}
-              </div>
-              <div class="flex-row" style="font-weight: bold; color: #e11d48;">
-                  <div><span class="font-bold">Diagnóstico:</span> S/ ${formData.diagnostico.toFixed(
-                    2
-                  )}</div>
-                  <div><span class="font-bold">Monto Servicio:</span> S/ ${formData.montoServicio.toFixed(
-                    2
-                  )}</div>
-                  <div><span class="font-bold">Total:</span> S/ ${formData.total.toFixed(
-                    2
-                  )}</div>
-                  <div><span class="font-bold">A Cuenta:</span> S/ ${formData.aCuenta.toFixed(
-                    2
-                  )}</div>
-                  <div><span class="font-bold">Saldo:</span> S/ ${formData.saldo.toFixed(
-                    2
-                  )}</div>
-              </div> 
+                <div class="section-header">DESCRIPCIÓN DEL EQUIPO</div>
+                <div class="desc-box">
+                    <div class="equip-types">
+                        <span>PC <div class="checkbox-box ${formData.tipoEquipo === 'PC' ? 'checked' : ''}"></div></span>
+                        <span>Laptop <div class="checkbox-box ${formData.tipoEquipo === 'Laptop' ? 'checked' : ''}"></div></span>
+                        <span>All-in-one <div class="checkbox-box ${formData.tipoEquipo === 'Allinone' ? 'checked' : ''}"></div></span>
+                        <span>Impresora <div class="checkbox-box ${formData.tipoEquipo === 'Impresora' ? 'checked' : ''}"></div></span>
+                        <span>Otros <div class="checkbox-box ${formData.tipoEquipo === 'Otros' ? 'checked' : ''}"></div>
+                            <span class="other-detail">${formData.tipoEquipo === 'Otros' ? otherTypeDesc : ''}</span>
+                        </span>
+                    </div>
+                    <div class="equip-details">
+                         <div class="line-input">
+                            <span class="line-label">MARCA:</span>
+                            <span class="line-value">${formData.marca || ''}</span>
+                        </div>
+                        <div class="line-input">
+                            <span class="line-label">MODELO:</span>
+                            <span class="line-value">${formData.modelo || ''}</span>
+                        </div>
+                        <div class="line-input">
+                            <span class="line-label">SERIE:</span>
+                            <span class="line-value">${formData.serie || ''}</span>
+                        </div>
+                         <div class="line-input" style="flex-grow: 0; min-width: 100px;">
+                            <span class="line-label">¿Enciende?:</span>
+                            <span class="line-value">${formData.canTurnOn || 'N/A'}</span>
+                        </div>
+                    </div>
+                </div>
 
-              <div class="section-title">TÉCNICOS</div>
-              <div class="flex-row">
-                  <div><span class="font-bold">Técnico Recepción:</span> ${
-                    formData.tecnicoRecepcion
-                  }</div>
-                  <div><span class="font-bold">Técnico Inicial:</span> ${
-                    formData.tecnicoInicial || 'N/A'
-                  }</div>
-                  <div><span class="font-bold">Técnico Testeo:</span> ${
-                    formData.tecnicoTesteo || 'N/A'
-                  }</div>
-                  <div><span class="font-bold">Técnico Responsable:</span> ${
-                    formData.tecnicoResponsable || 'N/A'
-                  }</div>
-                  <div><span class="font-bold">Área Destino:</span> ${
-                    formData.area
-                  }</div>
-              </div>
-            </div>
-            
-            <div class="footer">
-              <p class="clausula"><b>CLAUSULA N° 01</b><br>
-              Se dará PRIORIDAD al servicio según el motivo por el cual ingresa el equipo, especialmente si es por una reparación de placa. Si se encuentra algún OTRO PROBLEMA durante el proceso, se informará como observación. En caso de que el cliente solicite la revisión o solución de este problema adicional, se considerará como un servicio aparte, lo que implicará un costo adicional.</p>
-              <p class="clausula"><b>CLAUSULA N° 02</b><br>
-              La garantía cubrirá únicamente el servicio realizado. Si, después de algunos días, se presenta OTRO PROBLEMA, no se aplicaría dicho garantia al equipo.</p>
-              <p class="clausula"><b>CLAUSULA N° 03</b><br>
-              Todo SERVICIO que no incluya un producto NO INCLUYE EL IGV (18%), en caso de que el cliente solicite un comprobante electrónico. Los pagos con tarjeta de CRÉDITO Y DÉBITO tendrán un recargo adicional del 5%.</p>
-              <div class="firma">
-                  <div class="firma-line"></div>
+                <div class="checklist-container">
+                    ${PRINT_ORDER_MAP.map((item) => {
+                        const { isChecked, detailText } = getCheckItemData(item.id);
+                        return `
+                        <div class="component-item">
+                            <span class="comp-label">${item.num}. ${item.label}</span>
+                            <div class="comp-checkbox-container">
+                                <div class="comp-checkbox ${isChecked ? 'checked' : ''}"></div>
+                            </div>
+                            <div class="comp-line">${detailText}</div>
+                        </div>
+                    `}).join('')}
+                </div>
+
+                <div class="text-area-container">
+                    <div class="text-area-label">OBSERVACIONES:</div>
+                    <div class="text-block">
+                        ${getObservaciones()}
+                    </div>
+                </div>
+
+                <div class="text-area-container">
+                    <div class="text-area-label">MOTIVO POR EL QUE INGRESA:</div>
+                    <div class="text-block">
+                        ${motivoText}
+                    </div>
+                </div>
+
+                <div class="financials">
+                    <div class="money-box">
+                        <span class="money-label">TOTAL</span>
+                        <span class="money-value">${formData.total.toFixed(2)}</span>
+                    </div>
+                    <div class="money-box">
+                        <span class="money-label">A CUENTA</span>
+                        <span class="money-value">${formData.aCuenta.toFixed(2)}</span>
+                    </div>
+                    <div class="money-box">
+                        <span class="money-label">SALDO</span>
+                        <span class="money-value">${formData.saldo.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div class="warning-box">
+                    LA EMPRESA NO SE RESPONSABILIZA POR PÉRDIDA O DETERIORO DEL PRODUCTO INTERNADO PASADO LOS 60 DÍAS. LA ENTREGA DE SU EQUIPO SÓLO SERÁ POSIBLE PRESENTANDO ESTE DOCUMENTO.
+                </div>
+
+                <div class="clauses">
+                    <p><span class="clause-title">CLAUSULA N° 01</span> Se dará <b>PRIORIDAD</b> al servicio según el motivo por el cual ingresa el equipo, especialmente si es por una reparación de placa. Si se encuentra algún <b>OTRO PROBLEMA</b> durante el proceso, se informará como observación. En caso de que el cliente solicite la revisión o solución de este problema adicional, se considerará como un servicio aparte, lo que implicará un costo adicional.</p>
+                    <p style="margin-top:3px"><span class="clause-title">CLAUSULA N° 02</span> La garantía cubrirá únicamente el servicio realizado. Si, después de algunos días, se presenta <b>OTRO PROBLEMA</b>, no se aplicaría dicho garantía al equipo.</p>
+                    <p style="margin-top:3px"><span class="clause-title">CLAUSULA N° 03</span> Todo <b>SERVICIO</b> que no incluya un producto <b>NO INCLUYE EL IGV (18%)</b>, en caso de que el cliente solicite un comprobante electrónico. Los pagos con tarjeta de <b>CRÉDITO o DÉBITO</b> tendrán un recargo adicional del 5%.</p>
+                </div>
+                
+                <div style="margin-top: 35px; text-align: center;">
+                  <div style="border-top: 1px solid #000; width: 230px; margin: 4px auto 0;"></div>
                   <div>FIRMA CLIENTE</div>
-              </div>
+                </div>
             </div>
-          </div>
         </body>
       </html>
     `;
 
-    const newWindow = window.open("", "", "width=800,height=600");
+    const newWindow = window.open("", "", "width=900,height=1100");
     newWindow.document.write(printContent);
     newWindow.document.close();
     newWindow.focus();
     
     setTimeout(() => {
-  newWindow.print();
-}, 300);
+      newWindow.print();
+    }, 500);
   };
   
-  // Helper interno para la lógica de "Otros"
   const getOtherComponentAvailabilityInternal = (itemId, otherType, canTurnOn, isFormLocked) => {
     const isCheckOptional = canTurnOn === 'SI';
     let isAvailable = false;
@@ -671,7 +644,6 @@ function Diagnostico() {
     let isCheckDisabled = isFormLocked || canTurnOn === 'NO'; 
     let isDetailDisabled = isFormLocked;
     
-    // --- Validation Requirements (For Display and Validation) ---
     let isDetailRequired = false;
     let isCheckRequired = false;
     
@@ -680,32 +652,25 @@ function Diagnostico() {
     const mandatoryPrinterIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
     const diskIds = ['hdd', 'ssd', 'm2Nvme'];
 
-    // Requisito 3: Impresora
     if (isPrinter) {
         if (mandatoryPrinterIds.includes(itemId)) {
             isDetailRequired = true;
         }
     }
     
-    // Requisito 1 & 2: AIO and SI PRENDE checks/details
     if (['PC', 'Laptop', 'Allinone'].includes(tipoEquipo)) {
-        
-        // Requisito 1: AIO - todos los componentes básicos requieren detalles
         if (isAIO && MANDATORY_COMPONENT_IDS.includes(itemId)) {
              isDetailRequired = true;
         }
         
         if (isSiPrende) {
-            // 2.2 Mandatory Details (Sobrescribe AIO si aplica)
             if (mandatoryDetailSiPrende.includes(itemId)) {
                 isDetailRequired = true;
             } else if (diskIds.includes(itemId)) {
-                // Detalle de disco es requerido si está marcado (se valida en validateForm)
                 const isDiskChecked = formData.items.find(i => i.id === itemId)?.checked;
                 if (isDiskChecked) isDetailRequired = true;
             }
             
-            // 2.1 & 2.4 Mandatory Checks
             if (mandatoryCheckSiPrende.includes(itemId) || diskIds.includes(itemId)) {
                 isCheckRequired = true;
                 isCheckDisabled = isFormLocked;
@@ -713,7 +678,6 @@ function Diagnostico() {
         }
     }
 
-    // Lógica específica para "Otros" (Mantenida)
     if (tipoEquipo === 'Otros') {
         const otherStatus = getOtherComponentAvailabilityInternal(itemId, otherComponentType, canTurnOn, isFormLocked);
         isAvailable = otherStatus.isAvailable;
@@ -722,7 +686,6 @@ function Diagnostico() {
         if (otherStatus.isDetailRequired) isDetailRequired = true;
     }
     
-    // Lógica para deshabilitar el check si NO enciende
     if (canTurnOn === 'NO' && !isFormLocked) {
         isCheckDisabled = true;
     }
@@ -746,13 +709,11 @@ function Diagnostico() {
         setClients(allClients);
         
         const allUsersData = await getAllUsersDetailed();
-        const userOptions = allUsersData.map((u) => ({ value: u.id, label: u.nombre })); 
+        const filteredTechnicians = allUsersData
+            .filter(u => ['USER', 'SUPERUSER'].includes(u.rol))
+            .map((u) => ({ value: u.id, label: u.nombre })); 
 
-        const technicianOptions = allUsersData
-            .filter(u => USER_TECHNICIAN_ROLES.includes(u.rol))
-            .map((u) => ({ value: u.id, label: u.nombre }));
-
-        setUsers(technicianOptions);
+        setUsers(filteredTechnicians);
 
         if (diagnosticoId) {
           const report = await getDiagnosticReportById(diagnosticoId);
@@ -770,9 +731,9 @@ function Diagnostico() {
             });
             setReportNumber(report.reportNumber.toString().padStart(6, "0"));
             
-            const tecnicoInicialOption = userOptions.find(u => u.value === report.tecnicoInicialId); 
-            const tecnicoTesteoOption = userOptions.find(u => u.value === report.tecnicoTesteoId);
-            const tecnicoResponsableOption = userOptions.find(u => u.value === report.tecnicoResponsableId);
+            const tecnicoInicialOption = filteredTechnicians.find(u => u.value === report.tecnicoInicialId); 
+            const tecnicoTesteoOption = filteredTechnicians.find(u => u.value === report.tecnicoTesteoId);
+            const tecnicoResponsableOption = filteredTechnicians.find(u => u.value === report.tecnicoResponsableId);
 
             if (report.tipoEquipo === 'Otros') {
                 setOtherComponentType(report.otherComponentType || "");
@@ -1234,28 +1195,24 @@ function Diagnostico() {
         newErrors.serie = "La Serie es obligatoria.";
     } 
     
-    // -----------------------------------------------------------
-    // REQUISITO 1: AIO - todos los campos relevantes requieren detalles.
     if (formData.tipoEquipo === 'Allinone') { 
         COMPONENT_OPTIONS[formData.tipoEquipo]?.forEach(item => {
             const currentItem = formData.items.find(i => i.id === item.id);
             if (MANDATORY_COMPONENT_IDS.includes(item.id) && (!currentItem || !currentItem.detalles)) {
-                 newErrors[item.id] = `Detalle de ${getComponentDisplayName(item.id)} es obligatorio para All in One.`;
+                 newErrors[item.id] = `Detalle obligatorio.`;
             }
         });
     }
 
-    // REQUISITO 3: Impresora - campos de impresión obligatorios
     if (formData.tipoEquipo === 'Impresora') { 
         const printerMandatoryIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
         printerMandatoryIds.forEach(mandatoryId => {
             const item = formData.items.find(i => i.id === mandatoryId);
             if (!item || !item.detalles) {
-                 newErrors[mandatoryId] = `Detalle de ${getComponentDisplayName(mandatoryId)} es obligatorio para Impresora.`;
+                 newErrors[mandatoryId] = `Detalle obligatorio.`;
             }
         });
     }
-    // -----------------------------------------------------------
     
     if (formData.tipoEquipo === 'Otros') {
         if (!otherComponentType) {
@@ -1273,71 +1230,64 @@ function Diagnostico() {
         }
         
         if (!formData.tecnicoInicialId) { 
-            newErrors.tecnicoInicialId = "El Técnico Inicial es obligatorio si el equipo enciende.";
+            newErrors.tecnicoInicialId = "El Técnico Inicial es obligatorio.";
         }
         
         if (!formData.tecnicoTesteoId) {
-            newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio si el equipo enciende.";
+            newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio.";
         }
         
         const isOSRequired = ['PC', 'Laptop'].includes(formData.tipoEquipo);
         if (isOSRequired && !formData.sistemaOperativo) {
-            newErrors.sistemaOperativo = "El Sistema Operativo es obligatorio para PC/Laptop si el equipo enciende.";
+            newErrors.sistemaOperativo = "El Sistema Operativo es obligatorio.";
         }
         
-        // REQUISITO 2: VALIDACIONES SI ENCIENDE
         const items = formData.items;
         
-        // 2.2 OBLIGATORIO LLENADO DE DETALLES
         const mandatoryDetailIds = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
         mandatoryDetailIds.forEach(mandatoryId => {
             const item = items.find(i => i.id === mandatoryId);
             const isAvailable = COMPONENT_OPTIONS[formData.tipoEquipo]?.some(c => c.id === mandatoryId);
 
             if (isAvailable && (!item || !item.detalles)) {
-                 newErrors[mandatoryId] = `Detalle de ${getComponentDisplayName(mandatoryId)} es obligatorio si enciende.`;
+                 newErrors[mandatoryId] = `Detalle obligatorio.`;
             }
         });
 
-        // 2.1 OBLIGATORIO MARCAR LA CASILLA
         const mandatoryCheckIds = ['procesador', 'placaMadre', 'memoriaRam', 'wifi'];
         mandatoryCheckIds.forEach(mandatoryId => {
             const item = items.find(i => i.id === mandatoryId);
             const isAvailable = COMPONENT_OPTIONS[formData.tipoEquipo]?.some(c => c.id === mandatoryId);
 
             if (isAvailable && item && !item.checked) {
-                 newErrors[mandatoryId + '_check'] = `La casilla de ${getComponentDisplayName(mandatoryId)} es obligatoria si enciende.`;
+                 newErrors[mandatoryId + '_check'] = `Check obligatorio.`;
             }
         });
         
-        // 2.1 DISCO CHECK OBLIGATORIO (at least one of HDD/SSD/NVME must be checked)
         const diskIds = ['hdd', 'ssd', 'm2Nvme'];
         const diskItems = items.filter(i => diskIds.includes(i.id));
         const anyDiskChecked = diskItems.some(i => i.checked);
         
         if (diskItems.length > 0 && !anyDiskChecked && ['PC', 'Laptop', 'Allinone'].includes(formData.tipoEquipo)) {
-             newErrors.disk_check = "Debe marcar al menos un tipo de disco (HDD, SSD o M2 NVME) si enciende.";
+             newErrors.disk_check = "Marcar al menos un disco.";
         }
         
-        // 2.1/2.2 DISCO DETAIL OBLIGATORIO: Detalle del disco es OBLIGATORIO si está marcado
         diskItems.forEach(item => {
             if (item.checked && !item.detalles) {
-                newErrors[item.id] = `Detalle de ${getComponentDisplayName(item.id)} es obligatorio si está marcado.`;
+                newErrors[item.id] = `Detalle obligatorio si marcado.`;
             }
         });
         
-        // 2.4 MARCAR OBLIGATORIO PARA TESTEO BASICO: CÁMARA / MICRÓFONO / PARLANTE
         const basicTestCheckIds = ['camara', 'microfono', 'parlantes'];
         basicTestCheckIds.forEach(testId => {
             const item = items.find(i => i.id === testId);
             const isAvailable = COMPONENT_OPTIONS[formData.tipoEquipo]?.some(c => c.id === testId);
             
             if (isAvailable && item && !item.checked) {
-                newErrors[testId + '_check'] = `La casilla de ${getComponentDisplayName(testId)} es obligatoria para testeo si enciende.`;
+                newErrors[testId + '_check'] = `Check obligatorio para testeo.`;
             }
         });
 
-        // Other component validation logic for "Otros"
         if (formData.tipoEquipo === 'Otros' && otherComponentType) {
              const itemsToCheck = [];
              if (otherComponentType === 'TARJETA_VIDEO') {
@@ -1353,7 +1303,7 @@ function Diagnostico() {
                 if (isDetailRequired && (!item || !item.detalles)) {
                     if (otherComponentType === 'OTRO_DESCRIPCION') {
                     } else {
-                        newErrors[itemId] = `Detalle de ${getComponentDisplayName(itemId)} es obligatorio.`;
+                        newErrors[itemId] = `Detalle obligatorio.`;
                     }
                 }
              });
@@ -1361,7 +1311,7 @@ function Diagnostico() {
     }
     
     if (formData.montoServicio <= 0 && !hasRepairService && !servicesList.some(s => s.service === 'Revisión')) {
-        newErrors.montoServicio = "Debe haber un monto válido para el servicio o para la revisión.";
+        newErrors.montoServicio = "Monto inválido.";
     }
 
     setErrors(newErrors);
@@ -1377,7 +1327,7 @@ function Diagnostico() {
     } 
 
     if (!validateForm()) {
-      toast.error("Por favor, completa todos los campos obligatorios.");
+      toast.error("Completa los campos obligatorios marcados en rojo.");
       return;
     }
 
@@ -1425,10 +1375,15 @@ function Diagnostico() {
           baseData.otherComponentType = otherComponentType;
           baseData.otherDescription = otherDescription;
       }
+
+      if (!isAdminOrSuperadmin) {
+          baseData.area = 'N/A';
+          baseData.tecnicoResponsable = "";
+          baseData.tecnicoResponsableId = "";
+      }
       
       if (isEditMode) {
           if (isAdminOrSuperadmin && baseData.area && baseData.area !== 'N/A') {
-              // Si se asigna un área, el técnico actual es el responsable.
               baseData.tecnicoActual = baseData.tecnicoResponsable;
               baseData.tecnicoActualId = baseData.tecnicoResponsableId;
           }
@@ -1436,15 +1391,8 @@ function Diagnostico() {
           await updateDiagnosticReport(diagnosticoId, baseData);
           toast.success(`Informe #${reportNumber} actualizado con éxito.`);
       } else {
-          // En modo creación:
-          // El Técnico Responsable es el primer Técnico Asignado (tecnicoActual).
           baseData.tecnicoActual = finalResponsible; 
           baseData.tecnicoActualId = finalResponsibleId; 
-          
-          // Si no es Admin/Superadmin, no debe tener área de destino.
-          if (!isAdminOrSuperadmin) {
-              baseData.area = 'N/A';
-          }
 
           await createDiagnosticReport({
             ...baseData,
@@ -1463,8 +1411,6 @@ function Diagnostico() {
         setIsSaving(false); 
     }
   };
-
-  const showTecnicoResponsable = isAdminOrSuperadmin;
 
   let dia, mes, anio, hora;
   const isNewReport = !diagnosticoId;
@@ -1533,7 +1479,7 @@ function Diagnostico() {
           <div className="flex items-end space-x-4">
             <div className="flex-1">
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Seleccionar Cliente
+                Seleccionar Cliente <span className="text-red-500">*</span>
                 </label>
                 <Select
                 options={clients.map((c) => ({
@@ -1605,7 +1551,7 @@ function Diagnostico() {
             
             <div>
               <label className="block text-sm font-medium mb-1">
-                ¿El equipo enciende?
+                ¿El equipo enciende? <span className="text-red-500">*</span>
               </label>
               <select
                 name="canTurnOn"
@@ -1628,7 +1574,7 @@ function Diagnostico() {
             
             <div>
               <label className="block text-sm font-medium mb-1">
-                Tipo de Equipo
+                Tipo de Equipo <span className="text-red-500">*</span>
               </label>
               <select
                 name="tipoEquipo"
@@ -1655,7 +1601,7 @@ function Diagnostico() {
             {formData.tipoEquipo === 'Otros' && (
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Componente Principal
+                    Componente Principal <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="otherComponentType"
@@ -1682,7 +1628,7 @@ function Diagnostico() {
             {formData.tipoEquipo === 'Otros' && otherComponentType === 'OTRO_DESCRIPCION' && (
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Descripción Específica
+                    Descripción Específica <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1703,7 +1649,7 @@ function Diagnostico() {
             
             
             <div>
-              <label className="block text-sm font-medium mb-1">Marca</label>
+              <label className="block text-sm font-medium mb-1">Marca <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 name="marca"
@@ -1722,7 +1668,7 @@ function Diagnostico() {
             <div>
               <label className="block text-sm font-medium mb-1">Modelo
                  {formData.tipoEquipo !== 'Otros' && (
-                     <span className="text-red-500 text-xs ml-1">(Obligatorio)</span>
+                     <span className="text-red-500 ml-1">*</span>
                  )}
               </label>
               <input
@@ -1744,7 +1690,7 @@ function Diagnostico() {
               <label className="block text-sm font-medium mb-1">
                 Serie
                 {!['Allinone', 'PC', 'Otros'].includes(formData.tipoEquipo) && (
-                    <span className="text-red-500 text-xs ml-1">(Obligatoria)</span>
+                    <span className="text-red-500 ml-1">*</span>
                 )}
               </label>
               <input
@@ -1783,56 +1729,57 @@ function Diagnostico() {
                   return true;
               }).map((item, index) => {
                 
-                const { isAvailable, isCheckDisabled, isDetailDisabled, isDetailRequired, isCheckRequired } = getComponentStatus(item.id);
+                const { isAvailable, isCheckDisabled, isDetailDisabled, isCheckRequired, isDetailRequired } = getComponentStatus(item.id);
                 
-                const showDetailError = isDetailRequired && errors[item.id];
-                const showCheckError = isCheckRequired && errors[item.id + '_check'];
-                const showMandatoryIndicator = isDetailRequired;
-
+                const showDetailError = errors[item.id];
+                const showCheckError = errors[item.id + '_check'];
+                const hasAnyError = showDetailError || showCheckError;
 
                 return (
-                <div key={item.id} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    name={item.id}
-                    id={item.id}
-                    checked={
-                      formData.items.find((i) => i.id === item.id)?.checked ||
-                      false
-                    }
-                    onChange={handleItemCheck}
-                    className={`h-4 w-4 rounded ${showCheckError ? "ring-2 ring-red-500" : ""}`}
-                    disabled={isCheckDisabled} 
-                  />
-                  <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
-                    <span className="font-bold mr-1">{index + 1}.</span> 
-                    {item.name}
-                    {showMandatoryIndicator && <FaCheckCircle className="ml-1 text-xs text-blue-500" title="Detalle obligatorio"/>}
-                    {isCheckRequired && !isDetailRequired && <FaCheck className="ml-1 text-xs text-green-500" title="Check Obligatorio"/>}
-                  </label>
-                  <input
-                    type="text"
-                    name={item.id}
-                    value={formData.items.find((i) => i.id === item.id)?.detalles || ""}
-                    onChange={handleItemDetailsChange}
-                    className={`flex-1 p-1 text-xs border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
-                       showDetailError ? "ring-2 ring-red-500" : ""
-                    }`}
-                    placeholder="Detalles"
-                    disabled={isDetailDisabled}
-                  />
-                   {showDetailError && (
-                        <FaTimesCircle className="text-red-500" title={errors[item.id]}/>
-                   )}
-                   {showCheckError && !showDetailError && (
-                        <FaTimesCircle className="text-red-500" title={errors[item.id + '_check']}/>
-                   )}
+                <div key={item.id} className="flex flex-col mb-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        name={item.id}
+                        id={item.id}
+                        checked={
+                          formData.items.find((i) => i.id === item.id)?.checked ||
+                          false
+                        }
+                        onChange={handleItemCheck}
+                        className={`h-4 w-4 rounded ${showCheckError ? "ring-2 ring-red-500" : ""}`}
+                        disabled={isCheckDisabled} 
+                      />
+                      <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
+                        <span className="font-bold mr-1">{index + 1}.</span> 
+                        {item.name}
+                        {isCheckRequired && <FaCheckCircle className="ml-2 text-blue-500 text-sm" title="Check Obligatorio"/>}
+                        {isDetailRequired && <span className="ml-1 text-red-500 text-lg leading-none">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        name={item.id}
+                        value={formData.items.find((i) => i.id === item.id)?.detalles || ""}
+                        onChange={handleItemDetailsChange}
+                        className={`flex-1 p-1 text-xs border rounded-md dark:bg-gray-700 dark:border-gray-600 ${
+                           showDetailError ? "ring-2 ring-red-500" : ""
+                        }`}
+                        placeholder="Detalles"
+                        disabled={isDetailDisabled}
+                      />
+                    </div>
+                    {hasAnyError && (
+                        <div className="ml-6 mt-1">
+                            {showDetailError && <span className="text-red-500 text-xs block font-semibold">{showDetailError}</span>}
+                            {showCheckError && !showDetailError && <span className="text-red-500 text-xs block font-semibold">{showCheckError}</span>}
+                        </div>
+                    )}
                 </div>
               )})}
             </div>
             
             {errors.disk_check && (
-              <p className="text-red-500 text-sm mt-4">{errors.disk_check}</p>
+              <p className="text-red-500 text-sm mt-4 font-bold">{errors.disk_check}</p>
             )}
           </div>
         )}
@@ -1848,7 +1795,7 @@ function Diagnostico() {
             
             <div>
                 <label className="block text-sm font-medium mb-1">
-                    Sistema Operativo
+                    Sistema Operativo {formData.canTurnOn === 'SI' && <span className="text-red-500">*</span>}
                 </label>
                 <select
                   name="sistemaOperativo"
@@ -1894,7 +1841,7 @@ function Diagnostico() {
           
           <div className="mt-4">
             <label className="block text-sm font-medium mb-1">
-              Observaciones
+              Observaciones <span className="text-red-500">*</span>
             </label>
             <textarea
               name="observaciones"
@@ -1913,7 +1860,7 @@ function Diagnostico() {
           </div>
           
           <div className="mt-4">
-            <h3 className="text-lg font-semibold mb-2">Servicios Solicitados</h3>
+            <h3 className="text-lg font-semibold mb-2">Servicios Solicitados <span className="text-red-500">*</span></h3>
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end mb-4">
                 <div className="md:col-span-1">
@@ -1958,6 +1905,8 @@ function Diagnostico() {
                         name="amount"
                         min="0"
                         step="any"
+                        onFocus={handlePaymentFocus}
+                        onWheel={handleWheel}
                         value={newServiceSelection.amount}
                         onChange={(e) => setNewServiceSelection(prev => ({...prev, amount: parseFloat(e.target.value)}))}
                         placeholder="Costo"
@@ -2053,6 +2002,8 @@ function Diagnostico() {
                             name="diagnostico"
                             value={formData.diagnostico}
                             onChange={handleDiagnosisChange}
+                            onFocus={handlePaymentFocus}
+                            onWheel={handleWheel}
                             className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${errors.diagnostico ? "ring-2 ring-red-500" : ""}`}
                             required
                             disabled={isFormLocked} 
@@ -2214,7 +2165,7 @@ function Diagnostico() {
             
             <div>
               <label className="block text-sm font-medium mb-1">
-                A Cuenta (S/)
+                A Cuenta (S/) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -2254,7 +2205,6 @@ function Diagnostico() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             
-            {/* 1. Técnico de Recepción (currentUser) - Requerimiento: Mostrar primero */}
             <div>
               <label className="block text-sm font-medium mb-1">
                 Técnico de Recepción
@@ -2268,10 +2218,9 @@ function Diagnostico() {
               />
             </div>
             
-            {/* 2. Técnico Inicial (Nuevo campo) */}
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico Inicial
+                Técnico Inicial {formData.canTurnOn === 'SI' && <span className="text-red-500">*</span>}
               </label>
               <Select
                 options={users}
@@ -2307,10 +2256,9 @@ function Diagnostico() {
               )}
             </div>
             
-            {/* 3. Técnico de Testeo */}
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico de Testeo
+                Técnico de Testeo {formData.canTurnOn === 'SI' && <span className="text-red-500">*</span>}
               </label>
               <Select
                 options={users}
@@ -2346,60 +2294,57 @@ function Diagnostico() {
               )}
             </div>
             
-            {/* 4. Técnico Responsable (Solo visible si es Admin/Superadmin) */}
             {isAdminOrSuperadmin && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Técnico Responsable (Opcional)
-                  </label>
-                  <Select
-                    options={users}
-                    value={users.find(
-                      (u) => u.value === formData.tecnicoResponsableId
-                    )}
-                    onChange={(option) =>
-                      handleUserChange("tecnicoResponsable", option)
-                    }
-                    placeholder="Selecciona un técnico..."
-                    isClearable
-                    isDisabled={isFormLocked || formData.canTurnOn === 'NO'} 
-                    styles={{
-                      control: (baseStyles) => ({
-                        ...baseStyles,
-                        backgroundColor: theme === "dark" ? "#374151" : "#fff",
-                        borderColor:
-                          theme === "dark" ? "#4B5563" : baseStyles.borderColor,
-                      }),
-                      singleValue: (baseStyles) => ({
-                        ...baseStyles,
-                        color: theme === "dark" ? "#fff" : "#000",
-                      }),
-                      menu: (baseStyles) => ({
-                        ...baseStyles,
-                        backgroundColor: theme === "dark" ? "#374151" : "#fff",
-                      }),
-                      option: (baseStyles, state) => ({
-                        ...baseStyles,
-                        backgroundColor: state.isFocused
-                          ? theme === "dark"
-                            ? "#4B5563"
-                            : "#e5e7eb"
-                          : "transparent",
-                        color: theme === "dark" ? "#fff" : "#000",
-                      }),
-                    }}
-                  />
-                </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Técnico Responsable (Opcional)
+              </label>
+              <Select
+                options={users}
+                value={users.find(
+                  (u) => u.value === formData.tecnicoResponsableId
+                )}
+                onChange={(option) =>
+                  handleUserChange("tecnicoResponsable", option)
+                }
+                placeholder="Selecciona un técnico..."
+                isClearable
+                isDisabled={isFormLocked || formData.canTurnOn === 'NO'} 
+                styles={{
+                  control: (baseStyles) => ({
+                    ...baseStyles,
+                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                    borderColor:
+                      theme === "dark" ? "#4B5563" : baseStyles.borderColor,
+                  }),
+                  singleValue: (baseStyles) => ({
+                    ...baseStyles,
+                    color: theme === "dark" ? "#fff" : "#000",
+                  }),
+                  menu: (baseStyles) => ({
+                    ...baseStyles,
+                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                  }),
+                  option: (baseStyles, state) => ({
+                    ...baseStyles,
+                    backgroundColor: state.isFocused
+                      ? theme === "dark"
+                        ? "#4B5563"
+                        : "#e5e7eb"
+                      : "transparent",
+                    color: theme === "dark" ? "#fff" : "#000",
+                  }),
+                }}
+              />
+            </div>
             )}
-            
           </div>
           
-          {/* Área de Destino (Solo visible si es Admin/Superadmin) */}
           <div className="mt-4">
             {showAreaInput && (
               <>
                 <label className="block text-sm font-medium mb-1">
-                  Área de Destino
+                  Área de Destino <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="area"

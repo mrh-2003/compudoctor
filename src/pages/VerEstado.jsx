@@ -161,6 +161,8 @@ function VerEstado() {
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Equipo</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Marca-Modelo</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Motivo</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Técnico Recep.</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Técnico Test.</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Técnico Resp.</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Área</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Estado</th>
@@ -183,6 +185,8 @@ function VerEstado() {
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tipoEquipo}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.marca} - {report.modelo}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.motivoIngreso}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoRecepcion}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoTesteo}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoResponsable}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.area}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
