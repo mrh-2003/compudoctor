@@ -180,7 +180,7 @@ function VerEstado() {
                             <tr key={report.id} className={report.hasAdditionalServices ? 'bg-yellow-100 dark:bg-yellow-800' : 'bg-blue-100 dark:bg-blue-800'}>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.reportNumber}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.fecha} {report.hora}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{report.clientName}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.clientName}{report.ruc? ' (' + report.ruc + ')': ''}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.telefono || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tipoEquipo}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.marca} - {report.modelo}</td>

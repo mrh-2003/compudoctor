@@ -1293,6 +1293,7 @@ function Diagnostico() {
         clientId: selectedClient.value,
         clientName: clientReportName, 
         telefono: clientData.telefono, 
+        ruc: clientData.ruc || "",
         
         diagnostico: parseFloat(formData.diagnostico) || 0,
         montoServicio: parseFloat(formData.montoServicio) || 0,
