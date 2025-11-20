@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useContext } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Select from "react-select";
-import { FaPlus, FaSave, FaPrint, FaPen, FaCheckCircle, FaUserPlus, FaTimes } from "react-icons/fa";
+import { FaPlus, FaSave, FaPrint, FaPen, FaUserPlus, FaTimes } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
   createDiagnosticReport,
@@ -1195,24 +1195,27 @@ function Diagnostico() {
         newErrors.serie = "La Serie es obligatoria.";
     } 
     
-    if (formData.tipoEquipo === 'Allinone') { 
-        COMPONENT_OPTIONS[formData.tipoEquipo]?.forEach(item => {
-            const currentItem = formData.items.find(i => i.id === item.id);
-            if (MANDATORY_COMPONENT_IDS.includes(item.id) && (!currentItem || !currentItem.detalles)) {
-                 newErrors[item.id] = `Detalle obligatorio.`;
-            }
-        });
-    }
+    const currentComponentOptions = COMPONENT_OPTIONS[formData.tipoEquipo] || [];
+    currentComponentOptions.forEach(opt => {
+        // Filtrar solo los disponibles para "Otros" según la lógica interna
+        if (formData.tipoEquipo === 'Otros') {
+             const status = getOtherComponentAvailabilityInternal(opt.id, otherComponentType, formData.canTurnOn, false);
+             if (!status.isAvailable) return;
+        }
+        
+        const status = getComponentStatus(opt.id);
+        const itemData = formData.items.find(i => i.id === opt.id);
+        const isChecked = itemData?.checked;
+        const hasDetails = itemData?.detalles && itemData.detalles.trim().length > 0;
 
-    if (formData.tipoEquipo === 'Impresora') { 
-        const printerMandatoryIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
-        printerMandatoryIds.forEach(mandatoryId => {
-            const item = formData.items.find(i => i.id === mandatoryId);
-            if (!item || !item.detalles) {
-                 newErrors[mandatoryId] = `Detalle obligatorio.`;
-            }
-        });
-    }
+        if (status.isCheckRequired && !isChecked) {
+             newErrors[opt.id + '_check'] = "Check obligatorio.";
+        }
+
+        if (status.isDetailRequired && !hasDetails) {
+             newErrors[opt.id] = "Detalle obligatorio.";
+        }
+    });
     
     if (formData.tipoEquipo === 'Otros') {
         if (!otherComponentType) {
@@ -1240,73 +1243,6 @@ function Diagnostico() {
         const isOSRequired = ['PC', 'Laptop'].includes(formData.tipoEquipo);
         if (isOSRequired && !formData.sistemaOperativo) {
             newErrors.sistemaOperativo = "El Sistema Operativo es obligatorio.";
-        }
-        
-        const items = formData.items;
-        
-        const mandatoryDetailIds = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
-        mandatoryDetailIds.forEach(mandatoryId => {
-            const item = items.find(i => i.id === mandatoryId);
-            const isAvailable = COMPONENT_OPTIONS[formData.tipoEquipo]?.some(c => c.id === mandatoryId);
-
-            if (isAvailable && (!item || !item.detalles)) {
-                 newErrors[mandatoryId] = `Detalle obligatorio.`;
-            }
-        });
-
-        const mandatoryCheckIds = ['procesador', 'placaMadre', 'memoriaRam', 'wifi'];
-        mandatoryCheckIds.forEach(mandatoryId => {
-            const item = items.find(i => i.id === mandatoryId);
-            const isAvailable = COMPONENT_OPTIONS[formData.tipoEquipo]?.some(c => c.id === mandatoryId);
-
-            if (isAvailable && item && !item.checked) {
-                 newErrors[mandatoryId + '_check'] = `Check obligatorio.`;
-            }
-        });
-        
-        const diskIds = ['hdd', 'ssd', 'm2Nvme'];
-        const diskItems = items.filter(i => diskIds.includes(i.id));
-        const anyDiskChecked = diskItems.some(i => i.checked);
-        
-        if (diskItems.length > 0 && !anyDiskChecked && ['PC', 'Laptop', 'Allinone'].includes(formData.tipoEquipo)) {
-             newErrors.disk_check = "Marcar al menos un disco.";
-        }
-        
-        diskItems.forEach(item => {
-            if (item.checked && !item.detalles) {
-                newErrors[item.id] = `Detalle obligatorio si marcado.`;
-            }
-        });
-        
-        const basicTestCheckIds = ['camara', 'microfono', 'parlantes'];
-        basicTestCheckIds.forEach(testId => {
-            const item = items.find(i => i.id === testId);
-            const isAvailable = COMPONENT_OPTIONS[formData.tipoEquipo]?.some(c => c.id === testId);
-            
-            if (isAvailable && item && !item.checked) {
-                newErrors[testId + '_check'] = `Check obligatorio para testeo.`;
-            }
-        });
-
-        if (formData.tipoEquipo === 'Otros' && otherComponentType) {
-             const itemsToCheck = [];
-             if (otherComponentType === 'TARJETA_VIDEO') {
-                 itemsToCheck.push('otros');
-             } else if (otherComponentType.startsWith('PLACA_MADRE')) {
-                 itemsToCheck.push('procesador', 'tarjetaVideo', 'memoriaRam', 'otros');
-             }
-             
-             itemsToCheck.forEach(itemId => {
-                const item = formData.items.find(i => i.id === itemId);
-                const isDetailRequired = (otherComponentType.startsWith('PLACA_MADRE') || otherComponentType === 'TARJETA_VIDEO');
-
-                if (isDetailRequired && (!item || !item.detalles)) {
-                    if (otherComponentType === 'OTRO_DESCRIPCION') {
-                    } else {
-                        newErrors[itemId] = `Detalle obligatorio.`;
-                    }
-                }
-             });
         }
     }
     
@@ -1753,7 +1689,7 @@ function Diagnostico() {
                       <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
                         <span className="font-bold mr-1">{index + 1}.</span> 
                         {item.name}
-                        {isCheckRequired && <FaCheckCircle className="ml-2 text-blue-500 text-sm" title="Check Obligatorio"/>}
+                        {isCheckRequired && <span className="ml-1 text-red-500 text-lg leading-none">*</span>}
                         {isDetailRequired && <span className="ml-1 text-red-500 text-lg leading-none">*</span>}
                       </label>
                       <input
@@ -1905,7 +1841,7 @@ function Diagnostico() {
                         name="amount"
                         min="0"
                         step="any"
-                        onFocus={handlePaymentFocus}
+                        onFocus={(e) => e.target.value = ''}
                         onWheel={handleWheel}
                         value={newServiceSelection.amount}
                         onChange={(e) => setNewServiceSelection(prev => ({...prev, amount: parseFloat(e.target.value)}))}
@@ -2340,6 +2276,7 @@ function Diagnostico() {
             )}
           </div>
           
+          {/* Área de Destino (Solo visible si es Admin/Superadmin) */}
           <div className="mt-4">
             {showAreaInput && (
               <>
