@@ -1,15 +1,12 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './components/auth/Login';
 import Dashboard from './pages/Dashboard';
-import Home from './pages/Home';
 import Usuarios from './pages/Usuarios';
 import Clientes from './pages/Clientes';
 import Diagnostico from './pages/Diagnostico';
 import VerEstado from './pages/VerEstado';
 import Inventario from './pages/Inventario';
 import Reportes from './pages/Reportes';
-import Ventas from './pages/Ventas';
-import Tecnicos from './pages/Tecnicos';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import PermissionDenied from './pages/PermissionDenied';
 import ChangePassword from './pages/ChangePassword';
@@ -17,6 +14,15 @@ import ClientHistory from './pages/ClientHistory';
 import BandejaTecnico from './pages/BandejaTecnico';
 import DetalleDiagnostico from './pages/DetalleDiagnostico';
 import DetalleHistorial from './pages/DetalleHistorial';
+import SaldosPendientes from './pages/Reportes/SaldosPendientes';
+import ProductividadTecnicos from './pages/Reportes/ProductividadTecnicos';
+import TopServicios from './pages/Reportes/TopServicios';
+import IngresosCostos from './pages/Reportes/IngresosCostos';
+import TiemposResolucion from './pages/Reportes/TiemposResolucion';
+import InventarioEntrada from './pages/Reportes/InventarioEntrada';
+import Categorias from './pages/Inventario/Categorias';
+import EstadosFuncionales from './pages/Inventario/EstadosFuncionales';
+import UnidadesMedida from './pages/Inventario/UnidadesMedida';
 
 function App() {
     return (
@@ -25,28 +31,28 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/permission-denied" element={<PermissionDenied />} />
-                
+
                 <Route path="/" element={<Dashboard />}>
                     <Route index element={<Clientes />} />
-                    
+
                     <Route path="clientes" element={
                         <ProtectedRoute permissionId="clientes">
                             <Clientes />
                         </ProtectedRoute>
                     } />
-                    
+
                     <Route path="clientes/historial/:clientId" element={
                         <ProtectedRoute permissionId="clientes">
                             <ClientHistory />
                         </ProtectedRoute>
                     } />
-                    
+
                     <Route path="diagnostico" element={
                         <ProtectedRoute permissionId="diagnostico">
                             <Diagnostico />
                         </ProtectedRoute>
                     } />
-                    
+
                     <Route path="diagnostico/:diagnosticoId" element={
                         <ProtectedRoute permissionId="diagnostico">
                             <Diagnostico />
@@ -69,6 +75,21 @@ function App() {
                             <Inventario />
                         </ProtectedRoute>
                     } />
+                    <Route path="inventario/categorias" element={
+                        <ProtectedRoute permissionId="inventario">
+                            <Categorias />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="inventario/estados-funcionales" element={
+                        <ProtectedRoute permissionId="inventario">
+                            <EstadosFuncionales />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="inventario/unidades-medida" element={
+                        <ProtectedRoute permissionId="inventario">
+                            <UnidadesMedida />
+                        </ProtectedRoute>
+                    } />
 
                     <Route path="reportes" element={
                         <ProtectedRoute permissionId="reportes">
@@ -76,18 +97,37 @@ function App() {
                         </ProtectedRoute>
                     } />
 
-                    <Route path="reportes/ventas" element={
+                    <Route path="reportes/saldos-pendientes" element={
                         <ProtectedRoute permissionId="reportes">
-                            <Ventas />
+                            <SaldosPendientes />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="reportes/productividad-tecnicos" element={
+                        <ProtectedRoute permissionId="reportes">
+                            <ProductividadTecnicos />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="reportes/top-servicios" element={
+                        <ProtectedRoute permissionId="reportes">
+                            <TopServicios />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="reportes/ingresos-costos" element={
+                        <ProtectedRoute permissionId="reportes">
+                            <IngresosCostos />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="reportes/tiempos-resolucion" element={
+                        <ProtectedRoute permissionId="reportes">
+                            <TiemposResolucion />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="reportes/inventario-entrada" element={
+                        <ProtectedRoute permissionId="reportes">
+                            <InventarioEntrada />
                         </ProtectedRoute>
                     } />
 
-                    <Route path="reportes/tecnicos" element={
-                        <ProtectedRoute permissionId="reportes">
-                            <Tecnicos />
-                        </ProtectedRoute>
-                    } />
-                    
                     <Route
                         path="usuarios"
                         element={
@@ -96,7 +136,7 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
-                    
+
                     <Route path="bandeja-tecnico" element={
                         <ProtectedRoute permissionId="diagnostico">
                             <BandejaTecnico />

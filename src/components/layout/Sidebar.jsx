@@ -43,14 +43,29 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
         { name: 'Diagnóstico', icon: <FaLaptopMedical />, path: '/diagnostico', id: 'diagnostico' },
         { name: 'Bandeja', icon: <FaInbox />, path: '/bandeja-tecnico', id: 'bandeja' },
         { name: 'Ver Estado', icon: <FaCogs />, path: '/ver-estado', id: 'ver-estado' },
-        { name: 'Inventario', icon: <FaBox />, path: '/inventario', id: 'inventario' },
+        {
+            name: 'Inventario',
+            icon: <FaBox />,
+            id: 'inventario',
+            subItems: [
+                { name: 'Listado Principal', path: '/inventario' },
+                { name: 'Categorías', path: '/inventario/categorias' },
+                { name: 'Estados Funcionales', path: '/inventario/estados-funcionales' },
+                { name: 'Unidades de Medida', path: '/inventario/unidades-medida' },
+            ]
+        },
         {
             name: 'Reportes',
             icon: <FaChartLine />,
             id: 'reportes',
             subItems: [
-                { name: 'Ventas', path: '/reportes/ventas' },
-                { name: 'Técnicos', path: '/reportes/tecnicos' },
+                { name: 'Panel Principal', path: '/reportes' },
+                { name: 'Saldos Pendientes', path: '/reportes/saldos-pendientes' },
+                { name: 'Productividad', path: '/reportes/productividad-tecnicos' },
+                { name: 'Top Servicios', path: '/reportes/top-servicios' },
+                { name: 'Ingresos vs Costos', path: '/reportes/ingresos-costos' },
+                { name: 'Tiempos Resolución', path: '/reportes/tiempos-resolucion' },
+                { name: 'Inventario', path: '/reportes/inventario-entrada' },
             ],
         },
         { name: 'Usuarios', icon: <FaUsers />, path: '/usuarios', id: 'usuarios' },
@@ -64,7 +79,7 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
         if (item.id === 'usuarios') {
             return currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN';
         }
-        
+
         if (item.id === 'bandeja') {
             return currentUser.rol === 'USER' || currentUser.rol === 'SUPERUSER' || currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN';
         }
@@ -85,9 +100,8 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
         >
             <div className="flex flex-col h-full">
                 <div
-                    className={`flex items-center p-4 h-16 border-b dark:border-gray-700 ${
-                        isMinimized ? 'justify-center' : 'justify-between'
-                    }`}
+                    className={`flex items-center p-4 h-16 border-b dark:border-gray-700 ${isMinimized ? 'justify-center' : 'justify-between'
+                        }`}
                 >
                     {!isMinimized && (
                         <img src={logo} alt="CompuDoctor Logo" className="h-8 w-auto" />
@@ -109,9 +123,8 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
                                     <>
                                         <button
                                             onClick={() => setIsReportsOpen(prev => !prev)}
-                                            className={`w-full flex items-center p-3 rounded-lg transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 ${
-                                                isMinimized ? 'justify-center' : ''
-                                            }`}
+                                            className={`w-full flex items-center p-3 rounded-lg transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 ${isMinimized ? 'justify-center' : ''
+                                                }`}
                                         >
                                             <span className="text-xl">{item.icon}</span>
                                             {!isMinimized && (
@@ -121,9 +134,8 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
                                             )}
                                             {!isMinimized && (
                                                 <FaChevronDown
-                                                    className={`ml-2 transition-transform ${
-                                                        isReportsOpen ? 'rotate-180' : ''
-                                                    }`}
+                                                    className={`ml-2 transition-transform ${isReportsOpen ? 'rotate-180' : ''
+                                                        }`}
                                                 />
                                             )}
                                         </button>
@@ -135,10 +147,9 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
                                                             to={sub.path}
                                                             onClick={handleLinkClick}
                                                             className={({ isActive }) =>
-                                                                `block px-3 py-2 rounded-lg text-sm transition-colors ${
-                                                                    isActive
-                                                                        ? 'bg-blue-500 text-white'
-                                                                        : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+                                                                `block px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                                                                    ? 'bg-blue-500 text-white'
+                                                                    : 'hover:bg-gray-200 dark:hover:bg-gray-700'
                                                                 }`
                                                             }
                                                         >
@@ -154,17 +165,16 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
                                         to={item.path}
                                         onClick={handleLinkClick}
                                         className={({ isActive }) =>
-                                            `flex items-center p-3 rounded-lg transition-colors font-semibold ${
-                                                isActive
-                                                    ? 'bg-blue-500 text-white'
-                                                    : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+                                            `flex items-center p-3 rounded-lg transition-colors font-semibold ${isActive
+                                                ? 'bg-blue-500 text-white'
+                                                : 'hover:bg-gray-200 dark:hover:bg-gray-700'
                                             } ${isMinimized ? 'justify-center' : ''}`
                                         }
                                         title={isMinimized ? item.name : ''}
                                     >
                                         <span className="text-xl">{item.icon}</span>
                                         {!isMinimized && <span className="ml-4 flex-1">{item.name}</span>}
-                                        
+
                                         {item.id === 'bandeja' && pendingReportsCount > 0 && (
                                             <span className={`
                                                 ${!isMinimized ? 'ml-auto' : ''} 
@@ -186,9 +196,8 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
                 <div className="p-4 border-t dark:border-gray-700">
                     <button
                         onClick={handleLogout}
-                        className={`flex items-center w-full p-2 rounded-lg text-white font-bold transition-colors bg-red-600 hover:bg-red-700 ${
-                            isMinimized ? 'justify-center' : 'justify-start'
-                        }`}
+                        className={`flex items-center w-full p-2 rounded-lg text-white font-bold transition-colors bg-red-600 hover:bg-red-700 ${isMinimized ? 'justify-center' : 'justify-start'
+                            }`}
                         title="Cerrar sesión"
                     >
                         <FaSignOutAlt />
