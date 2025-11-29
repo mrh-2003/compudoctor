@@ -3,6 +3,35 @@ import { FaEdit, FaTrash, FaPlus, FaSave, FaTimes } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import Modal from '../../../components/common/Modal';
 
+function ConfirmationModal({ title, message, onConfirm, onCancel }) {
+    return (
+        <Modal onClose={onCancel} maxWidth="max-w-md">
+            <div className="p-4">
+                <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">{title}</h2>
+                <p className="mb-6 text-gray-600 dark:text-gray-300">{message}</p>
+                <div className="flex justify-end space-x-2">
+                    <button onClick={onCancel} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                    <button onClick={onConfirm} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Confirmar</button>
+                </div>
+            </div>
+        </Modal>
+    )
+}
+
+function WarningModal({ title, message, onClose }) {
+    return (
+        <Modal onClose={onClose} maxWidth="max-w-md">
+            <div className="p-4">
+                <h2 className="text-xl font-bold mb-4 text-yellow-600 dark:text-yellow-400">{title}</h2>
+                <p className="mb-6 text-gray-600 dark:text-gray-300">{message}</p>
+                <div className="flex justify-end">
+                    <button onClick={onClose} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Entendido</button>
+                </div>
+            </div>
+        </Modal>
+    )
+}
+
 function MasterCrud({ title, fetchItems, addItem, updateItem, deleteItem }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -11,6 +40,8 @@ function MasterCrud({ title, fetchItems, addItem, updateItem, deleteItem }) {
     const [isEditing, setIsEditing] = useState(false);
 
     const [isSaving, setIsSaving] = useState(false);
+    const [confirmation, setConfirmation] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+    const [warning, setWarning] = useState({ isOpen: false, title: '', message: '' });
 
     useEffect(() => {
         loadItems();
@@ -40,7 +71,12 @@ function MasterCrud({ title, fetchItems, addItem, updateItem, deleteItem }) {
         );
 
         if (isDuplicate) {
-            return toast.error('Este nombre ya existe. Por favor use otro.');
+            setWarning({
+                isOpen: true,
+                title: 'Duplicado Detectado',
+                message: `El nombre "${name}" ya existe en la lista. Por favor utilice otro nombre.`
+            });
+            return;
         }
 
         setIsSaving(true);
@@ -69,17 +105,25 @@ function MasterCrud({ title, fetchItems, addItem, updateItem, deleteItem }) {
         setIsModalOpen(true);
     };
 
+    const handleDeleteRequest = (item) => {
+        setConfirmation({
+            isOpen: true,
+            title: 'Eliminar Registro',
+            message: `¿Estás seguro de que quieres eliminar "${item.nombre}"? Esta acción es irreversible.`,
+            onConfirm: () => handleDelete(item.id),
+        });
+    };
+
     const handleDelete = async (id) => {
-        if (window.confirm('¿Estás seguro de eliminar este registro?')) {
-            try {
-                await deleteItem(id);
-                toast.success('Eliminado correctamente');
-                loadItems();
-            } catch (error) {
-                console.error(error);
-                toast.error('Error al eliminar');
-            }
+        try {
+            await deleteItem(id);
+            toast.success('Eliminado correctamente');
+            loadItems();
+        } catch (error) {
+            console.error(error);
+            toast.error('Error al eliminar');
         }
+        setConfirmation({ isOpen: false });
     };
 
     const openNew = () => {
@@ -119,7 +163,7 @@ function MasterCrud({ title, fetchItems, addItem, updateItem, deleteItem }) {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.nombre}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button onClick={() => handleEdit(item)} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 mr-4"><FaEdit /></button>
-                                        <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900 dark:text-red-400"><FaTrash /></button>
+                                        <button onClick={() => handleDeleteRequest(item)} className="text-red-600 hover:text-red-900 dark:text-red-400"><FaTrash /></button>
                                     </td>
                                 </tr>
                             ))
@@ -129,7 +173,7 @@ function MasterCrud({ title, fetchItems, addItem, updateItem, deleteItem }) {
             </div>
 
             {isModalOpen && (
-                <Modal onClose={() => !isSaving && setIsModalOpen(false)}>
+                <Modal onClose={() => !isSaving && setIsModalOpen(false)} maxWidth="max-w-md">
                     <div className="p-6">
                         <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
                             {isEditing ? 'Editar' : 'Nuevo'} Registro
@@ -166,6 +210,22 @@ function MasterCrud({ title, fetchItems, addItem, updateItem, deleteItem }) {
                         </form>
                     </div>
                 </Modal>
+            )}
+            {confirmation.isOpen && (
+                <ConfirmationModal
+                    title={confirmation.title}
+                    message={confirmation.message}
+                    onConfirm={confirmation.onConfirm}
+                    onCancel={() => setConfirmation({ isOpen: false })}
+                />
+            )}
+
+            {warning.isOpen && (
+                <WarningModal
+                    title={warning.title}
+                    message={warning.message}
+                    onClose={() => setWarning({ isOpen: false })}
+                />
             )}
         </div>
     );

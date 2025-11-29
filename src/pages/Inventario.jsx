@@ -9,6 +9,21 @@ import Modal from '../components/common/Modal';
 import Select from 'react-select';
 import * as XLSX from 'xlsx';
 
+function ConfirmationModal({ title, message, onConfirm, onCancel }) {
+  return (
+    <Modal onClose={onCancel} maxWidth="max-w-md">
+      <div className="p-4">
+        <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">{title}</h2>
+        <p className="mb-6 text-gray-600 dark:text-gray-300">{message}</p>
+        <div className="flex justify-end space-x-2">
+          <button onClick={onCancel} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+          <button onClick={onConfirm} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Confirmar</button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 function Inventario() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -110,17 +125,27 @@ function Inventario() {
     setIsModalOpen(true);
   };
 
+  const [confirmation, setConfirmation] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+
+  const handleDeleteRequest = (item) => {
+    setConfirmation({
+      isOpen: true,
+      title: 'Eliminar Item',
+      message: `¿Estás seguro de que quieres eliminar "${item.descripcion}"? Esta acción es irreversible.`,
+      onConfirm: () => handleDelete(item.id),
+    });
+  };
+
   const handleDelete = async (id) => {
-    if (window.confirm('¿Eliminar este item del inventario?')) {
-      try {
-        await deleteInventoryItem(id);
-        toast.success('Eliminado correctamente');
-        loadData();
-      } catch (error) {
-        console.error(error);
-        toast.error('Error al eliminar');
-      }
+    try {
+      await deleteInventoryItem(id);
+      toast.success('Eliminado correctamente');
+      loadData();
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al eliminar');
     }
+    setConfirmation({ isOpen: false });
   };
 
   const openNew = () => {
@@ -316,7 +341,7 @@ function Inventario() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button onClick={() => handleEdit(item)} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 mr-4"><FaEdit /></button>
-                    <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900 dark:text-red-400"><FaTrash /></button>
+                    <button onClick={() => handleDeleteRequest(item)} className="text-red-600 hover:text-red-900 dark:text-red-400"><FaTrash /></button>
                   </td>
                 </tr>
               ))
@@ -507,6 +532,15 @@ function Inventario() {
             </form>
           </div>
         </Modal>
+      )}
+
+      {confirmation.isOpen && (
+        <ConfirmationModal
+          title={confirmation.title}
+          message={confirmation.message}
+          onConfirm={confirmation.onConfirm}
+          onCancel={() => setConfirmation({ isOpen: false })}
+        />
       )}
     </div>
   );
