@@ -77,7 +77,13 @@ const PRINT_ORDER_MAP = [
     { num: 21, id: "tipoC", label: "Tipo C" },
     { num: 22, id: "lectora", label: "Lectora" },
     { num: 23, id: "touchpad", label: "Touchpad" },
-    { num: 24, id: "otros", label: "Otros" },
+    { num: 24, id: "bandejas", label: "Bandejas" }, 
+    { num: 25, id: "cables", label: "Cables" },
+    { num: 26, id: "rodillos", label: "Rodillos" },
+    { num: 27, id: "cabezal", label: "Cabezal de impresión" },
+    { num: 28, id: "tinta", label: "Tinta / Cartucho" },
+    { num: 29, id: "otros", label: "Otros" },
+
 ];
 
 function NewClientForm({ onSave, onCancel }) {
@@ -275,12 +281,7 @@ function Diagnostico() {
   
   const ALL_COMPONENTS = useMemo(() => {
     return PRINT_ORDER_MAP.map(item => ({ id: item.id, name: item.label }));
-  }, []);
-
-  const getComponentDisplayName = (id) => {
-    const component = ALL_COMPONENTS.find(c => c.id === id);
-    return component ? component.name : id;
-  };
+  }, []); 
 
   const getComponentOptions = (type) => {
     const all = ALL_COMPONENTS;
@@ -289,18 +290,18 @@ function Diagnostico() {
     switch (type) {
         case 'PC':
             return all.filter(c => 
-                !['bateria', 'cargador', 'pantalla', 'teclado', 'camara', 'microfono', 'parlantes', 'auriculares', 'tipoC', 'touchpad', 'vga', 'lectora', 'cables', ...printerExclusive].includes(c.id) 
+                !['bateria', 'cargador', 'pantalla', 'teclado', 'camara', 'microfono', 'parlantes', 'auriculares', 'tipoC', 'touchpad', 'cables', ...printerExclusive].includes(c.id) 
             ); 
         case 'Laptop':
             return all.filter(c => 
-                !['lectora', 'cables', ...printerExclusive].includes(c.id)
+                !['cables', ...printerExclusive].includes(c.id)
             ); 
         case 'Allinone':
             return all.filter(c => 
                 !['lectora', 'cables', ...printerExclusive].includes(c.id)
             );
         case 'Impresora':
-            return all.filter(c => [...printerExclusive, 'cables', 'otros'].includes(c.id));
+            return all.filter(c => ['cables', 'otros', ...printerExclusive].includes(c.id));
         case 'Otros':
             return all.filter(c => !printerExclusive.includes(c.id) && c.id !== 'cables');
         default:
@@ -314,8 +315,8 @@ function Diagnostico() {
     Allinone: getComponentOptions('Allinone'),
     Impresora: getComponentOptions('Impresora'),
     Otros: getComponentOptions('Otros'),
-  };
-
+  }; 
+  
   const OS_OPTIONS = [
     "Windows 11", "Windows 10", "Windows 8", "Windows 7", "macOS", "Linux", "Otro",
   ];
@@ -648,7 +649,7 @@ function Diagnostico() {
     let isCheckRequired = false;
     
     const mandatoryDetailSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
-    const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'wifi', 'camara', 'microfono', 'parlantes'];
+    const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'wifi', 'camara', 'microfono', 'parlantes', 'tarjetaVideo', 'teclado', 'bateria'];
     const mandatoryPrinterIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
     const diskIds = ['hdd', 'ssd', 'm2Nvme'];
 
@@ -1215,7 +1216,7 @@ function Diagnostico() {
         if (status.isDetailRequired && !hasDetails) {
              newErrors[opt.id] = "Detalle obligatorio.";
         }
-    });
+    }); 
     
     if (formData.tipoEquipo === 'Otros') {
         if (!otherComponentType) {
@@ -1344,9 +1345,7 @@ function Diagnostico() {
       navigate("/ver-estado");
     } catch (error) {
       toast.error(error.message);
-    } finally {
-        setIsSaving(false); 
-    }
+    }  
   };
 
   let dia, mes, anio, hora;
