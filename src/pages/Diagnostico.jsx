@@ -683,8 +683,7 @@ function Diagnostico() {
         const otherStatus = getOtherComponentAvailabilityInternal(itemId, otherComponentType, canTurnOn, isFormLocked);
         isAvailable = otherStatus.isAvailable;
         isCheckDisabled = otherStatus.isCheckDisabled;
-        isDetailDisabled = otherStatus.isDetailDisabled;
-        if (otherStatus.isDetailRequired) isDetailRequired = true;
+        isDetailDisabled = otherStatus.isDetailDisabled; 
     }
     
     if (canTurnOn === 'NO' && !isFormLocked) {

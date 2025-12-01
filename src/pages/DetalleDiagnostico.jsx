@@ -388,7 +388,7 @@ function DetalleDiagnostico() {
     // Lógica de permisos de edición y visualización
     const isActualTech = report?.tecnicoActualId === currentUser.uid;
     const isResponsibleTech = report?.tecnicoResponsableId === currentUser.uid;
-    const isAllowedToEdit = isActualTech && report?.estado === 'PENDIENTE'; // Solo el actual y si está en PENDIENTE
+    const isAllowedToEdit = isActualTech && ['PENDIENTE', 'ASIGNADO'].includes(report.estado); 
     const isAllowedToView = isActualTech || isResponsibleTech; 
     const isReportFinalized = report && ['TERMINADO', 'ENTREGADO'].includes(report.estado);
 
