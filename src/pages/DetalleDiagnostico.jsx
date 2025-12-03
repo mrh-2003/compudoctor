@@ -334,7 +334,7 @@ const ComponentItem = ({ item }) => {
         <div className="flex items-center space-x-2 text-sm">
             {isChecked ? <FaCheckCircle className="text-green-500" /> : <FaTimesCircle className="text-gray-400" />}
             <span className="font-semibold">{item.name}:</span>
-            <span className="text-gray-700 dark:text-gray-300">{item.detalles || (isChecked ? 'OK' : 'N/A')}</span>
+            <span className="text-gray-700 dark:text-gray-300">{item.detalles || (isChecked ? '' : 'N/A')}</span>
         </div>
     );
 };
@@ -618,6 +618,20 @@ function DetalleDiagnostico() {
         const commonFields = (
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4">
                 <p className="font-bold text-lg text-black dark:text-white">SERVICIO EN CURSO</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico de Recepción:</label>
+                        <input type="text" value={report.tecnicoRecepcion} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico Inicial:</label>
+                        <input type="text" value={report.tecnicoInicial || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico de Testeo:</label>
+                        <input type="text" value={report.tecnicoTesteo || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
+                    </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium mb-1">Técnico Actual:</label>

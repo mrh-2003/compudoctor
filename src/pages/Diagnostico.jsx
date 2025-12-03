@@ -374,6 +374,7 @@ function Diagnostico() {
             <title>Informe Técnico ${reportNumber}</title>
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+                @page { size: portrait; }
                 @media print {
                     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 }
@@ -1660,6 +1661,16 @@ function Diagnostico() {
             <h2 className="text-xl font-semibold mb-4 text-green-500">
               Componentes y Accesorios
             </h2>
+            <div className="flex gap-6 mb-4 text-sm text-gray-600 dark:text-gray-300">
+              <div className="flex items-center">
+                <span className="text-blue-500 text-lg leading-none mr-1 font-bold">*</span>
+                <span>Check Obligatorio</span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-red-500 text-lg leading-none mr-1 font-bold">*</span>
+                <span>Detalle Obligatorio</span>
+              </div>
+            </div>
             {['Impresora'].includes(formData.tipoEquipo) && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 Para el tipo de equipo "{formData.tipoEquipo}", los campos de componentes son obligatorios (detalles) o para testeo (check).
@@ -1697,7 +1708,7 @@ function Diagnostico() {
                       <label htmlFor={item.id} className="flex-1 text-sm flex items-center">
                         <span className="font-bold mr-1">{index + 1}.</span>
                         {item.name}
-                        {isCheckRequired && <span className="ml-1 text-red-500 text-lg leading-none">*</span>}
+                        {isCheckRequired && <span className="ml-1 text-blue-500 text-lg leading-none">*</span>}
                         {isDetailRequired && <span className="ml-1 text-red-500 text-lg leading-none">*</span>}
                       </label>
                       <input
@@ -2162,7 +2173,7 @@ function Diagnostico() {
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico Inicial {formData.canTurnOn === 'SI' && <span className="text-red-500">*</span>}
+                Técnico Inicial (Abrio el Equipo) {formData.canTurnOn === 'SI' && <span className="text-red-500">*</span>}
               </label>
               <Select
                 options={users}
