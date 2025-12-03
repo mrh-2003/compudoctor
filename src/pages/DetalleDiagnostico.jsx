@@ -8,6 +8,7 @@ import { ThemeContext } from '../context/ThemeContext';
 import Modal from '../components/common/Modal';
 import Select from 'react-select';
 import { getAllUsersDetailed } from '../services/userService';
+import ReadOnlyAreaHistory from '../components/common/ReadOnlyAreaHistory';
 
 const FIELD_LABELS = {
     clientName: "Cliente",
@@ -229,111 +230,7 @@ const selectStyles = (theme) => ({
     }),
 });
 
-const ReadOnlyEntry = ({ entry, areaName }) => {
-    const processedKeys = new Set(IGNORED_KEYS);
-    const detailsToShow = [];
 
-    const availableGroups = {};
-    Object.keys(GROUPED_FIELDS_CONFIG).forEach(groupKey => {
-        const isChecked = entry[groupKey] === true;
-
-        const subDetails = GROUPED_FIELDS_CONFIG[groupKey].map(subKey => ({
-            key: subKey,
-            label: FIELD_LABELS[subKey] || subKey,
-            value: entry[subKey],
-            type: 'text'
-        })).filter(item => item.value && String(item.value).trim() !== "");
-
-        const hasDetails = subDetails.length > 0;
-
-        if (isChecked || hasDetails) {
-            availableGroups[groupKey] = {
-                isChecked: isChecked,
-                subDetails: subDetails
-            };
-
-            processedKeys.add(groupKey);
-            availableGroups[groupKey].subDetails.forEach(item => processedKeys.add(item.key));
-        } else {
-            GROUPED_FIELDS_CONFIG[groupKey].forEach(subKey => processedKeys.add(subKey));
-        }
-    });
-
-    for (const key in entry) {
-        if (processedKeys.has(key) || typeof entry[key] === 'object' || key.endsWith('Id') || key.startsWith('sw_tipo') || key.startsWith('hw_tipo')) continue;
-
-        let value = entry[key];
-        let label = FIELD_LABELS[key] || key;
-
-        if (key in availableGroups) {
-            continue;
-        } else if (typeof value === 'boolean') {
-            if (!value) continue;
-
-            detailsToShow.push({
-                key,
-                label,
-                value: value ? <FaCheck className="text-green-500" /> : <FaTimes className="text-red-500" />,
-                type: 'check'
-            });
-        } else if (value && String(value).trim() !== '') {
-            detailsToShow.push({
-                key,
-                label,
-                value: String(value),
-                type: 'text'
-            });
-        }
-    }
-
-    const taskStatus = entry.estado === 'TERMINADO' ? 'TERMINADO' : 'ASIGNADO';
-
-    const hasAdditionalDetails = detailsToShow.length > 0 || Object.keys(availableGroups).length > 0;
-
-    return (
-        <div className="border p-3 rounded-md mt-2 bg-gray-100 dark:bg-gray-700 dark:border-gray-600 text-sm">
-            <h3 className="font-bold text-lg text-blue-500 dark:text-blue-400">Intervención en {areaName}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
-                <div><strong className="font-semibold">Técnico:</strong> {entry.tecnico}</div>
-                <div><strong className="font-semibold">Ubicación Física:</strong> {entry.ubicacionFisica || 'N/A'}</div>
-                <div><strong className="font-semibold">Fechas:</strong> {entry.fecha_inicio} {entry.hora_inicio} - {entry.fecha_fin || 'N/A'} {entry.hora_fin || ''}</div>
-                <div><strong className="font-semibold">Estado:</strong> <span className={`font-semibold ${taskStatus === 'TERMINADO' ? 'text-green-600' : 'text-orange-500'}`}>{taskStatus}</span></div>
-            </div>
-            {entry.reparacion && (
-                <div className="mt-2 pt-2 border-t dark:border-gray-600">
-                    <strong className="block font-semibold">Descripción del Trabajo:</strong>
-                    <span>{entry.reparacion}</span>
-                </div>
-            )}
-
-            {hasAdditionalDetails && (
-                <div className="mt-2 border-t pt-2 dark:border-gray-600">
-                    <h4 className="font-semibold mb-2 text-indigo-500">Detalles Adicionales:</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                        {detailsToShow.map(({ key, label, value, type }) => (
-                            <div key={key} className="flex flex-wrap items-center">
-                                <strong className="mr-1">{label}:</strong>
-                                {type === 'check' ? value : <span>{value}</span>}
-                            </div>
-                        ))}
-                        {Object.keys(availableGroups).map(groupKey => (
-                            <div key={groupKey} className="col-span-full mb-1">
-                                <span className="font-bold">{FIELD_LABELS[groupKey] || groupKey}:</span>
-                                {availableGroups[groupKey].isChecked && <FaCheck className="text-green-500 inline ml-1 mr-2" />}
-                                {availableGroups[groupKey].subDetails.map(item => (
-                                    <span key={item.key} className="ml-2 block md:inline">
-                                        <em>{item.label}:</em> {item.value}
-                                    </span>
-                                ))}
-                            </div>
-                        ))}
-
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
 
 const ComponentItem = ({ item }) => {
     const isChecked = item.checked;
@@ -602,7 +499,7 @@ function DetalleDiagnostico() {
                 {flatHistory.length > 0 ? (
                     <div className="space-y-4">
                         {flatHistory.map((entry, index) => (
-                            <ReadOnlyEntry key={index} entry={entry} areaName={entry.areaName} />
+                            <ReadOnlyAreaHistory key={index} entry={entry} areaName={entry.areaName} />
                         ))}
                     </div>
                 ) : (
@@ -1271,7 +1168,7 @@ function DetalleDiagnostico() {
                 <div className="space-y-4">
                     {flatHistory.length > 0 ? (
                         flatHistory.map((entry, index) => (
-                            <ReadOnlyEntry key={index} entry={entry} areaName={entry.areaName} />
+                            <ReadOnlyAreaHistory key={index} entry={entry} areaName={entry.areaName} />
                         ))
                     ) : (
                         <p className="text-gray-500">No hay intervenciones previas.</p>
