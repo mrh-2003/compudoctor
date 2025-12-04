@@ -6,6 +6,7 @@ import { FaMoneyBillWave, FaWallet } from 'react-icons/fa';
 
 function CostosModal({ report, onClose, onUpdate }) {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [paymentData, setPaymentData] = useState({
         monto: '',
         metodoPago: 'Yape',
@@ -65,6 +66,7 @@ function CostosModal({ report, onClose, onUpdate }) {
             formaPago: metodo
         };
 
+        setIsSubmitting(true);
         try {
             const success = await addPayment(report.id, newPayment);
             if (success) {
@@ -77,6 +79,8 @@ function CostosModal({ report, onClose, onUpdate }) {
         } catch (error) {
             console.error(error);
             toast.error('Error al registrar el pago');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -213,7 +217,7 @@ function CostosModal({ report, onClose, onUpdate }) {
 
             {/* Payment Modal */}
             {isPaymentModalOpen && (
-                <Modal onClose={() => setIsPaymentModalOpen(false)}>
+                <Modal onClose={() => !isSubmitting && setIsPaymentModalOpen(false)}>
                     <div className="p-6 max-w-md mx-auto">
                         <h3 className="text-xl font-bold mb-4">Registrar Nuevo Pago</h3>
                         <form onSubmit={handlePaymentSubmit} className="space-y-4">
@@ -240,12 +244,14 @@ function CostosModal({ report, onClose, onUpdate }) {
                                         className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
                                         placeholder="0.00"
                                         required
+                                        disabled={isSubmitting}
                                     />
                                     <button
                                         type="button"
                                         onClick={handleFillBalance}
-                                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 rounded"
+                                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 rounded disabled:bg-blue-300"
                                         title="Completar saldo"
+                                        disabled={isSubmitting}
                                     >
                                         <FaWallet />
                                     </button>
@@ -258,6 +264,7 @@ function CostosModal({ report, onClose, onUpdate }) {
                                     value={paymentData.metodoPago}
                                     onChange={(e) => setPaymentData({ ...paymentData, metodoPago: e.target.value })}
                                     className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                                    disabled={isSubmitting}
                                 >
                                     <option value="Yape">Yape</option>
                                     <option value="Plin">Plin</option>
@@ -276,6 +283,7 @@ function CostosModal({ report, onClose, onUpdate }) {
                                         onChange={(e) => setPaymentData({ ...paymentData, otroMetodo: e.target.value })}
                                         className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
                                         required
+                                        disabled={isSubmitting}
                                     />
                                 </div>
                             )}
@@ -284,15 +292,17 @@ function CostosModal({ report, onClose, onUpdate }) {
                                 <button
                                     type="button"
                                     onClick={() => setIsPaymentModalOpen(false)}
-                                    className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                                    className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded disabled:bg-gray-300"
+                                    disabled={isSubmitting}
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:bg-green-300"
+                                    disabled={isSubmitting}
                                 >
-                                    Registrar Pago
+                                    {isSubmitting ? 'Registrando...' : 'Registrar Pago'}
                                 </button>
                             </div>
                         </form>

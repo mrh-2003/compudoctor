@@ -25,7 +25,7 @@ function VerEstado() {
         estado: '',
     });
     const [currentPage, setCurrentPage] = useState(1);
-    const [selectedReportForCosts, setSelectedReportForCosts] = useState(null);
+    const [selectedReportIdForCosts, setSelectedReportIdForCosts] = useState(null);
     const [isCostosModalOpen, setIsCostosModalOpen] = useState(false);
     const pageSize = 10;
 
@@ -102,18 +102,23 @@ function VerEstado() {
     };
 
     const handleOpenCosts = (report) => {
-        setSelectedReportForCosts(report);
+        setSelectedReportIdForCosts(report.id);
         setIsCostosModalOpen(true);
     };
 
     const handleCloseCosts = () => {
-        setSelectedReportForCosts(null);
+        setSelectedReportIdForCosts(null);
         setIsCostosModalOpen(false);
     };
 
     const handleUpdateReport = () => {
         fetchReports();
     };
+
+    const selectedReportForCosts = useMemo(() =>
+        allReports.find(r => r.id === selectedReportIdForCosts),
+        [allReports, selectedReportIdForCosts]
+    );
 
     if (loading) {
         return <div className="text-center p-8">Cargando autenticación...</div>;
