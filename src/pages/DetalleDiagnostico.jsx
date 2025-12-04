@@ -9,7 +9,7 @@ import Modal from '../components/common/Modal';
 import Select from 'react-select';
 import { getAllUsersDetailed } from '../services/userService';
 import ReadOnlyAreaHistory from '../components/common/ReadOnlyAreaHistory';
-  
+
 const ALL_COMPONENTS_MAP = {
     "procesador": "Procesador", "placaMadre": "Placa Madre", "memoriaRam": "Memoria RAM", "hdd": "HDD",
     "ssd": "SSD", "m2Nvme": "M2 Nvme", "tarjetaVideo": "Tarjeta de video", "wifi": "Wi-Fi",
@@ -82,6 +82,8 @@ function DetalleDiagnostico() {
     const [tecnicoSiguiente, setTecnicoSiguiente] = useState(null);
     const [tecnicoApoyo, setTecnicoApoyo] = useState(null);
     const [ubicacionFisica, setUbicacionFisica] = useState('');
+    const [serviciosAdicionales, setServiciosAdicionales] = useState([]);
+    const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0 });
 
     const AREA_OPTIONS_CONSTANT = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO'];
 
@@ -99,8 +101,15 @@ function DetalleDiagnostico() {
 
                 setUbicacionFisica(fetchedReport.ubicacionFisica || '');
 
+                // Cargar servicios adicionales del área actual si existen
+                if (lastEntry?.serviciosAdicionales) {
+                    setServiciosAdicionales(lastEntry.serviciosAdicionales);
+                }
+
                 const allUsers = await getAllUsersDetailed();
-                setUsers(allUsers.map(u => ({ value: u.id, label: u.nombre })));
+                // Filtrar solo técnicos (USER y SUPERUSER)
+                const technicians = allUsers.filter(u => u.rol === 'USER' || u.rol === 'SUPERUSER');
+                setUsers(technicians.map(u => ({ value: u.id, label: u.nombre })));
 
             } catch (error) {
                 toast.error('Error al cargar el informe.');
@@ -148,6 +157,26 @@ function DetalleDiagnostico() {
         }));
     };
 
+    const handleAddServicioAdicional = () => {
+        if (!nuevoServicio.description || !nuevoServicio.amount || nuevoServicio.amount <= 0) {
+            toast.error('Debe ingresar una descripción y un monto válido.');
+            return;
+        }
+        const servicioConId = {
+            ...nuevoServicio,
+            id: Date.now()
+        };
+        setServiciosAdicionales(prev => [...prev, servicioConId]);
+        setNuevoServicio({ description: '', amount: 0 });
+        toast.success('Servicio adicional agregado.');
+    };
+
+    const handleDeleteServicioAdicional = (id) => {
+        setServiciosAdicionales(prev => prev.filter(s => s.id !== id));
+        toast.success('Servicio adicional eliminado.');
+    };
+
+
     const handleOpenCompletionModal = () => {
         if (!isAllowedToEdit || isReportFinalized) return;
         setIsCompletionModalOpen(true);
@@ -160,6 +189,7 @@ function DetalleDiagnostico() {
         setTecnicoSiguiente(null);
         setUbicacionFisica(report?.ubicacionFisica || '');
         setTecnicoApoyo(null);
+        // No resetear servicios adicionales, ya que deben persistir mientras se trabaja en el área
     };
 
     const handleCompleteTask = async (e) => {
@@ -199,6 +229,7 @@ function DetalleDiagnostico() {
                 fecha_fin: formattedDate,
                 hora_fin: formattedTime,
                 estado: 'TERMINADO',
+                // serviciosAdicionales se agregan condicionalmente después
             };
 
             const updatedDiagnosticoPorArea = {
@@ -246,10 +277,12 @@ function DetalleDiagnostico() {
 
     const nextAreaOptions = useMemo(() => {
         if (!report) return [];
-        return [
-            ...AREA_OPTIONS_CONSTANT.map(area => ({ value: area, label: area })),
-            { value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' }
-        ];
+        const areaOptions = AREA_OPTIONS_CONSTANT.map(area => ({ value: area, label: area }));
+        // Solo mostrar TERMINADO si el área actual es TESTEO
+        if (report.area === 'TESTEO') {
+            areaOptions.push({ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' });
+        }
+        return areaOptions;
     }, [report]);
 
     const techniciansForNextArea = useMemo(() => {
@@ -408,13 +441,15 @@ function DetalleDiagnostico() {
         };
         const checkboxProps = {
             onChange: handleFormChange,
-            className: "h-4 w-4 mr-2",
-            disabled: !isAllowedToEdit || isReportFinalized
+            className: "h-4 w-4 mr-2 accent-blue-600",
+            disabled: !isAllowedToEdit || isReportFinalized,
+            style: (!isAllowedToEdit || isReportFinalized) ? { opacity: 1 } : {}
         };
         const radioProps = {
             onChange: handleRadioChange,
-            className: "h-4 w-4 mr-1",
-            disabled: !isAllowedToEdit || isReportFinalized
+            className: "h-4 w-4 mr-1 accent-blue-600",
+            disabled: !isAllowedToEdit || isReportFinalized,
+            style: (!isAllowedToEdit || isReportFinalized) ? { opacity: 1 } : {}
         }
 
         switch (report.area) {
@@ -916,42 +951,129 @@ function DetalleDiagnostico() {
                 <h1 className="text-2xl font-bold">Informe Técnico N° {report.reportNumber}</h1>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700 space-y-4">
-                <h2 className="text-xl font-semibold mb-4 text-blue-500">Datos del Cliente y Equipo</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <p><strong>Cliente:</strong> {report.clientName || 'N/A'}</p>
-                    <p><strong>Teléfono:</strong> {report.telefono || 'N/A'}</p>
-                    <p><strong>Tipo de Equipo:</strong> {report.tipoEquipo || 'N/A'}</p>
-                    <p><strong>Marca:</strong> {report.marca || 'N/A'}</p>
-                    <p><strong>Modelo:</strong> {report.modelo || 'N/A'}</p>
-                    <p><strong>Serie:</strong> {report.serie || 'N/A'}</p>
-                    <p><strong>Sistema Operativo:</strong> {report.sistemaOperativo || 'N/A'}</p>
-                    <p><strong>Clave Bitlocker:</strong> {report.bitlockerKey ? 'Sí' : 'No'}</p>
-                    <p><strong>Observaciones de Recepción:</strong> {report.observaciones || 'N/A'}</p>
-                    <p><strong>Motivo de Ingreso:</strong> {report.motivoIngreso || 'N/A'}</p>
-                    <p><strong>Detalles de Pago:</strong> {report.detallesPago || 'N/A'}</p>
-                    <p><strong>Técnico de Recepción:</strong> {report.tecnicoRecepcion || 'N/A'}</p>
-                    <p><strong>Técnico de Testeo:</strong> {report.tecnicoTesteo || 'N/A'}</p>
-                    <p><strong>Técnico Responsable:</strong> {report.tecnicoResponsable || 'N/A'}</p>
-                    <p><strong>Área Actual:</strong> <span className="font-bold text-red-500">{report.area || 'N/A'}</span></p>
-                    <p><strong>Técnico Asignado:</strong> <span className="font-bold text-red-500">{report.tecnicoActual || 'N/A'}</span></p>
-                    <p><strong>Ubicación Física:</strong> {report.ubicacionFisica || 'N/A'}</p>
-                    <p className='col-span-full'><strong>Estado General:</strong> <span className={`font-bold ${report.estado === 'PENDIENTE' ? 'text-orange-500' : 'text-gray-500'}`}>{report.estado || 'N/A'}</span></p>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700 space-y-6">
+                <h2 className="text-xl font-semibold text-blue-500 border-b pb-3 dark:border-gray-700">Datos del Cliente y Equipo</h2>
+
+                {/* Información del Cliente */}
+                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                    <p className="font-bold text-lg text-purple-500 dark:text-purple-400">INFORMACIÓN DEL CLIENTE</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Cliente:</label>
+                            <input type="text" value={report.clientName || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Teléfono:</label>
+                            <input type="text" value={report.telefono || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Fecha de Ingreso:</label>
+                            <input type="text" value={`${report.fecha} ${report.hora}`} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                    </div>
                 </div>
 
+                {/* Información del Equipo */}
+                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                    <p className="font-bold text-lg text-green-500 dark:text-green-400">INFORMACIÓN DEL EQUIPO</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Tipo de Equipo:</label>
+                            <input type="text" value={report.tipoEquipo || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Marca:</label>
+                            <input type="text" value={report.marca || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Modelo:</label>
+                            <input type="text" value={report.modelo || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Serie:</label>
+                            <input type="text" value={report.serie || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Sistema Operativo:</label>
+                            <input type="text" value={report.sistemaOperativo || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Clave Bitlocker:</label>
+                            <input type="text" value={report.bitlockerKey || 'No'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Detalles de Recepción */}
+                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                    <p className="font-bold text-lg text-orange-500 dark:text-orange-400">DETALLES DE RECEPCIÓN</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="col-span-full">
+                            <label className="block text-sm font-medium mb-1">Motivo de Ingreso:</label>
+                            <textarea value={report.motivoIngreso || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled rows="2"></textarea>
+                        </div>
+                        <div className="col-span-full">
+                            <label className="block text-sm font-medium mb-1">Observaciones de Recepción:</label>
+                            <textarea value={report.observaciones || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled rows="2"></textarea>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Detalles de Pago:</label>
+                            <input type="text" value={report.detallesPago || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Estado y Asignación Actual */}
+                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                    <p className="font-bold text-lg text-red-500 dark:text-red-400">ESTADO Y ASIGNACIÓN ACTUAL</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Estado General:</label>
+                            <input type="text" value={report.estado || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800 font-bold text-red-600 dark:text-red-400" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Área Actual:</label>
+                            <input type="text" value={report.area || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800 font-bold text-red-600 dark:text-red-400" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Técnico Asignado:</label>
+                            <input type="text" value={report.tecnicoActual || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800 font-bold text-red-600 dark:text-red-400" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Técnico de Recepción:</label>
+                            <input type="text" value={report.tecnicoRecepcion || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Técnico de Testeo:</label>
+                            <input type="text" value={report.tecnicoTesteo || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Técnico Responsable:</label>
+                            <input type="text" value={report.tecnicoResponsable || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Ubicación Física:</label>
+                            <input type="text" value={report.ubicacionFisica || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Servicios Adicionales */}
                 {(report.hasAdditionalServices || report.additionalServices?.length > 0) && (
-                    <div className="mt-4 border-t pt-4 dark:border-gray-700">
-                        <h3 className="text-lg font-semibold text-pink-500 mb-2">Servicios Adicionales</h3>
-                        <ul className="list-disc list-inside text-sm">
+                    <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                        <p className="font-bold text-lg text-pink-500 dark:text-pink-400">SERVICIOS ADICIONALES</p>
+                        <ul className="list-disc list-inside text-sm space-y-1">
                             {report.additionalServices.map((service, index) => (
-                                <li key={index}>{service.description}</li>
+                                <li key={index} className="ml-4">{service.description}</li>
                             ))}
                         </ul>
                     </div>
                 )}
-                <div className="mt-4 border-t pt-4 dark:border-gray-700">
-                    <h3 className="text-lg font-semibold text-green-500 mb-2">Componentes y Accesorios Registrados</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+
+                {/* Componentes y Accesorios */}
+                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                    <p className="font-bold text-lg text-cyan-500 dark:text-cyan-400">COMPONENTES Y ACCESORIOS REGISTRADOS</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {report.items && report.items
                             .filter(item => item.checked || (item.detalles && item.detalles.trim() !== ''))
                             .map(item => ({ ...item, name: getComponentName(item.id) }))

@@ -9,12 +9,14 @@ const ReadOnlyAreaHistory = ({ entry, areaName }) => {
 
     const readOnlyCheckboxProps = {
         disabled: true,
-        className: "h-4 w-4 mr-2 cursor-not-allowed"
+        className: "h-4 w-4 mr-2 cursor-not-allowed accent-blue-600",
+        style: { opacity: 1 }
     };
 
     const readOnlyRadioProps = {
         disabled: true,
-        className: "h-4 w-4 mr-1 cursor-not-allowed"
+        className: "h-4 w-4 mr-1 cursor-not-allowed accent-blue-600",
+        style: { opacity: 1 }
     };
 
     const commonFieldsReadOnly = (
