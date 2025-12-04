@@ -388,26 +388,8 @@ function DetalleDiagnostico() {
 
         const commonFields = (
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4">
-                <p className="font-bold text-lg text-black dark:text-white">SERVICIO EN CURSO</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Técnico de Recepción:</label>
-                        <input type="text" value={report.tecnicoRecepcion} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Técnico Inicial:</label>
-                        <input type="text" value={report.tecnicoInicial || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Técnico de Testeo:</label>
-                        <input type="text" value={report.tecnicoTesteo || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Técnico Actual:</label>
-                        <input type="text" value={currentUser.nombre} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
-                    </div>
+                <p className="font-bold text-lg text-black dark:text-white">SERVICIO EN CURSO</p> 
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> 
                     <div>
                         <label className="block text-sm font-medium mb-1">Fecha Inicio:</label>
                         <input type="text" value={formState.fecha_inicio || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
@@ -416,9 +398,7 @@ function DetalleDiagnostico() {
                         <label className="block text-sm font-medium mb-1">H. Inicio:</label>
                         <input type="text" value={formState.hora_inicio || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
                     </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="col-span-full">
+                    <div>
                         <label className="block text-sm font-medium mb-1">Técnico de Apoyo (Opcional):</label>
                         <Select
                             options={techniciansForSupport}
@@ -430,7 +410,7 @@ function DetalleDiagnostico() {
                             isDisabled={!isAllowedToEdit || isReportFinalized}
                         />
                     </div>
-                </div>
+                </div> 
             </div>
         );
 
@@ -1026,19 +1006,11 @@ function DetalleDiagnostico() {
                 {/* Estado y Asignación Actual */}
                 <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
                     <p className="font-bold text-lg text-red-500 dark:text-red-400">ESTADO Y ASIGNACIÓN ACTUAL</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Estado General:</label>
-                            <input type="text" value={report.estado || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800 font-bold text-red-600 dark:text-red-400" disabled />
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> 
                         <div>
                             <label className="block text-sm font-medium mb-1">Área Actual:</label>
                             <input type="text" value={report.area || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800 font-bold text-red-600 dark:text-red-400" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Técnico Asignado:</label>
-                            <input type="text" value={report.tecnicoActual || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800 font-bold text-red-600 dark:text-red-400" disabled />
-                        </div>
+                        </div> 
                         <div>
                             <label className="block text-sm font-medium mb-1">Técnico de Recepción:</label>
                             <input type="text" value={report.tecnicoRecepcion || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
@@ -1050,6 +1022,10 @@ function DetalleDiagnostico() {
                         <div>
                             <label className="block text-sm font-medium mb-1">Técnico Responsable:</label>
                             <input type="text" value={report.tecnicoResponsable || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Técnico Inicial (Abrio el Equipo):</label>
+                            <input type="text" value={report.tecnicoInicial || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1">Ubicación Física:</label>
