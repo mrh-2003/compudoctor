@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getDiagnosticReportById, updateDiagnosticReport } from '../services/diagnosticService';
 import { useAuth } from '../context/AuthContext';
-import { FaArrowLeft, FaCheckCircle, FaCheck, FaTimes, FaTimesCircle } from 'react-icons/fa';
+import { FaArrowLeft, FaCheckCircle, FaTimes, FaPlus } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { ThemeContext } from '../context/ThemeContext';
 import Modal from '../components/common/Modal';
@@ -10,19 +10,7 @@ import Select from 'react-select';
 import { getAllUsersDetailed } from '../services/userService';
 import ReadOnlyAreaHistory from '../components/common/ReadOnlyAreaHistory';
 
-const ALL_COMPONENTS_MAP = {
-    "procesador": "Procesador", "placaMadre": "Placa Madre", "memoriaRam": "Memoria RAM", "hdd": "HDD",
-    "ssd": "SSD", "m2Nvme": "M2 Nvme", "tarjetaVideo": "Tarjeta de video", "wifi": "Wi-Fi",
-    "bateria": "Batería", "cargador": "Cargador", "pantalla": "Pantalla", "teclado": "Teclado",
-    "camara": "Cámara", "microfono": "Micrófono", "parlantes": "Parlantes", "auriculares": "Auriculares",
-    "rj45": "RJ 45", "hdmi": "HDMI", "vga": "VGA", "usb": "USB", "tipoC": "Tipo C",
-    "lectora": "Lectora", "touchpad": "Touchpad", "rodillos": "Rodillos",
-    "cabezal": "Cabezal", "tinta": "Cartuchos/Tinta", "bandejas": "Bandejas", "otros": "Otros"
-};
-
-const getComponentName = (itemId) => {
-    return ALL_COMPONENTS_MAP[itemId] || itemId;
-};
+const AREA_OPTIONS_CONSTANT = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO'];
 
 const selectStyles = (theme) => ({
     control: (baseStyles) => ({
@@ -50,22 +38,197 @@ const selectStyles = (theme) => ({
     }),
 });
 
+const PRINT_ORDER_MAP = [
+    { num: 1, id: "procesador", label: "Procesador" },
+    { num: 2, id: "placaMadre", label: "Placa Madre" },
+    { num: 3, id: "memoriaRam", label: "Memoria RAM" },
+    { num: 4, id: "hdd", label: "HDD" },
+    { num: 5, id: "ssd", label: "SSD" },
+    { num: 6, id: "m2Nvme", label: "M.2 Nvme" },
+    { num: 7, id: "tarjetaVideo", label: "Tarj. de video" },
+    { num: 8, id: "wifi", label: "WI-FI" },
+    { num: 9, id: "bateria", label: "Batería" },
+    { num: 10, id: "cargador", label: "Cargador" },
+    { num: 11, id: "pantalla", label: "Pantalla" },
+    { num: 12, id: "teclado", label: "Teclado" },
+    { num: 13, id: "camara", label: "Cámara" },
+    { num: 14, id: "microfono", label: "Micrófono" },
+    { num: 15, id: "parlantes", label: "Parlantes" },
+    { num: 16, id: "auriculares", label: "Auriculares" },
+    { num: 17, id: "rj45", label: "RJ 45" },
+    { num: 18, id: "hdmi", label: "HDMI" },
+    { num: 19, id: "vga", label: "VGA" },
+    { num: 20, id: "usb", label: "USB" },
+    { num: 21, id: "tipoC", label: "Tipo C" },
+    { num: 22, id: "lectora", label: "Lectora" },
+    { num: 23, id: "touchpad", label: "Touchpad" },
+    { num: 24, id: "bandejas", label: "Bandejas" },
+    { num: 25, id: "cables", label: "Cables" },
+    { num: 26, id: "rodillos", label: "Rodillos" },
+    { num: 27, id: "cabezal", label: "Cabezal de impresión" },
+    { num: 28, id: "tinta", label: "Tinta / Cartucho" },
+    { num: 29, id: "otros", label: "Otros" },
+];
 
+// Componente visual puro, extraído para evitar recreación
+const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, total, saldo, componentItems }) => {
+    const readOnlyInputProps = {
+        readOnly: true,
+        className: "w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800",
+    };
 
-const ComponentItem = ({ item }) => {
-    const isChecked = item.checked;
-    const hasDetails = item.detalles && item.detalles.trim() !== '';
+    const componentItemsMap = componentItems.reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+    }, {});
 
-    if (!isChecked && !hasDetails) return null;
+    const getCheckItemData = (id) => {
+        const item = componentItemsMap[id];
+        const isChecked = item?.checked || false;
+        let detailText = (item?.detalles && item.detalles.trim() !== '') ? item.detalles : '';
+        return { isChecked, detailText };
+    }
 
     return (
-        <div className="flex items-center space-x-2 text-sm">
-            {isChecked ? <FaCheckCircle className="text-green-500" /> : <FaTimesCircle className="text-gray-400" />}
-            <span className="font-semibold">{item.name}:</span>
-            <span className="text-gray-700 dark:text-gray-300">{item.detalles || (isChecked ? '' : 'N/A')}</span>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700 space-y-6">
+            <h2 className="text-xl font-semibold text-blue-500 border-b pb-3 dark:border-gray-700">Datos del Cliente y Equipo (Recepción)</h2>
+
+            <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                <p className="font-bold text-lg text-purple-500 dark:text-purple-400">INFORMACIÓN DEL CLIENTE</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="col-span-full">
+                        <label className="block text-sm font-medium mb-1">Cliente:</label>
+                        <input type="text" value={report.clientName || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Teléfono:</label>
+                        <input type="text" value={report.telefono || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Fecha/Hora Ingreso:</label>
+                        <input type="text" value={`${report.fecha} ${report.hora}`} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Estado Actual:</label>
+                        <input type="text" value={report.estado || 'N/A'} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold ${report.estado === 'ENTREGADO' ? 'text-green-500' : report.estado === 'TERMINADO' ? 'text-orange-500' : 'text-red-500'}`} />
+                    </div>
+                </div>
+            </div>
+
+            <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                <p className="font-bold text-lg text-green-500 dark:text-green-400">INFORMACIÓN DEL EQUIPO</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">¿Enciende?:</label>
+                        <input type="text" value={report.canTurnOn || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Tipo de Equipo:</label>
+                        <input type="text" value={report.tipoEquipo || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Marca:</label>
+                        <input type="text" value={report.marca || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Modelo:</label>
+                        <input type="text" value={report.modelo || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Serie:</label>
+                        <input type="text" value={report.serie || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Sistema Operativo:</label>
+                        <input type="text" value={report.sistemaOperativo || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="block text-sm font-medium mb-1">Clave Bitlocker:</label>
+                        <input type="text" value={report.bitlockerKey ? 'Sí' : 'No'} {...readOnlyInputProps} />
+                    </div>
+                </div>
+            </div>
+
+            <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                <p className="font-bold text-lg text-orange-500 dark:text-orange-400">DETALLES DE RECEPCIÓN</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="col-span-full">
+                        <label className="block text-sm font-medium mb-1">Motivo de Ingreso (Servicios):</label>
+                        <textarea value={report.motivoIngreso || 'N/A'} {...readOnlyInputProps} rows="2"></textarea>
+                    </div>
+                    <div className="col-span-full">
+                        <label className="block text-sm font-medium mb-1">Observaciones de Recepción:</label>
+                        <textarea value={report.observaciones || 'N/A'} {...readOnlyInputProps} rows="2"></textarea>
+                    </div>
+                    <div className="col-span-full">
+                        <label className="block text-sm font-medium mb-1">Detalles de Pago (Recepción):</label>
+                        <input type="text" value={report.detallesPago || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                </div>
+            </div>
+        
+            <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                <p className="font-bold text-lg text-pink-500 dark:text-pink-400">RESUMEN FINANCIERO (BASE)</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> 
+                    <div className="hidden lg:block">
+                        <label className="block text-sm font-medium mb-1">Costo Diagnóstico (S/)</label>
+                        <input type="text" value={diagnostico.toFixed(2)} {...readOnlyInputProps} /> 
+                    </div>
+                    <div className="hidden lg:block">
+                        <label className="block text-sm font-medium mb-1">Monto Servicios (S/)</label>
+                        <input type="text" value={montoServicio.toFixed(2)} {...readOnlyInputProps} /> 
+                    </div>
+                    <div className="col-span-1 md:col-span-2 lg:col-span-2"> 
+                        <label className="block text-sm font-medium mb-1">Total (S/)</label>
+                        <input type="text" value={total.toFixed(2)} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold`} />
+                    </div>
+                    <div className="col-span-1 md:col-span-2 lg:col-span-2">
+                        <label className="block text-sm font-medium mb-1">Saldo (S/)</label>
+                        <input type="text" value={saldo.toFixed(2)} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold ${saldo > 0 ? 'text-red-500' : 'text-green-500'}`} />
+                    </div>
+                </div>
+            </div>
+
+            <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                <p className="font-bold text-lg text-cyan-500 dark:text-cyan-400">COMPONENTES Y ACCESORIOS REGISTRADOS</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                    {PRINT_ORDER_MAP.filter(item => componentItemsMap[item.id]?.checked || (componentItemsMap[item.id]?.detalles && componentItemsMap[item.id]?.detalles.trim() !== '')).map(item => {
+                        const { isChecked, detailText } = getCheckItemData(item.id);
+                        
+                        if (!isChecked && !detailText) return null;
+
+                        return (
+                            <div key={item.id} className="flex items-center space-x-2">
+                                <div className="flex items-center w-36 flex-shrink-0">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={isChecked} 
+                                        readOnly 
+                                        disabled 
+                                        className="h-4 w-4 mr-2 accent-green-600"
+                                        style={{ opacity: 1, filter: 'none', accentColor: isChecked ? '#10B981' : '#D1D5DB' }}
+                                    />
+                                    <label className="font-semibold text-gray-700 dark:text-gray-300 truncate">
+                                        {item.label}:
+                                    </label>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={detailText || (isChecked ? 'Registrado' : 'N/A')}
+                                    {...readOnlyInputProps}
+                                    className={`${readOnlyInputProps.className} flex-1 truncate text-xs py-1`}
+                                />
+                            </div>
+                        );
+                    })}
+                    {componentItems.length === 0 && (
+                        <p className="text-gray-500 col-span-full">No se registraron componentes específicos.</p>
+                    )}
+                </div>
+            </div>
         </div>
     );
-};
+});
 
 function DetalleDiagnostico() {
     const { reportId } = useParams();
@@ -82,10 +245,67 @@ function DetalleDiagnostico() {
     const [tecnicoSiguiente, setTecnicoSiguiente] = useState(null);
     const [tecnicoApoyo, setTecnicoApoyo] = useState(null);
     const [ubicacionFisica, setUbicacionFisica] = useState('');
-    const [serviciosAdicionales, setServiciosAdicionales] = useState([]);
+    
+    const [editableAdditionalServices, setEditableAdditionalServices] = useState([]);
     const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0 });
 
-    const AREA_OPTIONS_CONSTANT = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO'];
+    const isActualTech = report?.tecnicoActualId === currentUser?.uid;
+    const isAllowedToEdit = isActualTech && ['PENDIENTE', 'ASIGNADO'].includes(report?.estado);
+    const isReportFinalized = report && ['TERMINADO', 'ENTREGADO'].includes(report.estado);
+
+    const canEditAdditionalServices = isAllowedToEdit && ['HARDWARE', 'SOFTWARE'].includes(report?.area);
+
+    const componentItems = useMemo(() => {
+        if (!report || !report.items) return [];
+        return report.items;
+    }, [report]);
+
+    const { diagnostico, montoServicio, total, saldo } = useMemo(() => {
+        const aCuenta = parseFloat(report?.aCuenta) || 0; 
+        let diagCost = parseFloat(report?.diagnostico) || 0;
+        let serviceTotal = parseFloat(report?.montoServicio) || 0;
+        
+        const totalAdicionales = editableAdditionalServices.reduce(
+            (sum, service) => sum + (parseFloat(service.amount) || 0),
+            0
+        );
+
+        const newTotal = (serviceTotal + totalAdicionales);
+        const newSaldo = newTotal - aCuenta;
+
+        return {
+            diagnostico: diagCost,
+            montoServicio: serviceTotal,
+            total: newTotal,
+            saldo: newSaldo,
+        };
+    }, [report, editableAdditionalServices]);
+
+    const handleUpdateReportFinance = useCallback(async (updatedData) => {
+        try {
+            const currentReport = await getDiagnosticReportById(reportId);
+            const aCuenta = parseFloat(currentReport?.aCuenta) || 0;
+            const serviceTotal = parseFloat(currentReport?.montoServicio) || 0;
+            const finalAdditionalServices = updatedData.additionalServices || currentReport.additionalServices || [];
+            
+            const totalAdicionales = finalAdditionalServices.reduce((sum, service) => sum + (parseFloat(service.amount) || 0), 0);
+            const newTotal = serviceTotal + totalAdicionales;
+            const newSaldo = newTotal - aCuenta;
+
+            const updatedFields = {
+                total: newTotal,
+                saldo: newSaldo,
+                ...updatedData
+            };
+            
+            await updateDiagnosticReport(reportId, updatedFields);
+            const updatedReport = await getDiagnosticReportById(reportId);
+            setReport(updatedReport);
+        } catch (error) {
+            toast.error('Error al actualizar la información de pago.');
+            console.error(error);
+        }
+    }, [reportId]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -101,13 +321,9 @@ function DetalleDiagnostico() {
 
                 setUbicacionFisica(fetchedReport.ubicacionFisica || '');
 
-                // Cargar servicios adicionales del área actual si existen
-                if (lastEntry?.serviciosAdicionales) {
-                    setServiciosAdicionales(lastEntry.serviciosAdicionales);
-                }
+                setEditableAdditionalServices(fetchedReport.additionalServices || []);
 
                 const allUsers = await getAllUsersDetailed();
-                // Filtrar solo técnicos (USER y SUPERUSER)
                 const technicians = allUsers.filter(u => u.rol === 'USER' || u.rol === 'SUPERUSER');
                 setUsers(technicians.map(u => ({ value: u.id, label: u.nombre })));
 
@@ -122,18 +338,10 @@ function DetalleDiagnostico() {
         }
     }, [reportId]);
 
-    // Lógica de permisos de edición y visualización
-    const isActualTech = report?.tecnicoActualId === currentUser.uid;
-    const isResponsibleTech = report?.tecnicoResponsableId === currentUser.uid;
-    const isAllowedToEdit = isActualTech && ['PENDIENTE', 'ASIGNADO'].includes(report.estado);
-    const isAllowedToView = isActualTech || isResponsibleTech;
-    const isReportFinalized = report && ['TERMINADO', 'ENTREGADO'].includes(report.estado);
-
     const handleFormChange = (e) => {
         if (!isAllowedToEdit || isReportFinalized) return;
         const { name, value, type, checked } = e.target;
 
-        // Si es un checkbox de electrónica y se está marcando, establecer reparabilidad en SI por defecto
         if (type === 'checkbox' && checked && ['elec_video', 'elec_placa', 'elec_otro'].includes(name)) {
             setFormState(prev => ({
                 ...prev,
@@ -157,25 +365,49 @@ function DetalleDiagnostico() {
         }));
     };
 
-    const handleAddServicioAdicional = () => {
-        if (!nuevoServicio.description || !nuevoServicio.amount || nuevoServicio.amount <= 0) {
+    const handleAddServicioAdicional = async () => {
+        if (!canEditAdditionalServices || isReportFinalized) return;
+        if (!nuevoServicio.description || !nuevoServicio.amount || parseFloat(nuevoServicio.amount) <= 0) {
             toast.error('Debe ingresar una descripción y un monto válido.');
             return;
         }
+        
+        const amountValue = parseFloat(nuevoServicio.amount);
         const servicioConId = {
             ...nuevoServicio,
+            amount: amountValue,
             id: Date.now()
         };
-        setServiciosAdicionales(prev => [...prev, servicioConId]);
+        
+        const newAdditionalServices = [...editableAdditionalServices, servicioConId];
+        setEditableAdditionalServices(newAdditionalServices);
         setNuevoServicio({ description: '', amount: 0 });
-        toast.success('Servicio adicional agregado.');
+
+        const dataToUpdate = {
+            additionalServices: newAdditionalServices,
+            hasAdditionalServices: true,
+        };
+        
+        await handleUpdateReportFinance(dataToUpdate);
+        toast.success('Servicio adicional agregado y saldo actualizado.');
     };
 
-    const handleDeleteServicioAdicional = (id) => {
-        setServiciosAdicionales(prev => prev.filter(s => s.id !== id));
-        toast.success('Servicio adicional eliminado.');
-    };
+    const handleDeleteServicioAdicional = async (id) => {
+        if (!canEditAdditionalServices || isReportFinalized) return;
+        const serviceToDelete = editableAdditionalServices.find(s => s.id === id);
+        if (!serviceToDelete) return;
 
+        const newAdditionalServices = editableAdditionalServices.filter(s => s.id !== id);
+        setEditableAdditionalServices(newAdditionalServices);
+
+        const dataToUpdate = {
+            additionalServices: newAdditionalServices,
+            hasAdditionalServices: newAdditionalServices.length > 0,
+        };
+        
+        await handleUpdateReportFinance(dataToUpdate);
+        toast.success('Servicio adicional eliminado y saldo actualizado.');
+    };
 
     const handleOpenCompletionModal = () => {
         if (!isAllowedToEdit || isReportFinalized) return;
@@ -189,7 +421,6 @@ function DetalleDiagnostico() {
         setTecnicoSiguiente(null);
         setUbicacionFisica(report?.ubicacionFisica || '');
         setTecnicoApoyo(null);
-        // No resetear servicios adicionales, ya que deben persistir mientras se trabaja en el área
     };
 
     const handleCompleteTask = async (e) => {
@@ -229,13 +460,19 @@ function DetalleDiagnostico() {
                 fecha_fin: formattedDate,
                 hora_fin: formattedTime,
                 estado: 'TERMINADO',
-                // serviciosAdicionales se agregan condicionalmente después
+                serviciosAdicionales: editableAdditionalServices, 
             };
 
             const updatedDiagnosticoPorArea = {
                 ...report.diagnosticoPorArea,
                 [report.area]: currentAreaHistory,
             };
+            
+            const currentACuenta = parseFloat(report.aCuenta) || 0;
+            const serviceTotal = parseFloat(report.montoServicio) || 0;
+            const totalAdicionales = editableAdditionalServices.reduce((sum, service) => sum + (parseFloat(service.amount) || 0), 0);
+            const finalTotal = serviceTotal + totalAdicionales;
+            const finalSaldo = finalTotal - currentACuenta;
 
             const newGlobalState = nextArea === 'TERMINADO' ? 'TERMINADO' : 'ASIGNADO';
 
@@ -246,6 +483,12 @@ function DetalleDiagnostico() {
                 tecnicoActual: isTransfer ? nextTechnicianName : report.tecnicoActual,
                 tecnicoActualId: isTransfer ? nextTechnicianId : report.tecnicoActualId,
                 ubicacionFisica: ubicacionFisica,
+                
+                aCuenta: currentACuenta, 
+                total: finalTotal,
+                saldo: finalSaldo,
+                additionalServices: editableAdditionalServices,
+                hasAdditionalServices: editableAdditionalServices.length > 0,
             };
 
             if (isTransfer) {
@@ -278,7 +521,6 @@ function DetalleDiagnostico() {
     const nextAreaOptions = useMemo(() => {
         if (!report) return [];
         const areaOptions = AREA_OPTIONS_CONSTANT.map(area => ({ value: area, label: area }));
-        // Solo mostrar TERMINADO si el área actual es TESTEO
         if (report.area === 'TESTEO') {
             areaOptions.push({ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' });
         }
@@ -292,7 +534,7 @@ function DetalleDiagnostico() {
             return users.filter(u => u.value !== currentUser.uid);
         }
         return users;
-    }, [nextArea, report, users, currentUser.uid]);
+    }, [nextArea, report, users, currentUser?.uid]);
 
     const flatHistory = useMemo(() => {
         if (!report) return [];
@@ -302,94 +544,55 @@ function DetalleDiagnostico() {
             )
             .filter(entry => entry.estado === 'TERMINADO')
             .sort((a, b) => {
-                const dateA = new Date(`${a.fecha_fin.split('-').reverse().join('-')}T${a.hora_fin}`);
-                const dateB = new Date(`${b.fecha_fin.split('-').reverse().join('-')}T${b.hora_fin}`);
-                return dateB - dateA;
+                const parseDate = (dateStr, timeStr) => {
+                    if (!dateStr || !timeStr) return new Date(0);
+                    const [d, m, y] = dateStr.split('-');
+                    const [h, min] = timeStr.split(':');
+                    return new Date(y, m - 1, d, h, min);
+                };
+                return parseDate(b.fecha_fin, b.hora_fin) - parseDate(a.fecha_fin, a.hora_fin);
             });
     }, [report]);
+
+    // OPTIMIZACIÓN CLAVE: Memoizamos el Header para que NO dependa del estado del formulario (formState)
+    // Solo se re-renderizará si cambian estos valores específicos.
+    const memoizedReportHeader = useMemo(() => (
+        <ReadOnlyReportHeader
+            report={report}
+            diagnostico={diagnostico}
+            montoServicio={montoServicio}
+            total={total}
+            saldo={saldo}
+            componentItems={componentItems}
+        />
+    ), [report, diagnostico, montoServicio, total, saldo, componentItems]);
+
+    // OPTIMIZACIÓN CLAVE: Memoizamos el historial para que tampoco se renderice al teclear
+    const memoizedHistorySection = useMemo(() => (
+        <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
+            <h2 className="text-xl font-semibold text-gray-500 mb-3">Historial de Intervenciones</h2>
+            <div className="space-y-4">
+                {flatHistory.length > 0 ? (
+                    flatHistory.map((entry, index) => (
+                        <ReadOnlyAreaHistory key={index} entry={entry} areaName={entry.areaName} />
+                    ))
+                ) : (
+                    <p className="text-gray-500">No hay intervenciones previas.</p>
+                )}
+            </div>
+        </div>
+    ), [flatHistory]);
 
     if (isLoading) return <div className="text-center p-8">Cargando informe...</div>;
     if (!report) return <div className="text-center p-8 text-red-500">Informe no encontrado.</div>;
 
-    // Función auxiliar para la vista de solo lectura del técnico responsable
-    const DetalleHistorialReadOnly = ({ report, flatHistory, getComponentName }) => (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700 space-y-6">
-            <div className="border-b pb-4 dark:border-gray-700">
-                <h2 className="text-xl font-semibold text-blue-500 mb-3">Datos de Recepción</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <p><strong>Cliente:</strong> {report.clientName || 'N/A'}</p>
-                    <p><strong>Teléfono:</strong> {report.telefono || 'N/A'}</p>
-                    <p><strong>Fecha de Ingreso:</strong> {report.fecha} / {report.hora}</p>
-                    <p><strong>Estado Actual:</strong> <span className={`font-bold ${report.estado === 'ENTREGADO' ? 'text-green-500' : report.estado === 'TERMINADO' ? 'text-orange-500' : 'text-red-500'}`}>{report.estado}</span></p>
-                    <p><strong>Detalles de Pago:</strong> {report.detallesPago || 'N/A'}</p>
-                    <p><strong>Área Actual:</strong> <span className="font-bold text-red-500">{report.area || 'N/A'}</span></p>
-                    <p><strong>Técnico Asignado:</strong> <span className="font-bold text-red-500">{report.tecnicoActual || 'N/A'}</span></p>
-                    <p><strong>Ubicación Física:</strong> {report.ubicacionFisica || 'N/A'}</p>
-                </div>
-            </div>
-
-            <div className="border-b pb-4 dark:border-gray-700">
-                <h2 className="text-xl font-semibold text-purple-500 mb-3">Descripción del Equipo</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <p><strong>Tipo:</strong> {report.tipoEquipo || 'N/A'}</p>
-                    <p><strong>Marca:</strong> {report.marca || 'N/A'}</p>
-                    <p><strong>Modelo:</strong> {report.modelo || 'N/A'}</p>
-                    <p><strong>Serie:</strong> {report.serie || 'N/A'}</p>
-                </div>
-            </div>
-            <div className="border-b pb-4 dark:border-gray-700">
-                <h2 className="text-xl font-semibold text-green-500 mb-3">Componentes y Accesorios (Inicial)</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
-                    {report.items
-                        .filter(item => item.checked || (item.detalles && item.detalles.trim() !== ''))
-                        .map(item => ({ ...item, name: getComponentName(item.id) }))
-                        .map(item => <ComponentItem key={item.id} item={item} />)
-                    }
-                </div>
-            </div>
-            <div>
-                <h2 className="text-xl font-semibold text-red-500 mb-3">Historial de Intervenciones</h2>
-                {flatHistory.length > 0 ? (
-                    <div className="space-y-4">
-                        {flatHistory.map((entry, index) => (
-                            <ReadOnlyAreaHistory key={index} entry={entry} areaName={entry.areaName} />
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-gray-500">No hay intervenciones previas finalizadas.</p>
-                )}
-            </div>
-        </div>
-    );
-
-    // Renderización si es solo técnico responsable (solo vista)
-    if (isResponsibleTech && !isActualTech) {
-        return (
-            <div className="container mx-auto p-4 md:p-8">
-                <div className="flex items-center mb-6">
-                    <Link to="/bandeja-tecnico" className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white mr-4" title="Volver a la bandeja">
-                        <FaArrowLeft size={24} />
-                    </Link>
-                    <h1 className="text-2xl font-bold">Informe Técnico N° {report.reportNumber}</h1>
-                </div>
-                <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-400 dark:border-yellow-700 p-4 rounded-lg mb-6">
-                    <p className="font-bold text-yellow-800 dark:text-yellow-200">
-                        Solo tiene acceso de visualización (Técnico Responsable). La tarea actual está asignada a {report.tecnicoActual}.
-                    </p>
-                </div>
-                <DetalleHistorialReadOnly report={report} flatHistory={flatHistory} getComponentName={getComponentName} />
-            </div>
-        );
-    }
-
     const renderAreaForm = () => {
-        // ... Lógica para el formulario por área (sin cambios, usa isReportFinalized para deshabilitar)
         const techniciansForSupport = users.filter(u => u.value !== currentUser.uid);
 
         const commonFields = (
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4">
-                <p className="font-bold text-lg text-black dark:text-white">SERVICIO EN CURSO</p> 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> 
+                <p className="font-bold text-lg text-black dark:text-white">SERVICIO EN CURSO</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium mb-1">Fecha Inicio:</label>
                         <input type="text" value={formState.fecha_inicio || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
@@ -410,7 +613,7 @@ function DetalleDiagnostico() {
                             isDisabled={!isAllowedToEdit || isReportFinalized}
                         />
                     </div>
-                </div> 
+                </div>
             </div>
         );
 
@@ -423,13 +626,13 @@ function DetalleDiagnostico() {
             onChange: handleFormChange,
             className: "h-4 w-4 mr-2 accent-blue-600",
             disabled: !isAllowedToEdit || isReportFinalized,
-            style: (!isAllowedToEdit || isReportFinalized) ? { opacity: 1 } : {}
+            style: { opacity: 1, filter: 'none' } 
         };
         const radioProps = {
             onChange: handleRadioChange,
             className: "h-4 w-4 mr-1 accent-blue-600",
             disabled: !isAllowedToEdit || isReportFinalized,
-            style: (!isAllowedToEdit || isReportFinalized) ? { opacity: 1 } : {}
+            style: { opacity: 1, filter: 'none' } 
         }
 
         switch (report.area) {
@@ -930,139 +1133,88 @@ function DetalleDiagnostico() {
                 </Link>
                 <h1 className="text-2xl font-bold">Informe Técnico N° {report.reportNumber}</h1>
             </div>
+            
+            {/* Componente MEMOIZADO: No se renderiza al escribir en el formulario */}
+            {memoizedReportHeader}
+            
+            {/* SECCIÓN EDITABLE: SERVICIOS ADICIONALES */}
+            {isActualTech && canEditAdditionalServices &&(
+                <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
+                    <h2 className="text-xl font-semibold mb-4 text-red-500 border-b pb-3 dark:border-gray-700">Servicios Adicionales (Editable)</h2>
+                    
+                    {/* El campo A Cuenta editable se elimina de aquí */}
 
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700 space-y-6">
-                <h2 className="text-xl font-semibold text-blue-500 border-b pb-3 dark:border-gray-700">Datos del Cliente y Equipo</h2>
+                    {canEditAdditionalServices && (
+                        <div className="mt-4 border p-4 rounded-lg dark:border-gray-600 space-y-4">
+                            <h3 className="text-lg font-bold text-pink-500 dark:text-pink-400 border-b pb-2">Servicios Adicionales</h3>
+                            
+                            <div className="flex space-x-2">
+                                <input
+                                    type="text"
+                                    placeholder="Descripción del servicio"
+                                    value={nuevoServicio.description}
+                                    onChange={(e) =>
+                                        setNuevoServicio((prev) => ({
+                                            ...prev,
+                                            description: e.target.value,
+                                        }))
+                                    }
+                                    className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    disabled={!canEditAdditionalServices || isReportFinalized}
+                                />
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    placeholder="Monto (S/)"
+                                    value={nuevoServicio.amount}
+                                    onChange={(e) =>
+                                        setNuevoServicio((prev) => ({
+                                            ...prev,
+                                            amount: parseFloat(e.target.value) || 0,
+                                        }))
+                                    }
+                                    className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    disabled={!canEditAdditionalServices || isReportFinalized}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddServicioAdicional}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 rounded-lg flex items-center disabled:bg-blue-400"
+                                    disabled={!canEditAdditionalServices || isReportFinalized}
+                                >
+                                    <FaPlus />
+                                </button>
+                            </div>
 
-                {/* Información del Cliente */}
-                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
-                    <p className="font-bold text-lg text-purple-500 dark:text-purple-400">INFORMACIÓN DEL CLIENTE</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Cliente:</label>
-                            <input type="text" value={report.clientName || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
+                            <ul className="space-y-1">
+                                {editableAdditionalServices.length === 0 && (
+                                    <li className="text-gray-500">No hay servicios adicionales registrados.</li>
+                                )}
+                                {editableAdditionalServices.map((service) => (
+                                    <li
+                                        key={service.id}
+                                        className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md"
+                                    >
+                                        <span>
+                                            {service.description} - S/ {parseFloat(service.amount).toFixed(2)}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteServicioAdicional(service.id)}
+                                            className="ml-4 text-red-500 hover:text-red-700"
+                                            disabled={!canEditAdditionalServices || isReportFinalized}
+                                        >
+                                            <FaTimes />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Teléfono:</label>
-                            <input type="text" value={report.telefono || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Fecha de Ingreso:</label>
-                            <input type="text" value={`${report.fecha} ${report.hora}`} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                    </div>
+                    )}
                 </div>
-
-                {/* Información del Equipo */}
-                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
-                    <p className="font-bold text-lg text-green-500 dark:text-green-400">INFORMACIÓN DEL EQUIPO</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Tipo de Equipo:</label>
-                            <input type="text" value={report.tipoEquipo || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Marca:</label>
-                            <input type="text" value={report.marca || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Modelo:</label>
-                            <input type="text" value={report.modelo || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Serie:</label>
-                            <input type="text" value={report.serie || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Sistema Operativo:</label>
-                            <input type="text" value={report.sistemaOperativo || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Clave Bitlocker:</label>
-                            <input type="text" value={report.bitlockerKey || 'No'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Detalles de Recepción */}
-                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
-                    <p className="font-bold text-lg text-orange-500 dark:text-orange-400">DETALLES DE RECEPCIÓN</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="col-span-full">
-                            <label className="block text-sm font-medium mb-1">Motivo de Ingreso:</label>
-                            <textarea value={report.motivoIngreso || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled rows="2"></textarea>
-                        </div>
-                        <div className="col-span-full">
-                            <label className="block text-sm font-medium mb-1">Observaciones de Recepción:</label>
-                            <textarea value={report.observaciones || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled rows="2"></textarea>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Detalles de Pago:</label>
-                            <input type="text" value={report.detallesPago || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Estado y Asignación Actual */}
-                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
-                    <p className="font-bold text-lg text-red-500 dark:text-red-400">ESTADO Y ASIGNACIÓN ACTUAL</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> 
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Área Actual:</label>
-                            <input type="text" value={report.area || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800 font-bold text-red-600 dark:text-red-400" disabled />
-                        </div> 
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Técnico de Recepción:</label>
-                            <input type="text" value={report.tecnicoRecepcion || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Técnico de Testeo:</label>
-                            <input type="text" value={report.tecnicoTesteo || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Técnico Responsable:</label>
-                            <input type="text" value={report.tecnicoResponsable || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Técnico Inicial (Abrio el Equipo):</label>
-                            <input type="text" value={report.tecnicoInicial || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Ubicación Física:</label>
-                            <input type="text" value={report.ubicacionFisica || 'N/A'} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-white dark:bg-gray-800" disabled />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Servicios Adicionales */}
-                {(report.hasAdditionalServices || report.additionalServices?.length > 0) && (
-                    <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
-                        <p className="font-bold text-lg text-pink-500 dark:text-pink-400">SERVICIOS ADICIONALES</p>
-                        <ul className="list-disc list-inside text-sm space-y-1">
-                            {report.additionalServices.map((service, index) => (
-                                <li key={index} className="ml-4">{service.description}</li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-
-                {/* Componentes y Accesorios */}
-                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
-                    <p className="font-bold text-lg text-cyan-500 dark:text-cyan-400">COMPONENTES Y ACCESORIOS REGISTRADOS</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {report.items && report.items
-                            .filter(item => item.checked || (item.detalles && item.detalles.trim() !== ''))
-                            .map(item => ({ ...item, name: getComponentName(item.id) }))
-                            .map(item => <ComponentItem key={item.id} item={item} />)
-                        }
-                        {!(report.items && report.items.filter(item => item.checked || (item.detalles && item.detalles.trim() !== '')).length > 0) && (
-                            <p className="text-gray-500 col-span-full">No se registraron componentes específicos.</p>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Solo se muestra el formulario y el botón de completar si es el técnico actual */}
+            )}
+            
             {isActualTech && (
                 <>
                     <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
@@ -1081,18 +1233,8 @@ function DetalleDiagnostico() {
                 </>
             )}
 
-            <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
-                <h2 className="text-xl font-semibold text-gray-500 mb-3">Historial de Intervenciones</h2>
-                <div className="space-y-4">
-                    {flatHistory.length > 0 ? (
-                        flatHistory.map((entry, index) => (
-                            <ReadOnlyAreaHistory key={index} entry={entry} areaName={entry.areaName} />
-                        ))
-                    ) : (
-                        <p className="text-gray-500">No hay intervenciones previas.</p>
-                    )}
-                </div>
-            </div>
+            {/* Componente MEMOIZADO: No se renderiza al escribir en el formulario */}
+            {memoizedHistorySection}
 
             {isCompletionModalOpen && (
                 <Modal onClose={handleCloseCompletionModal}>

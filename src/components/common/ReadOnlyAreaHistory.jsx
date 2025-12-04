@@ -4,19 +4,21 @@ const ReadOnlyAreaHistory = ({ entry, areaName }) => {
     const readOnlyInputProps = {
         readOnly: true,
         disabled: true,
-        className: "p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-gray-50 dark:bg-gray-800"
+        className: "p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
     };
 
     const readOnlyCheckboxProps = {
-        disabled: true,
-        className: "h-4 w-4 mr-2 cursor-not-allowed accent-blue-600",
-        style: { opacity: 1 }
+        readOnly: true,
+        onClick: (e) => e.preventDefault(),
+        className: "h-4 w-4 mr-2 cursor-not-allowed accent-blue-600 dark:accent-blue-500",
+        style: { opacity: 1, filter: 'none' }
     };
 
     const readOnlyRadioProps = {
-        disabled: true,
-        className: "h-4 w-4 mr-1 cursor-not-allowed accent-blue-600",
-        style: { opacity: 1 }
+        readOnly: true,
+        onClick: (e) => e.preventDefault(),
+        className: "h-4 w-4 mr-1 cursor-not-allowed accent-blue-600 dark:accent-blue-500",
+        style: { opacity: 1, filter: 'none' }
     };
 
     const commonFieldsReadOnly = (
