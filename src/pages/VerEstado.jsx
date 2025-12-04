@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllDiagnosticReports, deleteDiagnosticReport } from '../services/diagnosticService';
-import { FaEdit, FaTrash, FaEye, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaEye, FaChevronLeft, FaChevronRight, FaMoneyBillWave } from 'react-icons/fa';
 import Modal from '../components/common/Modal';
+import CostosModal from '../components/diagnostico/CostosModal';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -24,6 +25,8 @@ function VerEstado() {
         estado: '',
     });
     const [currentPage, setCurrentPage] = useState(1);
+    const [selectedReportForCosts, setSelectedReportForCosts] = useState(null);
+    const [isCostosModalOpen, setIsCostosModalOpen] = useState(false);
     const pageSize = 10;
 
     const canEdit = currentUser && (currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN');
@@ -55,7 +58,7 @@ function VerEstado() {
 
     const filteredReports = useMemo(() => {
         return allReports.filter(report => {
-            const generalMatch = Object.values(report).some(value => 
+            const generalMatch = Object.values(report).some(value =>
                 String(value).toLowerCase().includes(filters.generalSearch.toLowerCase())
             );
             const statusMatch = filters.estado ? report.estado?.toLowerCase() === filters.estado.toLowerCase() : true;
@@ -98,6 +101,20 @@ function VerEstado() {
         setConfirmation({ isOpen: false });
     };
 
+    const handleOpenCosts = (report) => {
+        setSelectedReportForCosts(report);
+        setIsCostosModalOpen(true);
+    };
+
+    const handleCloseCosts = () => {
+        setSelectedReportForCosts(null);
+        setIsCostosModalOpen(false);
+    };
+
+    const handleUpdateReport = () => {
+        fetchReports();
+    };
+
     if (loading) {
         return <div className="text-center p-8">Cargando autenticación...</div>;
     }
@@ -115,20 +132,20 @@ function VerEstado() {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Estado de Reparaciones</h1>
             </div>
-            
+
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <input 
-                    type="text" 
-                    name="generalSearch" 
-                    placeholder="Buscar en todas las columnas..." 
-                    value={filters.generalSearch} 
-                    onChange={handleFilterChange} 
-                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 col-span-2" 
+                <input
+                    type="text"
+                    name="generalSearch"
+                    placeholder="Buscar en todas las columnas..."
+                    value={filters.generalSearch}
+                    onChange={handleFilterChange}
+                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 col-span-2"
                 />
-                <select 
-                    name="estado" 
-                    value={filters.estado} 
-                    onChange={handleFilterChange} 
+                <select
+                    name="estado"
+                    value={filters.estado}
+                    onChange={handleFilterChange}
                     className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                 >
                     <option value="">Todos los estados</option>
@@ -180,7 +197,7 @@ function VerEstado() {
                             <tr key={report.id} className={report.hasAdditionalServices ? 'bg-yellow-100 dark:bg-yellow-800' : 'bg-blue-100 dark:bg-blue-800'}>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.reportNumber}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.fecha} {report.hora}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{report.clientName}{report.ruc? ' (' + report.ruc + ')': ''}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.clientName}{report.ruc ? ' (' + report.ruc + ')' : ''}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.telefono || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tipoEquipo}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.marca} - {report.modelo}</td>
@@ -202,6 +219,7 @@ function VerEstado() {
                                 <td className="px-6 py-4 whitespace-nowrap">{report.observaciones}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-4">
+                                        <button onClick={() => handleOpenCosts(report)} className="text-green-500 hover:text-green-700" title="Ver Costos y Pagos"><FaMoneyBillWave /></button>
                                         <Link to={`/ver-estado/historial/${report.id}`} className="text-blue-500 hover:text-blue-700" title="Ver historial"><FaEye /></Link>
                                         {canEdit && <Link to={`/diagnostico/${report.id}`} className="text-yellow-500 hover:text-yellow-700" title="Editar"><FaEdit /></Link>}
                                         {canDelete && <button onClick={() => handleDeleteRequest(report)} className="text-red-500 hover:text-red-700" title="Eliminar"><FaTrash /></button>}
@@ -211,7 +229,7 @@ function VerEstado() {
                         ))}
                     </tbody>
                 </table>
-                 {paginatedReports.length === 0 && (
+                {paginatedReports.length === 0 && (
                     <div className="p-4 text-center text-gray-500">
                         {filteredReports.length === 0 && filters.generalSearch
                             ? 'No se encontraron informes con el término de búsqueda.'
@@ -221,7 +239,7 @@ function VerEstado() {
                 )}
             </div>
 
-             <div className="flex justify-between items-center mt-4">
+            <div className="flex justify-between items-center mt-4">
                 <span className="text-sm text-gray-700 dark:text-gray-400">
                     Página {currentPage} de {totalPages} ({filteredReports.length} resultados)
                 </span>
@@ -249,6 +267,14 @@ function VerEstado() {
                     message={confirmation.message}
                     onConfirm={confirmation.onConfirm}
                     onCancel={() => setConfirmation({ isOpen: false })}
+                />
+            )}
+
+            {isCostosModalOpen && selectedReportForCosts && (
+                <CostosModal
+                    report={selectedReportForCosts}
+                    onClose={handleCloseCosts}
+                    onUpdate={handleUpdateReport}
                 />
             )}
         </div>

@@ -1302,6 +1302,8 @@ function Diagnostico() {
         aCuenta: parseFloat(formData.aCuenta) || 0,
         saldo: parseFloat(formData.saldo) || 0,
 
+        pagosRealizado: [{fecha: new Date().toISOString(), monto: parseFloat(formData.aCuenta) || 0, formaPago: formData.detallesPago}],
+
         servicesList: servicesList.map(s => ({ ...s, amount: s.amount.toFixed(2) })),
         motivoIngreso: motivoIngresoText,
         additionalServices: additionalServices.map(s => ({ ...s, amount: s.amount.toFixed(2) })),

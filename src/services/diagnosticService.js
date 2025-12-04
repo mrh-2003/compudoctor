@@ -166,3 +166,30 @@ export const getAllDiagnosticReportsByClientId = async (clientId) => {
     
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
+export const addPayment = async (reportId, paymentData) => {
+    const reportDocRef = doc(db, DIAGNOSTICO_COLLECTION, reportId);
+    const reportDocSnap = await getDoc(reportDocRef);
+
+    if (reportDocSnap.exists()) {
+        const reportData = reportDocSnap.data();
+        const currentPayments = reportData.pagosRealizado || [];
+        const newPayments = [...currentPayments, paymentData];
+        
+        const totalPagado = newPayments.reduce((sum, payment) => sum + (parseFloat(payment.monto) || 0), 0);
+        const totalPrincipal = (reportData.servicesList || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+        const totalAdicional = (reportData.additionalServices || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+        const diagnosticoCost = parseFloat(reportData.diagnostico) || 0;
+        const totalGeneral = totalPrincipal + totalAdicional + diagnosticoCost;
+        
+        const nuevoSaldo = totalGeneral - totalPagado;
+
+        await updateDoc(reportDocRef, {
+            pagosRealizado: newPayments,
+            aCuenta: totalPagado,
+            saldo: nuevoSaldo,
+            total: totalGeneral // Ensure total is also updated if needed, though usually fixed.
+        });
+        return true;
+    }
+    return false;
+};
