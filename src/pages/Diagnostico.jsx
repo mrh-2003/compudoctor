@@ -53,6 +53,13 @@ const SERVICE_OPTIONS = [
 
 const MAX_SERVICES = 6;
 
+const SI_NO_DEJA_CONFIG = {
+  Laptop: ['wifi', 'bateria', 'cargador', 'auriculares', 'rj45', 'hdmi', 'vga', 'usb', 'tipoC', 'lectora', 'touchpad'],
+  PC: ['wifi', 'rj45', 'hdmi', 'vga', 'usb', 'lectora', 'auriculares'],
+  'All in one': ['rj45', 'usb', 'auriculares', 'hdmi', 'vga'],
+  Impresora: ['bandejas', 'rodillos', 'tinta', 'cables', 'cabezal']
+};
+
 const PRINT_ORDER_MAP = [
   { num: 1, id: "procesador", label: "Procesador" },
   { num: 2, id: "placaMadre", label: "Placa Madre" },
@@ -250,6 +257,7 @@ function Diagnostico() {
     hora: "",
     estado: "",
     canTurnOn: "",
+    ubicacionFisica: "",
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -290,15 +298,15 @@ function Diagnostico() {
     switch (type) {
       case 'PC':
         return all.filter(c =>
-          !['bateria', 'cargador', 'pantalla', 'teclado', 'camara', 'microfono', 'parlantes', 'auriculares', 'tipoC', 'touchpad', 'cables', ...printerExclusive].includes(c.id)
+          !['bateria', 'cargador', 'pantalla', 'teclado', 'camara', 'microfono', 'parlantes', 'tipoC', 'touchpad', 'cables', ...printerExclusive].includes(c.id)
         );
       case 'Laptop':
         return all.filter(c =>
           !['cables', ...printerExclusive].includes(c.id)
         );
-      case 'Allinone':
+      case 'All in one':
         return all.filter(c =>
-          !['lectora', 'cables', ...printerExclusive].includes(c.id)
+          !['lectora', 'cables', 'bateria', 'cargador', 'teclado', 'tipoC', 'touchpad', ...printerExclusive].includes(c.id)
         );
       case 'Impresora':
         return all.filter(c => ['cables', 'otros', ...printerExclusive].includes(c.id));
@@ -312,7 +320,7 @@ function Diagnostico() {
   const COMPONENT_OPTIONS = {
     PC: getComponentOptions('PC'),
     Laptop: getComponentOptions('Laptop'),
-    Allinone: getComponentOptions('Allinone'),
+    "All in one": getComponentOptions('All in one'),
     Impresora: getComponentOptions('Impresora'),
     Otros: getComponentOptions('Otros'),
   };
@@ -418,8 +426,8 @@ function Diagnostico() {
                 .line-value { flex-grow: 1; border-bottom: 1px solid #000; font-size: 9pt; padding-left: 5px; }
                 .other-detail { font-weight: normal; font-size: 9pt; border-bottom: 1px solid #000; min-width: 100px; padding-left: 4px; margin-left: 4px; }
 
-                .checklist-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 15px; padding: 5px 0; border: 1px solid #ec008c; margin-top: -1px; padding: 8px; }
-                .component-item { display: flex; align-items: flex-end; margin-bottom: 2px; width: 100%; }
+                .checklist-container { column-count: 3; column-gap: 15px; padding: 5px 0; border: 1px solid #ec008c; margin-top: -1px; padding: 8px; }
+                .component-item { display: flex; align-items: flex-end; margin-bottom: 2px; width: 100%; break-inside: avoid; }
                 .comp-label { width: 120px; flex-shrink: 0; font-weight: bold; font-size: 9pt; margin-right: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .comp-checkbox-container { width: 16px; margin-right: 5px; padding-bottom: 1px; display: flex; justify-content: center; }
                 .comp-checkbox { width: 14px; height: 14px; border: 1px solid #000; text-align: center; line-height: 13px; font-size: 11px; flex-shrink: 0; }
@@ -486,7 +494,7 @@ function Diagnostico() {
                     <div class="equip-types">
                         <span>PC <div class="checkbox-box ${formData.tipoEquipo === 'PC' ? 'checked' : ''}"></div></span>
                         <span>Laptop <div class="checkbox-box ${formData.tipoEquipo === 'Laptop' ? 'checked' : ''}"></div></span>
-                        <span>All-in-one <div class="checkbox-box ${formData.tipoEquipo === 'Allinone' ? 'checked' : ''}"></div></span>
+                        <span>All in one <div class="checkbox-box ${formData.tipoEquipo === 'All in one' ? 'checked' : ''}"></div></span>
                         <span>Impresora <div class="checkbox-box ${formData.tipoEquipo === 'Impresora' ? 'checked' : ''}"></div></span>
                         <span>Otros <div class="checkbox-box ${formData.tipoEquipo === 'Otros' ? 'checked' : ''}"></div>
                             <span class="other-detail">${formData.tipoEquipo === 'Otros' ? otherTypeDesc : ''}</span>
@@ -639,11 +647,11 @@ function Diagnostico() {
     const tipoEquipo = formData.tipoEquipo;
     const canTurnOn = formData.canTurnOn;
     const isSiPrende = canTurnOn === 'SI';
-    const isAIO = tipoEquipo === 'Allinone';
+    const isAIO = tipoEquipo === 'All in one';
     const isPrinter = tipoEquipo === 'Impresora';
 
     let isAvailable = true;
-    let isCheckDisabled = isFormLocked || canTurnOn === 'NO';
+    let isCheckDisabled = isFormLocked;
     let isDetailDisabled = isFormLocked;
 
     let isDetailRequired = false;
@@ -660,20 +668,19 @@ function Diagnostico() {
       }
     }
 
-    if (['PC', 'Laptop', 'Allinone'].includes(tipoEquipo)) {
+    if (['PC', 'Laptop', 'All in one'].includes(tipoEquipo)) {
       if (isAIO && MANDATORY_COMPONENT_IDS.includes(itemId)) {
         isDetailRequired = true;
       }
 
       if (isSiPrende) {
-        if (mandatoryDetailSiPrende.includes(itemId)) {
+        if (mandatoryDetailSiPrende.includes(itemId) || diskIds.includes(itemId)) {
           isDetailRequired = true;
-        } else if (diskIds.includes(itemId)) {
-          const isDiskChecked = formData.items.find(i => i.id === itemId)?.checked;
-          if (isDiskChecked) isDetailRequired = true;
         }
 
-        if (mandatoryCheckSiPrende.includes(itemId) || diskIds.includes(itemId)) {
+        // Removed diskIds and tarjetaVideo from mandatoryCheckSiPrende explicitly if present
+        // 'tarjetaVideo' is in mandatoryCheckSiPrende, so filter it out for check requirement
+        if (mandatoryCheckSiPrende.filter(id => id !== 'tarjetaVideo').includes(itemId)) {
           isCheckRequired = true;
           isCheckDisabled = isFormLocked;
         }
@@ -688,7 +695,7 @@ function Diagnostico() {
     }
 
     if (canTurnOn === 'NO' && !isFormLocked) {
-      isCheckDisabled = true;
+      // isCheckDisabled = true; // Habilitado siempre a pedido del usuario
     }
 
     return {
@@ -763,6 +770,7 @@ function Diagnostico() {
 
             setFormData({
               ...report,
+              tipoEquipo: report.tipoEquipo === 'All in one' ? 'All in one' : report.tipoEquipo,
               diagnostico: diagnosisCost,
               montoServicio: parseFloat(report.montoServicio) || 0,
               total: parseFloat(report.total) || 0,
@@ -772,6 +780,7 @@ function Diagnostico() {
               bitlockerKey: report.bitlockerKey || false,
               detallesPago: report.detallesPago || "",
               observaciones: report.observaciones || "",
+              ubicacionFisica: report.ubicacionFisica || "",
 
               tecnicoRecepcion: report.tecnicoRecepcion || currentUser?.nombre,
               tecnicoRecepcionId: report.tecnicoRecepcionId || currentUser?.uid,
@@ -1104,7 +1113,7 @@ function Diagnostico() {
   };
 
   const handleItemCheck = (e) => {
-    if (isFormLocked || formData.canTurnOn === 'NO') return;
+    if (isFormLocked) return;
     const { name, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -1190,7 +1199,7 @@ function Diagnostico() {
       });
     }
 
-    const isSerieRequired = !['Allinone', 'PC', 'Otros'].includes(formData.tipoEquipo);
+    const isSerieRequired = !['All in one', 'PC', 'Otros'].includes(formData.tipoEquipo);
 
     if (isSerieRequired && !formData.serie) {
       newErrors.serie = "La Serie es obligatoria.";
@@ -1302,13 +1311,15 @@ function Diagnostico() {
         aCuenta: parseFloat(formData.aCuenta) || 0,
         saldo: parseFloat(formData.saldo) || 0,
 
-        pagosRealizado: [{fecha: new Date().toISOString(), monto: parseFloat(formData.aCuenta) || 0, formaPago: formData.detallesPago}],
+        pagosRealizado: [{ fecha: new Date().toISOString(), monto: parseFloat(formData.aCuenta) || 0, formaPago: formData.detallesPago }],
 
         servicesList: servicesList.map(s => ({ ...s, amount: s.amount.toFixed(2) })),
         motivoIngreso: motivoIngresoText,
         additionalServices: additionalServices.map(s => ({ ...s, amount: s.amount.toFixed(2) })),
         hasAdditionalServices: additionalServices.length > 0,
+        hasAdditionalServices: additionalServices.length > 0,
         canTurnOn: formData.canTurnOn,
+        ubicacionFisica: formData.ubicacionFisica,
       };
 
       if (formData.tipoEquipo === 'Otros') {
@@ -1417,6 +1428,23 @@ function Diagnostico() {
             <div className="font-medium">
               <span className="text-gray-900 dark:text-white">Hora:</span>{" "}
               {displayTime}
+            </div>
+            <div className="font-medium flex items-center gap-2">
+              <span className="text-gray-900 dark:text-white">Casilla:</span>
+              <select
+                name="ubicacionFisica"
+                value={formData.ubicacionFisica}
+                onChange={handleInputChange}
+                className="p-1 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                disabled={isFormLocked}
+              >
+                <option value="">Seleccionar</option>
+                {Array.from({ length: 25 }, (_, i) => i + 1).map((num) => (
+                  <option key={num} value={`I${num}`}>
+                    I{num}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           {isFormLocked && (
@@ -1637,7 +1665,7 @@ function Diagnostico() {
             <div>
               <label className="block text-sm font-medium mb-1">
                 Serie
-                {!['Allinone', 'PC', 'Otros'].includes(formData.tipoEquipo) && (
+                {!['All in one', 'PC', 'Otros'].includes(formData.tipoEquipo) && (
                   <span className="text-red-500 ml-1">*</span>
                 )}
               </label>
@@ -1648,7 +1676,7 @@ function Diagnostico() {
                 onChange={handleInputChange}
                 className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${errors.serie ? "ring-2 ring-red-500" : ""
                   }`}
-                required={!['Allinone', 'PC', 'Otros'].includes(formData.tipoEquipo)}
+                required={!['All in one', 'PC', 'Otros'].includes(formData.tipoEquipo)}
                 disabled={isFormLocked}
               />
               {errors.serie && (
@@ -1678,7 +1706,7 @@ function Diagnostico() {
                 Para el tipo de equipo "{formData.tipoEquipo}", los campos de componentes son obligatorios (detalles) o para testeo (check).
               </p>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+            <div className="columns-1 md:columns-2 gap-4">
               {COMPONENT_OPTIONS[formData.tipoEquipo]?.filter(item => {
                 if (formData.tipoEquipo === 'Otros') {
                   return getComponentStatus(item.id).isAvailable;
@@ -1693,7 +1721,7 @@ function Diagnostico() {
                 const hasAnyError = showDetailError || showCheckError;
 
                 return (
-                  <div key={item.id} className="flex flex-col mb-2">
+                  <div key={item.id} className="flex flex-col mb-2 break-inside-avoid">
                     <div className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -1713,16 +1741,30 @@ function Diagnostico() {
                         {isCheckRequired && <span className="ml-1 text-blue-500 text-lg leading-none">*</span>}
                         {isDetailRequired && <span className="ml-1 text-red-500 text-lg leading-none">*</span>}
                       </label>
-                      <input
-                        type="text"
-                        name={item.id}
-                        value={formData.items.find((i) => i.id === item.id)?.detalles || ""}
-                        onChange={handleItemDetailsChange}
-                        className={`flex-1 p-1 text-xs border rounded-md dark:bg-gray-700 dark:border-gray-600 ${showDetailError ? "ring-2 ring-red-500" : ""
-                          }`}
-                        placeholder="Detalles"
-                        disabled={isDetailDisabled}
-                      />
+                      {SI_NO_DEJA_CONFIG[formData.tipoEquipo]?.includes(item.id) ? (
+                        <select
+                          name={item.id}
+                          value={formData.items.find((i) => i.id === item.id)?.detalles || ""}
+                          onChange={handleItemDetailsChange}
+                          className={`flex-1 p-1 text-xs border rounded-md dark:bg-gray-700 dark:border-gray-600 ${showDetailError ? "ring-2 ring-red-500" : ""}`}
+                          disabled={isDetailDisabled}
+                        >
+                          <option value="">Seleccionar...</option>
+                          <option value="SI DEJA">SI DEJA</option>
+                          <option value="NO DEJA">NO DEJA</option>
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          name={item.id}
+                          value={formData.items.find((i) => i.id === item.id)?.detalles || ""}
+                          onChange={handleItemDetailsChange}
+                          className={`flex-1 p-1 text-xs border rounded-md dark:bg-gray-700 dark:border-gray-600 ${showDetailError ? "ring-2 ring-red-500" : ""
+                            }`}
+                          placeholder="Detalles"
+                          disabled={isDetailDisabled}
+                        />
+                      )}
                     </div>
                     {hasAnyError && (
                       <div className="ml-6 mt-1">
@@ -1743,7 +1785,7 @@ function Diagnostico() {
 
         {(formData.tipoEquipo === "PC" ||
           formData.tipoEquipo === "Laptop" ||
-          formData.tipoEquipo === "Allinone") && (
+          formData.tipoEquipo === "All in one") && (
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
               <h2 className="text-xl font-semibold mb-4 text-orange-500">
                 Software y Seguridad
