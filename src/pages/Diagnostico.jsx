@@ -1175,7 +1175,17 @@ function Diagnostico() {
 
     requiredGeneralFields.forEach(({ field, message }) => {
       if (!String(formData[field])) {
-        if (field === 'modelo' && formData.tipoEquipo === 'Otros') return;
+        // Validation for modelo: 
+        // Rule 1: Not required for general 'Otros' (unless specified specific sub-types)
+        // Rule 2: Required for general PC, Laptop, etc.
+        if (field === 'modelo') {
+          if (formData.tipoEquipo === 'Otros') {
+            if (['TARJETA_VIDEO', 'PLACA_MADRE_PC'].includes(otherComponentType)) {
+              newErrors[field] = message;
+            }
+            return;
+          }
+        }
         newErrors[field] = message;
       }
     });
@@ -1238,12 +1248,11 @@ function Diagnostico() {
 
     if (formData.canTurnOn === 'SI') {
 
-      if (showAreaInput && isAreaRequired && !formData.area) {
-        newErrors.area = "El Área de Destino es obligatoria.";
-      }
-
       if (!formData.tecnicoInicialId) {
-        newErrors.tecnicoInicialId = "El Técnico Inicial es obligatorio.";
+        // Optional for Impresora, Otros, All in one
+        if (!['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) {
+          newErrors.tecnicoInicialId = "El Técnico Inicial es obligatorio.";
+        }
       }
 
       if (!formData.tecnicoTesteoId) {
@@ -1374,6 +1383,8 @@ function Diagnostico() {
       navigate("/ver-estado");
     } catch (error) {
       toast.error(error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1644,7 +1655,7 @@ function Diagnostico() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Modelo
-                {formData.tipoEquipo !== 'Otros' && (
+                {(formData.tipoEquipo !== 'Otros' || (formData.tipoEquipo === 'Otros' && ['TARJETA_VIDEO', 'PLACA_MADRE_PC'].includes(otherComponentType))) && (
                   <span className="text-red-500 ml-1">*</span>
                 )}
               </label>
@@ -1908,7 +1919,7 @@ function Diagnostico() {
                   onChange={(e) => setNewServiceSelection(prev => ({ ...prev, amount: parseFloat(e.target.value) }))}
                   placeholder="Costo"
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  disabled={isFormLocked || newServiceSelection.service === 'Revisión' || newServiceSelection.service === ''}
+                  disabled={isFormLocked || newServiceSelection.service === ''}
                 />
               </div>
 
@@ -2217,7 +2228,7 @@ function Diagnostico() {
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico Inicial (Abrio el Equipo) {formData.canTurnOn === 'SI' && <span className="text-red-500">*</span>}
+                Técnico Inicial (Abrio el Equipo) {formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo) && <span className="text-red-500">*</span>}
               </label>
               <Select
                 options={users}
@@ -2226,7 +2237,7 @@ function Diagnostico() {
                 placeholder="Selecciona un técnico..."
                 isClearable
                 className={`${errors.tecnicoInicialId ? "ring-2 ring-red-500 rounded-lg" : ""}`}
-                isDisabled={isFormLocked || formData.canTurnOn === 'NO'}
+                isDisabled={isFormLocked}
                 styles={{
                   control: (baseStyles) => ({
                     ...baseStyles,
@@ -2264,7 +2275,7 @@ function Diagnostico() {
                 placeholder="Selecciona un técnico..."
                 className={`${errors.tecnicoTesteoId ? "ring-2 ring-red-500 rounded-lg" : ""}`}
                 isClearable
-                isDisabled={isFormLocked || formData.canTurnOn === 'NO'}
+                isDisabled={isFormLocked}
                 styles={{
                   control: (baseStyles) => ({
                     ...baseStyles,
@@ -2291,79 +2302,74 @@ function Diagnostico() {
               )}
             </div>
 
-            {isAdminOrSuperadmin && (
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Técnico Responsable (Opcional)
-                </label>
-                <Select
-                  options={users}
-                  value={users.find(
-                    (u) => u.value === formData.tecnicoResponsableId
-                  )}
-                  onChange={(option) =>
-                    handleUserChange("tecnicoResponsable", option)
-                  }
-                  placeholder="Selecciona un técnico..."
-                  isClearable
-                  isDisabled={isFormLocked || formData.canTurnOn === 'NO'}
-                  styles={{
-                    control: (baseStyles) => ({
-                      ...baseStyles,
-                      backgroundColor: theme === "dark" ? "#374151" : "#fff",
-                      borderColor:
-                        theme === "dark" ? "#4B5563" : baseStyles.borderColor,
-                    }),
-                    singleValue: (baseStyles) => ({
-                      ...baseStyles,
-                      color: theme === "dark" ? "#fff" : "#000",
-                    }),
-                    menu: (baseStyles) => ({
-                      ...baseStyles,
-                      backgroundColor: theme === "dark" ? "#374151" : "#fff",
-                    }),
-                    option: (baseStyles, state) => ({
-                      ...baseStyles,
-                      backgroundColor: state.isFocused
-                        ? theme === "dark"
-                          ? "#4B5563"
-                          : "#e5e7eb"
-                        : "transparent",
-                      color: theme === "dark" ? "#fff" : "#000",
-                    }),
-                  }}
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Técnico Responsable (Opcional)
+              </label>
+              <Select
+                options={users}
+                value={users.find(
+                  (u) => u.value === formData.tecnicoResponsableId
+                )}
+                onChange={(option) =>
+                  handleUserChange("tecnicoResponsable", option)
+                }
+                placeholder="Selecciona un técnico..."
+                isClearable
+                isDisabled={isFormLocked}
+                styles={{
+                  control: (baseStyles) => ({
+                    ...baseStyles,
+                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                    borderColor:
+                      theme === "dark" ? "#4B5563" : baseStyles.borderColor,
+                  }),
+                  singleValue: (baseStyles) => ({
+                    ...baseStyles,
+                    color: theme === "dark" ? "#fff" : "#000",
+                  }),
+                  menu: (baseStyles) => ({
+                    ...baseStyles,
+                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                  }),
+                  option: (baseStyles, state) => ({
+                    ...baseStyles,
+                    backgroundColor: state.isFocused
+                      ? theme === "dark"
+                        ? "#4B5563"
+                        : "#e5e7eb"
+                      : "transparent",
+                    color: theme === "dark" ? "#fff" : "#000",
+                  }),
+                }}
+              />
+            </div>
           </div>
 
           <div className="mt-4">
-            {showAreaInput && (
-              <>
-                <label className="block text-sm font-medium mb-1">
-                  Área de Destino <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="area"
-                  value={formData.area}
-                  onChange={handleInputChange}
-                  className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${errors.area ? "ring-2 ring-red-500" : ""
-                    }`}
-                  required={isAreaRequired}
-                  disabled={isFormLocked || formData.canTurnOn === 'NO'}
-                >
-                  <option value="">Selecciona un área</option>
-                  {AREA_OPTIONS.map((area) => (
-                    <option key={area} value={area}>
-                      {area}
-                    </option>
-                  ))}
-                </select>
-                {errors.area && (
-                  <p className="text-red-500 text-sm mt-1">{errors.area}</p>
-                )}
-              </>
-            )}
+            <>
+              <label className="block text-sm font-medium mb-1">
+                Área de Destino (Opcional)
+              </label>
+              <select
+                name="area"
+                value={formData.area}
+                onChange={handleInputChange}
+                className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${errors.area ? "ring-2 ring-red-500" : ""
+                  }`}
+                disabled={isFormLocked}
+              >
+                <option value="">Selecciona un área</option>
+                {AREA_OPTIONS.map((area) => (
+                  <option key={area} value={area}>
+                    {area}
+                  </option>
+                ))}
+              </select>
+              {errors.area && (
+                <p className="text-red-500 text-sm mt-1">{errors.area}</p>
+              )}
+            </>
           </div>
         </div>
 

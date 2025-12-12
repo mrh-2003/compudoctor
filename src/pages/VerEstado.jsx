@@ -189,7 +189,7 @@ function VerEstado() {
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Área</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Estado</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Casilla</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Monto Servicio</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Total</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">A Cuenta</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Saldo</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Entrega</th>
@@ -205,7 +205,7 @@ function VerEstado() {
                                 <td className="px-6 py-4 whitespace-nowrap">{report.clientName}{report.ruc ? ' (' + report.ruc + ')' : ''}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.telefono || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tipoEquipo}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{report.marca} - {report.modelo}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.marca} {report.modelo ? ' - ' + report.modelo : ''} </td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.motivoIngreso}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoRecepcion}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoTesteo}</td>
@@ -217,7 +217,7 @@ function VerEstado() {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.ubicacionFisica}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">S/ {report.montoServicio ? report.montoServicio.toFixed(2) : '0.00'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">S/ {report.total ? report.total.toFixed(2) : '0.00'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">S/ {report.aCuenta ? report.aCuenta.toFixed(2) : '0.00'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">S/ {report.saldo ? report.saldo.toFixed(2) : '0.00'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.fechaEntrega} {report.horaEntrega}</td>
