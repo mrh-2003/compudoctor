@@ -1326,7 +1326,6 @@ function Diagnostico() {
         motivoIngreso: motivoIngresoText,
         additionalServices: additionalServices.map(s => ({ ...s, amount: s.amount.toFixed(2) })),
         hasAdditionalServices: additionalServices.length > 0,
-        hasAdditionalServices: additionalServices.length > 0,
         canTurnOn: formData.canTurnOn,
         ubicacionFisica: formData.ubicacionFisica,
       };

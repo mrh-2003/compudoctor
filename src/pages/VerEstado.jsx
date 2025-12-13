@@ -205,7 +205,7 @@ function VerEstado() {
                                 <td className="px-6 py-4 whitespace-nowrap">{report.clientName}{report.ruc ? ' (' + report.ruc + ')' : ''}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.telefono || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tipoEquipo}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{report.marca} {report.modelo ? ' - ' + report.modelo : ''} </td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.marca}{report.modelo ? ' - ' + report.modelo : ''}{report.otherDescription ? ' - ' + report.otherDescription : ''} </td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.motivoIngreso}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoRecepcion}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoTesteo}</td>
