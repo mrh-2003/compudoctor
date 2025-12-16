@@ -666,6 +666,7 @@ function Diagnostico() {
     const tipoEquipo = formData.tipoEquipo;
     const canTurnOn = formData.canTurnOn;
     const isSiPrende = canTurnOn === 'SI';
+    const isNoPrende = canTurnOn === 'NO';
     const isAIO = tipoEquipo === 'All in one';
     const isPrinter = tipoEquipo === 'Impresora';
 
@@ -676,17 +677,38 @@ function Diagnostico() {
     let isDetailRequired = false;
     let isCheckRequired = false;
 
-    let mandatoryDetailSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
+    // --- Configuración de campos "SI DEJA" / "NO DEJA" ---
+    // Regla: "Ademas debe ser obligatorio el detalle en todos los campos donde se marca SI DEJA, NO DEJA independiente del tipo de equipo."
+    const siNoDejaItems = SI_NO_DEJA_CONFIG[tipoEquipo] || [];
+    if (siNoDejaItems.includes(itemId)) {
+      isDetailRequired = true;
+    }
 
+    // --- Lógica para "SI PRENDE" ---
+    let mandatoryDetailSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
     if (tipoEquipo === 'Laptop') {
       mandatoryDetailSiPrende = [...mandatoryDetailSiPrende, 'camara', 'microfono', 'parlantes', 'teclado'];
     } else {
       mandatoryDetailSiPrende.push('auriculares');
     }
-
     const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'wifi', 'camara', 'microfono', 'parlantes', 'tarjetaVideo', 'teclado', 'bateria'];
+
+    // --- Lógica para "NO PRENDE" ---
+    // Regla: Laptop -> procesador, placa madre, memoria ram, hdd, sdd, m2, tarejta de video, wifi, cargador
+    const mandatoryDetailNoPrendeLaptop = ['procesador', 'placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo', 'wifi', 'cargador'];
+
+    // Regla: PC -> placa madre, memoria ram, hdd, sdd, m2, tarejta de video
+    const mandatoryDetailNoPrendePC = ['placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo'];
+    // Regla: PC Check -> placa madre, memoria ram
+    const mandatoryCheckNoPrendePC = ['placaMadre', 'memoriaRam'];
+
+
+    // --- Lógica Impresora ---
     const mandatoryPrinterIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
+
+    // --- Lógica Discos ---
     const diskIds = ['hdd', 'ssd', 'm2Nvme'];
+
 
     if (isPrinter) {
       if (mandatoryPrinterIds.includes(itemId)) {
@@ -704,11 +726,25 @@ function Diagnostico() {
           isDetailRequired = true;
         }
 
-        // Removed diskIds and tarjetaVideo from mandatoryCheckSiPrende explicitly if present
-        // 'tarjetaVideo' is in mandatoryCheckSiPrende, so filter it out for check requirement
         if (mandatoryCheckSiPrende.filter(id => id !== 'tarjetaVideo').includes(itemId)) {
           isCheckRequired = true;
           isCheckDisabled = isFormLocked;
+        }
+      }
+
+      if (isNoPrende) {
+        if (tipoEquipo === 'Laptop') {
+          if (mandatoryDetailNoPrendeLaptop.includes(itemId)) {
+            isDetailRequired = true;
+          }
+        }
+        if (tipoEquipo === 'PC') {
+          if (mandatoryDetailNoPrendePC.includes(itemId)) {
+            isDetailRequired = true;
+          }
+          if (mandatoryCheckNoPrendePC.includes(itemId)) {
+            isCheckRequired = true;
+          }
         }
       }
     }
