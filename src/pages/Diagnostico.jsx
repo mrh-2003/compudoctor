@@ -268,8 +268,6 @@ function Diagnostico() {
   const hasRepairService = servicesList.some(s => s.service === 'Reparación');
 
   const isAdminOrSuperadmin = currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN');
-  const showAreaInput = isAdminOrSuperadmin;
-  const isAreaRequired = !isEditMode && isAdminOrSuperadmin;
 
 
   const getToday = useMemo(() => {
@@ -373,7 +371,7 @@ function Diagnostico() {
       return obs;
     };
 
-    const motivoText = servicesList.map(s => s.service).join(', ') + (additionalServices.length > 0 ? ', ' + additionalServices.map(s => s.description).join(', ') : '');
+    const motivoText = servicesList.map(s => `${s.service} (S/${s.amount})`).join(', ') + (additionalServices.length > 0 ? ', ' + additionalServices.map(s => s.description).join(', ') : '');
     const otherTypeDesc = otherComponentType === 'OTRO_DESCRIPCION' ? otherDescription : (OTHER_EQUIPMENT_OPTIONS.find(o => o.value === otherComponentType)?.label || '');
 
     const printContent = `
@@ -657,7 +655,14 @@ function Diagnostico() {
     let isDetailRequired = false;
     let isCheckRequired = false;
 
-    const mandatoryDetailSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
+    let mandatoryDetailSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
+
+    if (tipoEquipo === 'Laptop') {
+      mandatoryDetailSiPrende = [...mandatoryDetailSiPrende, 'camara', 'microfono', 'parlantes', 'teclado'];
+    } else {
+      mandatoryDetailSiPrende.push('auriculares');
+    }
+
     const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'wifi', 'camara', 'microfono', 'parlantes', 'tarjetaVideo', 'teclado', 'bateria'];
     const mandatoryPrinterIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
     const diskIds = ['hdd', 'ssd', 'm2Nvme'];
@@ -908,43 +913,6 @@ function Diagnostico() {
     }
   };
 
-  const handleServiceChange = (id, field, value) => {
-    if (isFormLocked) return;
-    const numericValue = (field === 'amount') ? parseFloat(value) || 0 : value;
-
-    setServicesList((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          const newItem = { ...item, [field]: numericValue };
-
-          if (field === 'service') {
-            if (value === 'Reparación') {
-              setFormData(prev => ({ ...prev, diagnostico: 0 }));
-            } else if (value === 'Revisión') {
-              setFormData(prev => ({ ...prev, diagnostico: numericValue }));
-            }
-            if (value !== 'Otros') {
-              newItem.description = '';
-            }
-            if (value === 'Reparación') {
-              toast.success("Servicio 'Reparación' detectado. Se eliminaron otros servicios.");
-              return newItem;
-            }
-          }
-
-          if (field === 'amount') {
-            if (item.service === 'Revisión') {
-              setFormData(prev => ({ ...prev, diagnostico: numericValue }));
-            }
-          }
-
-          return newItem;
-        }
-        return item;
-      }).filter(item => item.service !== 'Reparación' || item.id === id)
-    );
-  };
-
   const handleDiagnosisChange = (e) => {
     if (isFormLocked) return;
     const { value } = e.target;
@@ -1000,8 +968,10 @@ function Diagnostico() {
         newState.tecnicoTesteoId = '';
         newState.tecnicoResponsable = '';
         newState.tecnicoResponsableId = '';
-        newState.tecnicoInicial = '';
-        newState.tecnicoInicialId = '';
+        if (!['Laptop', 'PC', 'All in one'].includes(formData.tipoEquipo)) {
+          newState.tecnicoInicial = '';
+          newState.tecnicoInicialId = '';
+        }
         newState.area = '';
 
         newState.items = formData.items.map(item => ({
@@ -1009,7 +979,7 @@ function Diagnostico() {
           checked: false,
         }));
 
-        toast('Campos de Testeo (checks), Software, Técnicos Inicial/Testeo/Responsable y Área de Destino se han deshabilitado.');
+        toast('Campos de Testeo (checks), Software, Técnico Testeo/Responsable y Área de Destino se han deshabilitado.');
       }
       setFormData((prev) => ({
         ...prev,
@@ -1128,9 +1098,18 @@ function Diagnostico() {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      items: prev.items.map((item) =>
-        item.id === name ? { ...item, detalles: value } : item
-      ),
+      items: prev.items.map((item) => {
+        if (item.id === name) {
+          const updates = { detalles: value };
+          if (value === "SI DEJA") {
+            updates.checked = true;
+          }else{
+            updates.checked = false;
+          }
+          return { ...item, ...updates };
+        }
+        return item;
+      }),
     }));
   };
 
@@ -1246,14 +1225,15 @@ function Diagnostico() {
       }
     }
 
-    if (formData.canTurnOn === 'SI') {
+    const isTecnicoInicialRequired =
+      (formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) ||
+      (formData.canTurnOn === 'NO' && ['Laptop', 'PC', 'All in one'].includes(formData.tipoEquipo));
 
-      if (!formData.tecnicoInicialId) {
-        // Optional for Impresora, Otros, All in one
-        if (!['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) {
-          newErrors.tecnicoInicialId = "El Técnico Inicial es obligatorio.";
-        }
-      }
+    if (isTecnicoInicialRequired && !formData.tecnicoInicialId) {
+      newErrors.tecnicoInicialId = "El Técnico Inicial es obligatorio.";
+    }
+
+    if (formData.canTurnOn === 'SI') {
 
       if (!formData.tecnicoTesteoId) {
         newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio.";
@@ -1377,6 +1357,7 @@ function Diagnostico() {
           estado: "ASIGNADO",
         });
         toast.success(`Informe #${reportNumber} creado con éxito.`);
+        handlePrint();
       }
 
       navigate("/ver-estado");
@@ -2227,7 +2208,7 @@ function Diagnostico() {
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico Inicial (Abrio el Equipo) {formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo) && <span className="text-red-500">*</span>}
+                Técnico Inicial (Abrio el Equipo) {((formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) || (formData.canTurnOn === 'NO' && ['Laptop', 'PC', 'All in one'].includes(formData.tipoEquipo))) && <span className="text-red-500">*</span>}
               </label>
               <Select
                 options={users}
@@ -2303,7 +2284,7 @@ function Diagnostico() {
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico Responsable (Opcional)
+                Técnico Responsable
               </label>
               <Select
                 options={users}
@@ -2348,7 +2329,7 @@ function Diagnostico() {
           <div className="mt-4">
             <>
               <label className="block text-sm font-medium mb-1">
-                Área de Destino (Opcional)
+                Área de Destino
               </label>
               <select
                 name="area"
