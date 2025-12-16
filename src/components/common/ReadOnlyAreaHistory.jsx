@@ -3,8 +3,8 @@ import React from 'react';
 const ReadOnlyAreaHistory = ({ entry, areaName }) => {
     const readOnlyInputProps = {
         readOnly: true,
-        disabled: true,
-        className: "p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+        // disabled: true, // Removed as per request to avoid grayed out look
+        className: "p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none"
     };
 
     const readOnlyCheckboxProps = {
@@ -59,7 +59,7 @@ const ReadOnlyAreaHistory = ({ entry, areaName }) => {
             {entry.reparacion && (
                 <div>
                     <label className="block text-sm font-medium mb-1">Descripción del Trabajo:</label>
-                    <textarea value={entry.reparacion} {...readOnlyInputProps} className={`${readOnlyInputProps.className} w-full`} rows="3"></textarea>
+                    <textarea value={entry.reparacion || ''} {...readOnlyInputProps} className={`${readOnlyInputProps.className} w-full`} rows="3"></textarea>
                 </div>
             )}
         </div>
