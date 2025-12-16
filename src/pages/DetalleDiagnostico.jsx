@@ -245,6 +245,7 @@ function DetalleDiagnostico() {
     const [tecnicoSiguiente, setTecnicoSiguiente] = useState(null);
     const [tecnicoApoyo, setTecnicoApoyo] = useState(null);
     const [ubicacionFisica, setUbicacionFisica] = useState('');
+    const [motivoText, setMotivoText] = useState('');
     
     const [editableAdditionalServices, setEditableAdditionalServices] = useState([]);
     const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0 });
@@ -312,7 +313,7 @@ function DetalleDiagnostico() {
             setIsLoading(true);
             try {
                 const fetchedReport = await getDiagnosticReportById(reportId);
-                setReport(fetchedReport);
+                setReport(fetchedReport); 
 
                 const currentAreaHistory = fetchedReport.diagnosticoPorArea[fetchedReport.area];
                 const lastEntry = currentAreaHistory && currentAreaHistory[currentAreaHistory.length - 1];
@@ -1241,13 +1242,23 @@ function DetalleDiagnostico() {
                     <form onSubmit={handleCompleteTask} className="space-y-4 p-4">
                         <h2 className="text-xl font-bold">Completar Tarea en Área de {report.area}</h2>
                         <div>
-                            <label className="block text-sm font-medium mb-1">Diagnóstico y Reparación Realizada</label>
+                            <label className="block text-sm font-medium mb-1">Diagnostico y Servicios Realizados</label>
+                            <textarea
+                                value={motivoText} 
+                                rows="4"
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                placeholder="Motivo de la tarea."
+                                readOnly
+                            ></textarea>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Observaciones</label>
                             <textarea
                                 value={reparacionFinal}
                                 onChange={(e) => setReparacionFinal(e.target.value)}
                                 rows="4"
                                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                placeholder="Describe el diagnóstico y la reparación que realizaste."
+                                placeholder="Describe las observaciones del equipo."
                                 required
                             ></textarea>
                         </div>
