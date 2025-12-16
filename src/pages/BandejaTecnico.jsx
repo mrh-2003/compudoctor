@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllDiagnosticReportsByTechnician, startDiagnosticReport } from '../services/diagnosticService';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaTasks, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const STATUS_COLORS = {
     'ASIGNADO': 'bg-gray-500',
-    'PENDIENTE': 'bg-orange-500', 
+    'PENDIENTE': 'bg-orange-500',
     'TERMINADO': 'bg-green-500',
 };
 
@@ -18,6 +18,7 @@ function BandejaTecnico() {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
+    const navigate = useNavigate();
 
     const canView = currentUser && ['SUPERADMIN', 'ADMIN', 'SUPERUSER', 'USER'].includes(currentUser.rol);
 
@@ -38,16 +39,21 @@ function BandejaTecnico() {
         setIsLoading(false);
     };
 
-    const handleStartTask = async (reportId, currentStatus, status) => {
-        if (currentStatus === 'ASIGNADO' && status) {
+    const handleStartTask = async (e, reportId, currentStatus, isActualTech) => {
+        e.preventDefault(); // Prevent default Link behavior
+
+        if (currentStatus === 'ASIGNADO' && isActualTech) {
             const started = await startDiagnosticReport(reportId);
             if (started) {
                 toast.success('Tarea iniciada. Estado actualizado a PENDIENTE.');
-                fetchReports(); // Refrescar la lista para reflejar el cambio de estado
+                // No need to fetchReports here as we are navigating away
             } else {
-                toast('El estado ya fue actualizado o no pudo ser cambiado.', { icon: 'ℹ️' });
+                // If it failed or was already updated, just notify, but we still navigate
+                // toast('El estado ya fue actualizado o no pudo ser cambiado.', { icon: 'ℹ️' });
             }
         }
+
+        navigate(`/bandeja-tecnico/${reportId}`);
     };
 
     const filteredReports = useMemo(() => {
@@ -60,10 +66,10 @@ function BandejaTecnico() {
                 if (report.estado === 'TERMINADO' || report.estado === 'ENTREGADO') {
                     return null;
                 }
-                
+
                 // Si el usuario es el Tecnico Actual o Responsable, incluimos el reporte.
                 if (isActualTech || isResponsibleTech) {
-                    const taskState = report.estado; 
+                    const taskState = report.estado;
                     return { ...report, isActualTech, isResponsibleTech, taskState };
                 }
 
@@ -121,7 +127,7 @@ function BandejaTecnico() {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Bandeja de Tareas Pendientes</h1>
             </div>
-            
+
             <div className="mb-4">
                 <input
                     type="text"
@@ -131,7 +137,7 @@ function BandejaTecnico() {
                     className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                 />
             </div>
-            
+
             <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
                 <table className="min-w-full table-auto">
                     <thead className="bg-gray-50 dark:bg-gray-700">
@@ -164,14 +170,13 @@ function BandejaTecnico() {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-4">
-                                        <Link 
-                                            to={`/bandeja-tecnico/${report.id}`} 
-                                            onClick={() => handleStartTask(report.id, report.estado, report.tecnicoActual == currentUser.nombre)} 
-                                            className="text-blue-500 hover:text-blue-700" 
+                                        <a href={`/bandeja-tecnico/${report.id}`}
+                                            onClick={(e) => handleStartTask(e, report.id, report.estado, report.tecnicoActualId === currentUser.uid)}
+                                            className="text-blue-500 hover:text-blue-700"
                                             title="Ver y Atender"
                                         >
                                             <FaTasks />
-                                        </Link>
+                                        </a>
                                     </div>
                                 </td>
                             </tr>
@@ -187,7 +192,7 @@ function BandejaTecnico() {
                     </div>
                 )}
             </div>
-            
+
             <div className="flex justify-between items-center mt-4">
                 <span className="text-sm text-gray-700 dark:text-gray-400">
                     Página {currentPage} de {totalPages} ({filteredReports.length} resultados)
@@ -205,7 +210,7 @@ function BandejaTecnico() {
                         disabled={currentPage === totalPages || totalPages === 0}
                         className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                       < FaChevronRight />
+                        < FaChevronRight />
                     </button>
                 </div>
             </div>

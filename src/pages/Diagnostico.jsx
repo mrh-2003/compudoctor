@@ -261,6 +261,27 @@ function Diagnostico() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
+  const [currentDateState, setCurrentDateState] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDateState(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentFormatted = useMemo(() => {
+    const d = currentDateState;
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    return {
+      day, month, year, time: `${hours}:${minutes}`,
+      fullDateDash: `${day}-${month}-${year}`,
+      fullDateSlash: `${day}/${month}/${year}`
+    };
+  }, [currentDateState]);
+
   const isEditMode = !!diagnosticoId;
   const isReportFinalized = isEditMode && ['ENTREGADO', 'TERMINADO'].includes(formData.estado);
   const isFormLocked = isReportFinalized || initialAreaAssignedStatus;
@@ -346,7 +367,7 @@ function Diagnostico() {
 
     let dia, mes, anio, hora;
     if (!diagnosticoId) {
-      dia = getToday.day; mes = getToday.month; anio = getToday.year; hora = getToday.time;
+      dia = currentFormatted.day; mes = currentFormatted.month; anio = currentFormatted.year; hora = currentFormatted.time;
     } else {
       [dia, mes, anio] = formData.fecha ? formData.fecha.split("-") : ["", "", ""];
       hora = formData.hora || "";
@@ -1103,7 +1124,7 @@ function Diagnostico() {
           const updates = { detalles: value };
           if (value === "SI DEJA") {
             updates.checked = true;
-          }else{
+          } else {
             updates.checked = false;
           }
           return { ...item, ...updates };
@@ -1352,8 +1373,8 @@ function Diagnostico() {
         await createDiagnosticReport({
           ...baseData,
           reportNumber: parseInt(reportNumber),
-          fecha: `${getToday.day}-${getToday.month}-${getToday.year}`,
-          hora: getToday.time,
+          fecha: currentFormatted.fullDateDash,
+          hora: currentFormatted.time,
           estado: "ASIGNADO",
         });
         toast.success(`Informe #${reportNumber} creado con éxito.`);
@@ -1372,10 +1393,10 @@ function Diagnostico() {
   const isNewReport = !diagnosticoId;
 
   if (isNewReport) {
-    dia = getToday.day;
-    mes = getToday.month;
-    anio = getToday.year;
-    hora = getToday.time;
+    dia = currentFormatted.day;
+    mes = currentFormatted.month;
+    anio = currentFormatted.year;
+    hora = currentFormatted.time;
   } else {
     [dia, mes, anio] = formData.fecha
       ? formData.fecha.split("-")
@@ -1383,9 +1404,9 @@ function Diagnostico() {
     hora = formData.hora || "N/A";
   }
   const displayDate = isNewReport
-    ? `${getToday.day}/${getToday.month}/${getToday.year}`
+    ? currentFormatted.fullDateSlash
     : formData.fecha;
-  const displayTime = isNewReport ? getToday.time : formData.hora;
+  const displayTime = isNewReport ? currentFormatted.time : formData.hora;
 
   if (isLoading) return <div className="text-center p-8">Cargando informe...</div>;
 

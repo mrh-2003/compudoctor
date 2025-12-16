@@ -149,8 +149,32 @@ export const startDiagnosticReport = async (reportId) => {
     if (reportDocSnap.exists()) {
         const reportData = reportDocSnap.data();
         if (reportData.estado === 'ASIGNADO') {
+            console.log('Starting diagnostic report:', reportData);
+            const now = new Date();
+            const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
+            const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+            const currentArea = reportData.area; // e.g., 'DIAGNOSTICO', 'REPARACION', etc.
+
+            // Update diagnosticoPorArea array for the current area
+            let areaHistory = reportData.diagnosticoPorArea?.[currentArea] || [];
+
+            // If we have history for this area, we update the last entry which should correspond to the current assignment
+            // Or if it's a new logic, we make sure we are updating the active record.
+            // Assuming the last item in the array is the current incomplete task for that area.
+            if (areaHistory.length > 0) {
+                const lastIndex = areaHistory.length - 1;
+                areaHistory[lastIndex] = {
+                    ...areaHistory[lastIndex],
+                    fecha_inicio: formattedDate,
+                    hora_inicio: formattedTime,
+                    estado: 'PENDIENTE' // Sync status in history too
+                };
+            }
+
             await updateDoc(reportDocRef, {
                 estado: 'PENDIENTE',
+                [`diagnosticoPorArea.${currentArea}`]: areaHistory
             });
             return true;
         }
