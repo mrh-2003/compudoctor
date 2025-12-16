@@ -166,19 +166,19 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                     </div>
                 </div>
             </div>
-        
+
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
                 <p className="font-bold text-lg text-pink-500 dark:text-pink-400">RESUMEN FINANCIERO (BASE)</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> 
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="hidden lg:block">
                         <label className="block text-sm font-medium mb-1">Costo Diagnóstico (S/)</label>
-                        <input type="text" value={diagnostico.toFixed(2)} {...readOnlyInputProps} /> 
+                        <input type="text" value={diagnostico.toFixed(2)} {...readOnlyInputProps} />
                     </div>
                     <div className="hidden lg:block">
                         <label className="block text-sm font-medium mb-1">Monto Servicios (S/)</label>
-                        <input type="text" value={montoServicio.toFixed(2)} {...readOnlyInputProps} /> 
+                        <input type="text" value={montoServicio.toFixed(2)} {...readOnlyInputProps} />
                     </div>
-                    <div className="col-span-1 md:col-span-2 lg:col-span-2"> 
+                    <div className="col-span-1 md:col-span-2 lg:col-span-2">
                         <label className="block text-sm font-medium mb-1">Total (S/)</label>
                         <input type="text" value={total.toFixed(2)} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold`} />
                     </div>
@@ -194,17 +194,17 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2 text-sm">
                     {PRINT_ORDER_MAP.filter(item => componentItemsMap[item.id]?.checked || (componentItemsMap[item.id]?.detalles && componentItemsMap[item.id]?.detalles.trim() !== '')).map(item => {
                         const { isChecked, detailText } = getCheckItemData(item.id);
-                        
+
                         if (!isChecked && !detailText) return null;
 
                         return (
                             <div key={item.id} className="flex items-center space-x-2">
                                 <div className="flex items-center w-36 flex-shrink-0">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={isChecked} 
-                                        readOnly 
-                                        disabled 
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        readOnly
+                                        disabled
                                         className="h-4 w-4 mr-2 accent-green-600"
                                         style={{ opacity: 1, filter: 'none', accentColor: isChecked ? '#10B981' : '#D1D5DB' }}
                                     />
@@ -246,7 +246,7 @@ function DetalleDiagnostico() {
     const [tecnicoApoyo, setTecnicoApoyo] = useState(null);
     const [ubicacionFisica, setUbicacionFisica] = useState('');
     const [motivoText, setMotivoText] = useState('');
-    
+
     const [editableAdditionalServices, setEditableAdditionalServices] = useState([]);
     const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0 });
 
@@ -262,10 +262,10 @@ function DetalleDiagnostico() {
     }, [report]);
 
     const { diagnostico, montoServicio, total, saldo } = useMemo(() => {
-        const aCuenta = parseFloat(report?.aCuenta) || 0; 
+        const aCuenta = parseFloat(report?.aCuenta) || 0;
         let diagCost = parseFloat(report?.diagnostico) || 0;
         let serviceTotal = parseFloat(report?.montoServicio) || 0;
-        
+
         const totalAdicionales = editableAdditionalServices.reduce(
             (sum, service) => sum + (parseFloat(service.amount) || 0),
             0
@@ -288,7 +288,7 @@ function DetalleDiagnostico() {
             const aCuenta = parseFloat(currentReport?.aCuenta) || 0;
             const serviceTotal = parseFloat(currentReport?.montoServicio) || 0;
             const finalAdditionalServices = updatedData.additionalServices || currentReport.additionalServices || [];
-            
+
             const totalAdicionales = finalAdditionalServices.reduce((sum, service) => sum + (parseFloat(service.amount) || 0), 0);
             const newTotal = serviceTotal + totalAdicionales;
             const newSaldo = newTotal - aCuenta;
@@ -298,7 +298,7 @@ function DetalleDiagnostico() {
                 saldo: newSaldo,
                 ...updatedData
             };
-            
+
             await updateDiagnosticReport(reportId, updatedFields);
             const updatedReport = await getDiagnosticReportById(reportId);
             setReport(updatedReport);
@@ -313,7 +313,7 @@ function DetalleDiagnostico() {
             setIsLoading(true);
             try {
                 const fetchedReport = await getDiagnosticReportById(reportId);
-                setReport(fetchedReport); 
+                setReport(fetchedReport);
 
                 const currentAreaHistory = fetchedReport.diagnosticoPorArea[fetchedReport.area];
                 const lastEntry = currentAreaHistory && currentAreaHistory[currentAreaHistory.length - 1];
@@ -372,14 +372,14 @@ function DetalleDiagnostico() {
             toast.error('Debe ingresar una descripción y un monto válido.');
             return;
         }
-        
+
         const amountValue = parseFloat(nuevoServicio.amount);
         const servicioConId = {
             ...nuevoServicio,
             amount: amountValue,
             id: Date.now()
         };
-        
+
         const newAdditionalServices = [...editableAdditionalServices, servicioConId];
         setEditableAdditionalServices(newAdditionalServices);
         setNuevoServicio({ description: '', amount: 0 });
@@ -388,7 +388,7 @@ function DetalleDiagnostico() {
             additionalServices: newAdditionalServices,
             hasAdditionalServices: true,
         };
-        
+
         await handleUpdateReportFinance(dataToUpdate);
         toast.success('Servicio adicional agregado y saldo actualizado.');
     };
@@ -405,13 +405,115 @@ function DetalleDiagnostico() {
             additionalServices: newAdditionalServices,
             hasAdditionalServices: newAdditionalServices.length > 0,
         };
-        
+
         await handleUpdateReportFinance(dataToUpdate);
         toast.success('Servicio adicional eliminado y saldo actualizado.');
     };
 
+    const generateTaskSummary = () => {
+        if (!formState) return '';
+        let summary = [];
+        const CHECKED = '✅';
+        const UNCHECKED_CONTENT = '🟫';
+
+        // Helper to formatting lines
+        const formatLine = (checked, label, details) => {
+            if (checked) {
+                return `${CHECKED} ${label}${details ? ` (${details})` : ''}`;
+            } else if (details && details.trim() !== '' && details !== '-') {
+                return `${UNCHECKED_CONTENT} ${label} (${details})`;
+            }
+            return null;
+        };
+
+        if (report.area === 'HARDWARE') {
+            if (formState.mant_hardware) summary.push(`${CHECKED} Mantenimiento de Hardware`);
+            if (formState.reconstruccion) summary.push(`${CHECKED} Reconstrucción`);
+            if (formState.adapt_parlantes) summary.push(`${CHECKED} Adaptación de Parlantes`);
+
+            summary.push(formatLine(formState.cambio_teclado, 'Cambio de Teclado', `Cod: ${formState.cambio_teclado_codigo || '-'}`));
+            summary.push(formatLine(formState.cambio_pantalla, 'Cambio de Pantalla', `Cod: ${formState.cambio_pantalla_codigo || '-'}, Res: ${formState.cambio_pantalla_resolucion || '-'}, Hz: ${formState.cambio_pantalla_hz || '-'}`));
+            summary.push(formatLine(formState.cambio_carcasa, 'Cambio de Carcasa', `Obs: ${formState.cambio_carcasa_obs || '-'}`));
+            summary.push(formatLine(formState.cambio_placa, 'Cambio de Placa', `Cod: ${formState.cambio_placa_codigo || '-'}, Esp: ${formState.cambio_placa_especif || '-'}`));
+            summary.push(formatLine(formState.cambio_fuente, 'Cambio de Fuente', `Cod: ${formState.cambio_fuente_codigo || '-'}, Esp: ${formState.cambio_fuente_especif || '-'}`));
+            summary.push(formatLine(formState.cambio_video, 'Cambio de Tarj. Video', `Cod: ${formState.cambio_video_codigo || '-'}, Esp: ${formState.cambio_video_especif || '-'}`));
+            summary.push(formatLine(formState.otros, 'Otros Hardware', formState.otros_especif));
+
+            summary.push(formatLine(formState.repoten_ssd, 'Repotenciación SSD', `${formState.repoten_ssd_gb || '-'} GB (Serie: ${formState.repoten_ssd_serie || '-'})`));
+            summary.push(formatLine(formState.repoten_nvme, 'Repotenciación NVME', `${formState.repoten_nvme_gb || '-'} GB (Serie: ${formState.repoten_nvme_serie || '-'})`));
+            summary.push(formatLine(formState.repoten_m2, 'Repotenciación M.2 SATA', `${formState.repoten_m2_gb || '-'} GB (Serie: ${formState.repoten_m2_serie || '-'})`));
+            summary.push(formatLine(formState.repoten_hdd, 'Repotenciación HDD', `${formState.repoten_hdd_gb || '-'} GB (Serie: ${formState.repoten_hdd_serie || '-'}, Cod: ${formState.repoten_hdd_codigo || '-'})`));
+            summary.push(formatLine(formState.repoten_ram, 'Repotenciación RAM', `${formState.repoten_ram_cap || '-'} (Cod: ${formState.repoten_ram_cod || '-'})`));
+
+        } else if (report.area === 'SOFTWARE') {
+            const swFields = [
+                { key: 'backup', label: 'Backup de Información' },
+                { key: 'clonacion', label: 'Clonación de Disco' },
+                { key: 'formateo', label: 'Formateo + Programas' },
+                { key: 'drivers', label: 'Instalación de Drivers' },
+                { key: 'act_win', label: 'Activación de Windows' },
+                { key: 'act_office', label: 'Activación de Office' },
+                { key: 'optimizacion', label: 'Optimización de sistema' },
+                { key: 'diseno', label: 'Inst. de Prog. de Diseño', spec: 'diseno_spec' },
+                { key: 'ingenieria', label: 'Inst. de Prog. de Ing.', spec: 'ingenieria_spec' },
+                { key: 'sw_otros', label: 'Otros Software', spec: 'sw_otros_spec' }
+            ];
+
+            swFields.forEach(field => {
+                const obsKey = field.spec || `${field.key}_obs`;
+                const obsValue = formState[obsKey];
+                const line = formatLine(formState[field.key], field.label, obsValue);
+                if (line) summary.push(line);
+            });
+
+        } else if (report.area === 'ELECTRONICA') {
+            summary.push(formatLine(formState.elec_video, 'TARJ. VIDEO', `Reparable: ${formState.elec_video_reparable || '?'}`));
+            summary.push(formatLine(formState.elec_placa, 'PLACA', `Reparable: ${formState.elec_placa_reparable || '?'}`));
+            summary.push(formatLine(formState.elec_otro, 'OTRO', `${formState.elec_otro_especif || '-'} (Reparable: ${formState.elec_otro_reparable || '?'})`));
+
+            if (formState.elec_codigo) summary.push(`ℹ️ Código: ${formState.elec_codigo}`);
+            if (formState.elec_etapa) summary.push(`ℹ️ Etapa: ${formState.elec_etapa}`);
+            if (formState.elec_obs) summary.push(`ℹ️ Observaciones: ${formState.elec_obs}`);
+
+        } else if (report.area === 'TESTEO') {
+            const testFields = [
+                'disco', 'pantalla', 'bateria', 'cargador', 'camara',
+                'microfono', 'auricular', 'parlantes', 'teclado', 'lectora',
+                'touchpad', 'wifi', 'rj45', 'usb', 'tipo_c', 'hdmi', 'vga', 'otros'
+            ];
+
+            if (formState.testeo_procesador) summary.push(`ℹ️ Procesador: ${formState.testeo_procesador}`);
+            if (formState.testeo_video_dedicado) summary.push(`ℹ️ Video Dedicado: ${formState.testeo_video_dedicado}`);
+            if (formState.testeo_memoria_ram) summary.push(`ℹ️ Memoria Ram: ${formState.testeo_memoria_ram}`);
+
+            testFields.forEach(key => {
+                const status = formState[`testeo_${key}`]; // SI/NO
+                const obs = formState[`testeo_${key}_obs`];
+
+                if (status) {
+                    const icon = status === 'SI' ? '✅' : '❌'; // SI = Funciona, NO = No funciona
+                    let line = `${icon} ${key.toUpperCase()}: ${status === 'SI' ? 'FUNCIONA' : 'NO FUNCIONA'}`;
+                    if (obs) line += ` (Obs: ${obs})`;
+                    summary.push(line);
+                } else if (obs) {
+                    summary.push(`${UNCHECKED_CONTENT} ${key.toUpperCase()}: (Estado no marcado) (Obs: ${obs})`);
+                }
+            });
+            if (formState.testeo_servicio_final) {
+                summary.push(`📝 Servicio Final: ${formState.testeo_servicio_final}`);
+            }
+        }
+
+        // Filter nulls
+        summary = summary.filter(line => line !== null);
+
+        return summary.length > 0 ? summary.join('\n') : 'No se registraron detalles específicos.';
+    };
+
     const handleOpenCompletionModal = () => {
         if (!isAllowedToEdit || isReportFinalized) return;
+        const summary = generateTaskSummary();
+        setMotivoText(summary);
         setIsCompletionModalOpen(true);
     };
 
@@ -461,14 +563,14 @@ function DetalleDiagnostico() {
                 fecha_fin: formattedDate,
                 hora_fin: formattedTime,
                 estado: 'TERMINADO',
-                serviciosAdicionales: editableAdditionalServices, 
+                serviciosAdicionales: editableAdditionalServices,
             };
 
             const updatedDiagnosticoPorArea = {
                 ...report.diagnosticoPorArea,
                 [report.area]: currentAreaHistory,
             };
-            
+
             const currentACuenta = parseFloat(report.aCuenta) || 0;
             const serviceTotal = parseFloat(report.montoServicio) || 0;
             const totalAdicionales = editableAdditionalServices.reduce((sum, service) => sum + (parseFloat(service.amount) || 0), 0);
@@ -484,8 +586,8 @@ function DetalleDiagnostico() {
                 tecnicoActual: isTransfer ? nextTechnicianName : report.tecnicoActual,
                 tecnicoActualId: isTransfer ? nextTechnicianId : report.tecnicoActualId,
                 ubicacionFisica: ubicacionFisica,
-                
-                aCuenta: currentACuenta, 
+
+                aCuenta: currentACuenta,
                 total: finalTotal,
                 saldo: finalSaldo,
                 additionalServices: editableAdditionalServices,
@@ -627,13 +729,13 @@ function DetalleDiagnostico() {
             onChange: handleFormChange,
             className: "h-4 w-4 mr-2 accent-blue-600",
             disabled: !isAllowedToEdit || isReportFinalized,
-            style: { opacity: 1, filter: 'none' } 
+            style: { opacity: 1, filter: 'none' }
         };
         const radioProps = {
             onChange: handleRadioChange,
             className: "h-4 w-4 mr-1 accent-blue-600",
             disabled: !isAllowedToEdit || isReportFinalized,
-            style: { opacity: 1, filter: 'none' } 
+            style: { opacity: 1, filter: 'none' }
         }
 
         switch (report.area) {
@@ -1134,21 +1236,21 @@ function DetalleDiagnostico() {
                 </Link>
                 <h1 className="text-2xl font-bold">Informe Técnico N° {report.reportNumber}</h1>
             </div>
-            
+
             {/* Componente MEMOIZADO: No se renderiza al escribir en el formulario */}
             {memoizedReportHeader}
-            
+
             {/* SECCIÓN EDITABLE: SERVICIOS ADICIONALES */}
-            {isActualTech && canEditAdditionalServices &&(
+            {isActualTech && canEditAdditionalServices && (
                 <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
                     <h2 className="text-xl font-semibold mb-4 text-red-500 border-b pb-3 dark:border-gray-700">Servicios Adicionales (Editable)</h2>
-                    
+
                     {/* El campo A Cuenta editable se elimina de aquí */}
 
                     {canEditAdditionalServices && (
                         <div className="mt-4 border p-4 rounded-lg dark:border-gray-600 space-y-4">
                             <h3 className="text-lg font-bold text-pink-500 dark:text-pink-400 border-b pb-2">Servicios Adicionales</h3>
-                            
+
                             <div className="flex space-x-2">
                                 <input
                                     type="text"
@@ -1215,7 +1317,7 @@ function DetalleDiagnostico() {
                     )}
                 </div>
             )}
-            
+
             {isActualTech && (
                 <>
                     <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
@@ -1244,7 +1346,7 @@ function DetalleDiagnostico() {
                         <div>
                             <label className="block text-sm font-medium mb-1">Diagnostico y Servicios Realizados</label>
                             <textarea
-                                value={motivoText} 
+                                value={motivoText}
                                 rows="4"
                                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                                 placeholder="Motivo de la tarea."
