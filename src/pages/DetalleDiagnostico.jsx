@@ -214,7 +214,7 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                                 </div>
                                 <input
                                     type="text"
-                                    value={detailText || (isChecked ? 'Registrado' : 'N/A')}
+                                    value={detailText || ''}
                                     {...readOnlyInputProps}
                                     className={`${readOnlyInputProps.className} flex-1 truncate text-xs py-1`}
                                 />
@@ -363,6 +363,9 @@ function DetalleDiagnostico() {
 
     const handleFormChange = (e) => {
         if (!isAllowedToEdit || isReportFinalized) return;
+        // Strict guard: checks if field is read-only according to our new logic using PK or name
+        const permissionKey = e.target.dataset.pk || e.target.name;
+        if (isFieldReadOnly(permissionKey)) return;
         const { name, value, type, checked } = e.target;
 
         if (type === 'checkbox' && checked && ['elec_video', 'elec_placa', 'elec_otro'].includes(name)) {
@@ -381,6 +384,9 @@ function DetalleDiagnostico() {
 
     const handleRadioChange = (e) => {
         if (!isAllowedToEdit || isReportFinalized) return;
+        // Strict guard: checks if field is read-only according to our new logic using PK or name
+        const permissionKey = e.target.dataset.pk || e.target.name;
+        if (isFieldReadOnly(permissionKey)) return;
         const { name, value } = e.target;
         setFormState(prev => ({
             ...prev,
@@ -727,13 +733,19 @@ function DetalleDiagnostico() {
     };
 
     // Helper to generate props dynamically based on key
-    const getProps = (key, baseProps) => {
-        const readOnly = isFieldReadOnly(key);
+    const getProps = (key, baseProps, blockPointer = false) => {
+        const localReadOnly = isFieldReadOnly(key);
+        const effectiveReadOnly = baseProps.readOnly || localReadOnly;
+
         return {
             ...baseProps,
-            disabled: baseProps.disabled || readOnly, // Disable inputs if readOnly logic applies
-            readOnly: readOnly,
-            className: `${baseProps.className} ${readOnly ? 'opacity-70 bg-gray-100 dark:bg-gray-800' : ''}`
+            // Only disable if explicitly passed as true in baseProps (we will remove it from default props next)
+            disabled: baseProps.disabled,
+            readOnly: effectiveReadOnly,
+            // Use pointer-events-none only if blockPointer is true (for checks/radios), allowing text selection for inputs
+            className: `${baseProps.className} ${effectiveReadOnly && blockPointer ? 'opacity-100 pointer-events-none' : ''}`,
+            tabIndex: effectiveReadOnly ? -1 : undefined,
+            'data-pk': key // Store permission key for event handlers
         };
     };
 
@@ -747,11 +759,11 @@ function DetalleDiagnostico() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium mb-1">Fecha Inicio:</label>
-                        <input type="text" value={formState.fecha_inicio || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
+                        <input type="text" value={formState.fecha_inicio || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1">H. Inicio:</label>
-                        <input type="text" value={formState.hora_inicio || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" disabled={isReportFinalized} />
+                        <input type="text" value={formState.hora_inicio || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1">Técnico de Apoyo (Opcional):</label>
@@ -772,24 +784,24 @@ function DetalleDiagnostico() {
         const inputProps = {
             onChange: handleFormChange,
             className: "p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600",
-            disabled: !isAllowedToEdit || isReportFinalized
+            readOnly: !isAllowedToEdit || isReportFinalized
         };
         const checkboxProps = {
             onChange: handleFormChange,
             className: "h-4 w-4 mr-2 accent-blue-600",
-            disabled: !isAllowedToEdit || isReportFinalized,
+            readOnly: !isAllowedToEdit || isReportFinalized,
             style: { opacity: 1, filter: 'none' }
         };
         const radioProps = {
             onChange: handleRadioChange,
             className: "h-4 w-4 mr-1 accent-blue-600",
-            disabled: !isAllowedToEdit || isReportFinalized,
+            readOnly: !isAllowedToEdit || isReportFinalized,
             style: { opacity: 1, filter: 'none' }
         }
 
-        const p = (key) => getProps(key, inputProps);
-        const c = (key) => getProps(key, checkboxProps);
-        const r = (key) => getProps(key, radioProps);
+        const p = (key) => getProps(key, inputProps, false);
+        const c = (key) => getProps(key, checkboxProps, true);
+        const r = (key) => getProps(key, radioProps, true);
 
         switch (report.area) {
             case 'HARDWARE':
