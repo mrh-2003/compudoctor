@@ -224,7 +224,7 @@ function VerEstado() {
                                 <td className="px-6 py-4 whitespace-nowrap">{report.observaciones}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-4">
-                                        <button onClick={() => handleOpenCosts(report)} className="text-green-500 hover:text-green-700" title="Ver Costos y Pagos"><FaMoneyBillWave /></button>
+                                        {canEdit && <button onClick={() => handleOpenCosts(report)} className="text-green-500 hover:text-green-700" title="Ver Costos y Pagos"><FaMoneyBillWave /></button>}
                                         <Link to={`/ver-estado/historial/${report.id}`} className="text-blue-500 hover:text-blue-700" title="Ver historial"><FaEye /></Link>
                                         {canEdit && <Link to={`/diagnostico/${report.id}`} className="text-yellow-500 hover:text-yellow-700" title="Editar"><FaEdit /></Link>}
                                         {canDelete && <button onClick={() => handleDeleteRequest(report)} className="text-red-500 hover:text-red-700" title="Eliminar"><FaTrash /></button>}

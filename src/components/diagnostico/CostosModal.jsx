@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Modal from '../common/Modal';
-import { addPayment } from '../../services/diagnosticService';
+import { addPayment, markReportAsPaid } from '../../services/diagnosticService';
 import toast from 'react-hot-toast';
 import { FaMoneyBillWave, FaWallet } from 'react-icons/fa';
 
@@ -20,7 +20,7 @@ function CostosModal({ report, onClose, onUpdate }) {
     const totalAdicional = additionalServices.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
     const diagnosticoCost = parseFloat(report.diagnostico) || 0;
 
-    const totalGeneral = totalPrincipal + totalAdicional + diagnosticoCost;
+    const totalGeneral = totalPrincipal + totalAdicional; // Diagnostico no suma al general
 
     const pagosRealizados = report.pagosRealizado || [];
     const totalPagado = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
@@ -36,6 +36,51 @@ function CostosModal({ report, onClose, onUpdate }) {
             otroMetodo: ''
         });
         setIsPaymentModalOpen(true);
+        setPaymentType('SERVICE'); // Default type
+    };
+
+    const [paymentType, setPaymentType] = useState('SERVICE'); // SERVICE or DIAGNOSTICO
+    const [showRefundModal, setShowRefundModal] = useState(false);
+    const [refundAmount, setRefundAmount] = useState(0);
+
+    const handlePayDiagnostic = () => {
+        const totalPaid = report.aCuenta || 0;
+        const diff = diagnosticoCost - totalPaid;
+
+        if (diff < 0) {
+            // Overpaid
+            setRefundAmount(Math.abs(diff));
+            setShowRefundModal(true);
+        } else {
+            // Need to pay
+            setPaymentData({
+                monto: diff.toFixed(2),
+                metodoPago: 'Yape',
+                otroMetodo: ''
+            });
+            setPaymentType('DIAGNOSTICO');
+            setIsPaymentModalOpen(true);
+        }
+    };
+
+    const handleRefundDecision = async (decision) => {
+        setIsSubmitting(true);
+        try {
+            let refundNote = decision === 'DEVOLVER'
+                ? `Devolución al cliente: S/ ${refundAmount.toFixed(2)}`
+                : `Saldo a favor conservado: S/ ${refundAmount.toFixed(2)}`;
+
+            await markReportAsPaid(report.id, null, refundNote);
+            toast.success('Informe marcado como PAGADO');
+            setShowRefundModal(false);
+            onClose(); // Close modal on finish
+            onUpdate();
+        } catch (error) {
+            console.error(error);
+            toast.error('Error al procesar la solicitud');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleFillBalance = () => {
@@ -68,13 +113,25 @@ function CostosModal({ report, onClose, onUpdate }) {
 
         setIsSubmitting(true);
         try {
-            const success = await addPayment(report.id, newPayment);
-            if (success) {
-                toast.success('Pago registrado correctamente');
-                setIsPaymentModalOpen(false);
-                onUpdate();
+            if (paymentType === 'DIAGNOSTICO') {
+                const success = await markReportAsPaid(report.id, newPayment);
+                if (success) {
+                    toast.success('Diagnóstico pagado y reporte cerrado');
+                    setIsPaymentModalOpen(false);
+                    onClose();
+                    onUpdate();
+                } else {
+                    toast.error('Error al registrar el pago del diagnóstico');
+                }
             } else {
-                toast.error('Error al registrar el pago');
+                const success = await addPayment(report.id, newPayment);
+                if (success) {
+                    toast.success('Pago registrado correctamente');
+                    setIsPaymentModalOpen(false);
+                    onUpdate();
+                } else {
+                    toast.error('Error al registrar el pago');
+                }
             }
         } catch (error) {
             console.error(error);
@@ -173,10 +230,27 @@ function CostosModal({ report, onClose, onUpdate }) {
                                 * Se requiere técnico responsable y área asignada para registrar pagos.
                             </p>
                         )}
-                        {saldo <= 0 && (
+                        {saldo <= 0 && !report.isPaid && (
                             <p className="text-xs text-center text-green-600 mt-2 font-bold">
                                 ¡Pagado en su totalidad!
                             </p>
+                        )}
+                        {report.isPaid && (
+                            <p className="text-lg text-center text-blue-600 mt-2 font-black border-2 border-blue-600 p-2 rounded transform -rotate-2">
+                                PAGADO
+                            </p>
+                        )}
+
+                        {!report.isPaid && diagnosticoCost > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
+                                <p className="text-sm text-center mb-2 font-medium">¿Servicio no realizado?</p>
+                                <button
+                                    onClick={handlePayDiagnostic}
+                                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2"
+                                >
+                                    <FaMoneyBillWave /> Pagar Solo Diagnóstico (S/ {diagnosticoCost.toFixed(2)})
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -214,6 +288,36 @@ function CostosModal({ report, onClose, onUpdate }) {
                     </button>
                 </div>
             </div>
+
+            {/* Refund Modal */}
+            {showRefundModal && (
+                <Modal onClose={() => setShowRefundModal(false)}>
+                    <div className="p-6 max-w-sm mx-auto">
+                        <h3 className="text-xl font-bold mb-4 text-center">Exceso de Pago</h3>
+                        <p className="text-center mb-6">
+                            El adelanto del cliente (S/ {report.aCuenta.toFixed(2)}) supera el costo del diagnóstico (S/ {diagnosticoCost.toFixed(2)}).
+                            <br /><br />
+                            <strong>Monto de diferencia: S/ {refundAmount.toFixed(2)}</strong>
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => handleRefundDecision('DEVOLVER')}
+                                className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg"
+                                disabled={isSubmitting}
+                            >
+                                Devolver Dinero
+                            </button>
+                            <button
+                                onClick={() => handleRefundDecision('CONSERVAR')}
+                                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg"
+                                disabled={isSubmitting}
+                            >
+                                Conservar en Saldo (No devolver)
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
 
             {/* Payment Modal */}
             {isPaymentModalOpen && (

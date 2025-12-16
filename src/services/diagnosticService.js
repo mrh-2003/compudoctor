@@ -20,7 +20,7 @@ export const createDiagnosticReport = async (reportData) => {
     const now = new Date();
     const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
     const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    
+
     const initialTechnician = reportData.tecnicoResponsable;
     const initialTechnicianId = reportData.tecnicoResponsableId;
 
@@ -52,7 +52,7 @@ export const createDiagnosticReport = async (reportData) => {
 
 export const getAllDiagnosticReports = async () => {
     const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
-    const q = query(reportsCol, orderBy('reportNumber', 'desc'));  
+    const q = query(reportsCol, orderBy('reportNumber', 'desc'));
     const reportSnapshot = await getDocs(q);
     return reportSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
@@ -83,14 +83,14 @@ export const getAllClientsForSelection = async () => {
     const clientsSnapshot = await getDocs(clientsCollection);
     return clientsSnapshot.docs.map(doc => {
         const data = doc.data();
-        const clientNameDisplay = data.tipoPersona === 'JURIDICA' 
-            ? `${data.razonSocial} (RUC: ${data.ruc})` 
+        const clientNameDisplay = data.tipoPersona === 'JURIDICA'
+            ? `${data.razonSocial} (RUC: ${data.ruc})`
             : `${data.nombre} ${data.apellido}`;
-        return { 
-            id: doc.id, 
-            nombre: data.nombre, 
+        return {
+            id: doc.id,
+            nombre: data.nombre,
             apellido: data.apellido,
-            telefono: data.telefono, 
+            telefono: data.telefono,
             correo: data.correo,
             tipoPersona: data.tipoPersona,
             ruc: data.ruc,
@@ -101,13 +101,13 @@ export const getAllClientsForSelection = async () => {
 };
 
 export const getClientById = async (clientId) => {
-  const clientDocRef = doc(db, 'clientes', clientId);
-  const clientDocSnap = await getDoc(clientDocRef);
-  if (clientDocSnap.exists()) {
-    return { id: clientDocSnap.id, ...clientDocSnap.data() };
-  } else {
-    return null;
-  }
+    const clientDocRef = doc(db, 'clientes', clientId);
+    const clientDocSnap = await getDoc(clientDocRef);
+    if (clientDocSnap.exists()) {
+        return { id: clientDocSnap.id, ...clientDocSnap.data() };
+    } else {
+        return null;
+    }
 };
 
 export const getAllDiagnosticReportsByTechnician = async (technicianId) => {
@@ -160,10 +160,10 @@ export const startDiagnosticReport = async (reportId) => {
 };
 
 export const getAllDiagnosticReportsByClientId = async (clientId) => {
-    const reportsCol = collection(db, DIAGNOSTICO_COLLECTION); 
-    const q = query(reportsCol, where('clientId', '==', clientId), orderBy('reportNumber', 'desc')); 
-    const querySnapshot = await getDocs(q); 
-    
+    const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
+    const q = query(reportsCol, where('clientId', '==', clientId), orderBy('reportNumber', 'desc'));
+    const querySnapshot = await getDocs(q);
+
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 export const addPayment = async (reportId, paymentData) => {
@@ -174,13 +174,13 @@ export const addPayment = async (reportId, paymentData) => {
         const reportData = reportDocSnap.data();
         const currentPayments = reportData.pagosRealizado || [];
         const newPayments = [...currentPayments, paymentData];
-        
+
         const totalPagado = newPayments.reduce((sum, payment) => sum + (parseFloat(payment.monto) || 0), 0);
         const totalPrincipal = (reportData.servicesList || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
         const totalAdicional = (reportData.additionalServices || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
         const diagnosticoCost = parseFloat(reportData.diagnostico) || 0;
         const totalGeneral = totalPrincipal + totalAdicional + diagnosticoCost;
-        
+
         const nuevoSaldo = totalGeneral - totalPagado;
 
         await updateDoc(reportDocRef, {
@@ -189,6 +189,40 @@ export const addPayment = async (reportId, paymentData) => {
             saldo: nuevoSaldo,
             total: totalGeneral // Ensure total is also updated if needed, though usually fixed.
         });
+        return true;
+    }
+    return false;
+};
+
+export const markReportAsPaid = async (reportId, additionalPayment = null, refundDetails = null) => {
+    const reportDocRef = doc(db, DIAGNOSTICO_COLLECTION, reportId);
+    const reportDocSnap = await getDoc(reportDocRef);
+
+    if (reportDocSnap.exists()) {
+        const reportData = reportDocSnap.data();
+        let currentPayments = reportData.pagosRealizado || [];
+
+        if (additionalPayment) {
+            currentPayments = [...currentPayments, additionalPayment];
+        }
+
+        const totalPagado = currentPayments.reduce((sum, payment) => sum + (parseFloat(payment.monto) || 0), 0);
+
+        // Update fields to reflect paid status
+        const updates = {
+            pagosRealizado: currentPayments,
+            aCuenta: totalPagado,
+            isPaid: true,
+            statusPago: 'PAGADO', // Explicit text status
+            fechaPago: new Date().toISOString(),
+            saldo: 0, // Force balance to 0 as it is fully paid/settled
+        };
+
+        if (refundDetails) {
+            updates.detalleDevolucion = refundDetails;
+        }
+
+        await updateDoc(reportDocRef, updates);
         return true;
     }
     return false;
