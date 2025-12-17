@@ -417,6 +417,320 @@ function DetalleHistorial() {
         }, 500);
     };
 
+    const handlePrintServiceSheet = () => {
+        if (!report) return;
+
+        const getLastEntry = (area) => {
+            const entries = report.diagnosticoPorArea?.[area];
+            if (!entries || entries.length === 0) return null;
+            return entries[entries.length - 1]; // Get the last entry
+        };
+
+        const hw = getLastEntry('HARDWARE');
+        const sw = getLastEntry('SOFTWARE');
+        const elec = getLastEntry('ELECTRONICA');
+        const testeo = getLastEntry('TESTEO');
+
+        // Styles helpers
+        const checkbox = (val) => val ? '☑' : '☐';
+        const txt = (val) => val || '';
+
+        // Helper to formatting lines for Hardware/Software/Electronica
+        const formatItem = (checked, label, detailLabel, detailValue) => {
+            return `
+                <div class="item-row">
+                    <div class="item-check">${checkbox(checked)}</div>
+                    <div class="item-label">${label}</div>
+                    ${detailLabel ? `<div class="item-detail"><span class="detail-label">${detailLabel}:</span> <span class="detail-value">${txt(detailValue)}</span></div>` : ''}
+                </div>
+            `;
+        };
+
+        // Helper for Testeo rows
+        const formatTestRow = (label, statusValue, obs) => {
+            const isSi = statusValue === 'SI';
+            const isNo = statusValue === 'NO';
+            return `
+                <div class="test-row">
+                     <div class="test-label">${label}</div>
+                     <div class="test-status">
+                        Funciona SI <div class="box">${isSi ? 'X' : ''}</div>
+                        NO <div class="box">${isNo ? 'X' : ''}</div>
+                     </div>
+                     <div class="test-obs">Obs: <span>${txt(obs)}</span></div>
+                </div>
+             `;
+        };
+
+        const clientDisplay = report.clientName || "Cliente no registrado";
+        const modelDisplay = `${report.tipoEquipo || ''} ${report.marca || ''} ${report.modelo || ''}`;
+
+        const printContent = `
+            <html>
+            <head>
+                <title>Ficha de Servicio - ${report.reportNumber}</title>
+                <style>
+                     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+                    @page { size: portrait; margin: 0.8cm; }
+                    body { font-family: 'Roboto', sans-serif; font-size: 8.5pt; padding: 0; box-sizing: border-box; }
+                    
+                    .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+                    .field-box { display: flex; align-items: center; margin-bottom: 2px; }
+                    .field-label { font-weight: bold; width: 110px; font-size: 8pt; }
+                    .field-input { border-bottom: 1px solid #000; flex-grow: 1; padding: 0 5px; min-height: 16px; font-weight: bold; font-size: 9pt; }
+                    
+                    /* Main layout grid */
+                    .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+                    .col-left { display: flex; flex-direction: column; }
+                    .col-right { display: flex; flex-direction: column; gap: 8px; }
+
+                    .area-box { border: 2px solid #000; height: 100%; display: flex; flex-direction: column; }
+                    .area-box-fixed { border: 2px solid #000; }
+                    
+                    .area-header { text-align: center; font-weight: bold; font-size: 9pt; background: #eee; border-bottom: 1px solid #000; padding: 2px; text-transform: uppercase; }
+                    .area-content { padding: 4px; flex-grow: 1; }
+                    .area-sub { text-align: center; font-size: 7.5pt; font-weight: bold; margin-bottom: 3px; color: #444; }
+                    
+                    .item-row { display: flex; align-items: center; margin-bottom: 1px; font-size: 8pt; line-height: 1.1; }
+                    .item-check { font-size: 11pt; margin-right: 4px; width: 14px; }
+                    .item-label { font-weight: bold; margin-right: 4px; white-space: nowrap; font-size: 8pt; }
+                    .item-detail { display: flex; align-items: center; flex-grow: 1; overflow: hidden; }
+                    .detail-label { margin-right: 2px; font-size: 7pt; color: #555; }
+                    .detail-value { border-bottom: 1px solid #999; flex-grow: 1; min-height: 12px; padding-left: 2px; font-size: 8pt; }
+
+                    /* Tech Dates compact */
+                    .tech-dates { border-top: 1px dashed #000; margin-top: 4px; padding-top: 2px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 7.5pt; color: #333; }
+                    
+                    /* Equip type checkboxes */
+                    .equip-check { display:flex; justify-content:center; gap:8px; margin-bottom:4px; font-weight:bold; font-size:7.5pt; border-bottom: 1px solid #eee; padding-bottom: 2px; }
+
+                    /* Testeo section */
+                    .test-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 2px; }
+                    .test-row { display: flex; align-items: center; margin-bottom: 1px; font-size: 7.5pt; }
+                    .test-label { width: 65px; font-weight: bold; }
+                    .test-status { display: flex; align-items: center; width: 120px; font-size: 7pt; }
+                    .test-status .box { border: 1px solid #000; width: 9px; height: 9px; margin: 0 3px; display: flex; align-items: center; justify-content: center; font-size: 7px; line-height: 1; }
+                    .test-obs { display: flex; align-items: center; flex-grow: 1; }
+                    .test-obs span { border-bottom: 1px solid #ccc; flex-grow: 1; min-height: 11px; margin-left: 2px; color: #000; }
+                    
+                    /* Specs row in testeo */
+                    .spec-row { display: flex; margin-bottom: 2px; font-size: 8pt; align-items: center; }
+                    .spec-row label { font-weight: bold; margin-right: 4px; font-size: 7.5pt; }
+                    .spec-row span { border-bottom: 1px solid #999; flex-grow: 1; font-weight: normal; }
+
+                    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 2px; font-size: 6.5pt; margin-top: 2px; padding: 2px; border-top: 1px solid #eee; }
+                    .bottom-item { display: flex; flex-direction: column; }
+                    .bottom-sub-row { display: flex; align-items: center; }
+                    
+                    .warning-bar { background: #fee; border: 1px solid #f00; text-align: center; font-weight: bold; font-size: 7pt; padding: 2px; margin: 5px 0; color: #d00; }
+                    
+                    .payment-box { border: 1px solid #000; padding: 4px 8px; margin-top: 5px; border-radius: 4px; }
+                    .payment-title { font-weight: bold; font-size: 8pt; margin-bottom: 2px; text-decoration: underline; }
+                    .payment-method { font-size: 9pt; }
+                    
+                    .totals-row { display: flex; margin-top: 8px; gap: 15px; justify-content: flex-end; }
+                    .total-bubble { border: 2px solid #000; border-radius: 6px; padding: 4px 10px; font-weight: bold; min-width: 90px; display: flex; justify-content: space-between; align-items: center; font-size: 9pt; background: #fff; }
+
+                    /* Repotenciacion box inside hardware */
+                    .repoten-box { margin-top:5px; background: #f9f9f9; border: 1px solid #ccc; padding: 3px; border-radius: 4px; }
+                    .repoten-title { font-weight:bold; font-size:7.5pt; margin-bottom: 2px; text-decoration: underline; }
+                </style>
+            </head>
+            <body>
+                 <div class="header-grid">
+                    <div>
+                        <div class="field-box"><span class="field-label">CLIENTE:</span> <div class="field-input">${clientDisplay.substring(0, 45)}</div></div>
+                        <div class="field-box"><span class="field-label">INFORME N°:</span> <div class="field-input">${report.reportNumber}</div></div>
+                    </div>
+                    <div>
+                        <div class="field-box"><span class="field-label">EQUIPO / MODELO:</span> <div class="field-input">${modelDisplay}</div></div>
+                        <div class="field-box"><span class="field-label">SERIE:</span> <div class="field-input">${report.serie || ''}</div></div>
+                    </div>
+                 </div>
+
+                 <div class="main-grid">
+                    <!-- LEFT COL: HARDWARE -->
+                    <div class="col-left">
+                        <div class="area-box">
+                            <div class="area-header">HARDWARE</div>
+                            
+                            <div class="area-content">
+                                ${hw ? `
+                                    <div class="equip-check">
+                                        <span>PC ${checkbox(report.tipoEquipo === 'PC')}</span>
+                                        <span>LAPTOP ${checkbox(report.tipoEquipo === 'Laptop')}</span>
+                                        <span>OTRO ${checkbox(!['PC', 'Laptop'].includes(report.tipoEquipo))}</span>
+                                    </div>
+
+                                    ${formatItem(hw.mant_hardware, 'Mant. Hardware')}
+                                    ${formatItem(hw.reconstruccion, 'Reconstrucción')}
+                                    ${formatItem(hw.adapt_parlantes, 'Adapt. Parlantes')}
+                                    ${formatItem(hw.cambio_teclado, 'Cambio Teclado', 'Cód', hw.cambio_teclado_codigo)}
+                                    ${formatItem(hw.cambio_pantalla, 'Cambio Pantalla', 'Det', `${txt(hw.cambio_pantalla_codigo)} ${txt(hw.cambio_pantalla_resolucion)}`)}
+                                    ${formatItem(hw.cambio_carcasa, 'Cambio Carcasa', 'Obs', hw.cambio_carcasa_obs)}
+                                    ${formatItem(hw.cambio_placa, 'Cambio Placa', 'Det', `${txt(hw.cambio_placa_codigo)} ${txt(hw.cambio_placa_especif)}`)}
+                                    ${formatItem(hw.cambio_fuente, 'Cambio Fuente', 'Det', `${txt(hw.cambio_fuente_codigo)} ${txt(hw.cambio_fuente_especif)}`)}
+                                    ${formatItem(hw.cambio_video, 'Cambio T. Video', 'Det', `${txt(hw.cambio_video_codigo)} ${txt(hw.cambio_video_especif)}`)}
+                                    ${formatItem(hw.otros, 'Otros', 'Esp', hw.otros_especif)}
+                                    
+                                    <div class="repoten-box">
+                                        <div class="repoten-title">Repotenciación / Upgrade</div>
+                                        ${formatItem(hw.repoten_ssd, 'SSD', 'GB/Serie', `${txt(hw.repoten_ssd_gb)} ${txt(hw.repoten_ssd_serie)}`)}
+                                        ${formatItem(hw.repoten_nvme, 'NVME', 'GB/Serie', `${txt(hw.repoten_nvme_gb)} ${txt(hw.repoten_nvme_serie)}`)}
+                                        ${formatItem(hw.repoten_m2, 'M2 SATA', 'GB/Serie', `${txt(hw.repoten_m2_gb)} ${txt(hw.repoten_m2_serie)}`)}
+                                        ${formatItem(hw.repoten_ram, 'RAM', 'Cap/Cod', `${txt(hw.repoten_ram_cap)} ${txt(hw.repoten_ram_cod)}`)}
+                                    </div>
+                                    
+                                    <div class="tech-dates">
+                                        <div><strong>Tec:</strong> ${txt(hw.tecnico)}</div>
+                                        <div><strong>Fin:</strong> ${txt(hw.fecha_fin)}</div>
+                                    </div>
+                                ` : '<div style="text-align:center; padding:20px; color:#777;">Sin intervención registrada</div>'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COL: SOFTWARE + ELECTRONICA -->
+                    <div class="col-right">
+                        <!-- SOFTWARE SECTION -->
+                        <div class="area-box" style="height: auto;">
+                            <div class="area-header">SOFTWARE</div>
+                            <div class="area-content">
+                                ${sw ? `
+                                    <div class="equip-check">
+                                        <span style="font-weight:normal">Sistema Operativo: <strong>${report.sistemaOperativo || 'N/A'}</strong></span>
+                                    </div>
+                                    ${formatItem(sw.backup, 'Backup Info', 'Obs', sw.backup_obs)}
+                                    ${formatItem(sw.clonacion, 'Clonación Disco', 'Obs', sw.clonacion_obs)}
+                                    ${formatItem(sw.formateo, 'Formateo + Progs', 'Obs', sw.formateo_obs)}
+                                    ${formatItem(sw.drivers, 'Inst. Drivers', 'Obs', sw.drivers_obs)}
+                                    ${formatItem(sw.diseno, 'Progs. Diseño', 'Esp', sw.diseno_spec)}
+                                    ${formatItem(sw.ingenieria, 'Progs. Ingeniería', 'Esp', sw.ingenieria_spec)}
+                                    ${formatItem(sw.act_win, 'Act. Windows', 'Obs', sw.act_win_obs)}
+                                    ${formatItem(sw.act_office, 'Act. Office', 'Obs', sw.act_office_obs)}
+                                    ${formatItem(sw.optimizacion, 'Optimización', 'Obs', sw.optimizacion_obs)}
+                                    ${formatItem(sw.sw_otros, 'Otros', 'Esp', sw.sw_otros_spec)}
+
+                                    <div class="tech-dates">
+                                        <div><strong>Tec:</strong> ${txt(sw.tecnico)}</div>
+                                        <div><strong>Fin:</strong> ${txt(sw.fecha_fin)}</div>
+                                    </div>
+                                ` : '<div style="text-align:center; padding:20px; color:#777;">Sin intervención registrada</div>'}
+                            </div>
+                        </div>
+
+                        <!-- ELECTRONICA SECTION (Stacked below Software) -->
+                        <div class="area-box" style="flex-grow: 1;">
+                            <div class="area-header">ELECTRÓNICA</div>
+                            <div class="area-content">
+                                ${elec ? `
+                                    ${formatItem(elec.elec_video, 'TARJETA VIDEO', 'Reparable', elec.elec_video_reparable)}
+                                    ${formatItem(elec.elec_placa, 'PLACA MADRE', 'Reparable', elec.elec_placa_reparable)}
+                                    ${formatItem(elec.elec_otro, 'OTRO COMPONENTE', 'Esp', `${txt(elec.elec_otro_especif || '-')}`)}
+                                    
+                                    <div style="margin-top:8px; font-size:8pt; border:1px solid #ddd; padding:3px; background:#fcfcfc;">
+                                         <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                                            <span><strong>Reparable:</strong> ${elec.elec_otro_reparable || '-'}</span>
+                                            <span><strong>Etapa:</strong> ${txt(elec.elec_etapa)}</span>
+                                         </div>
+                                         <div style="border-top:1px solid #eee; padding-top:2px;"><strong>Obs:</strong> ${txt(elec.elec_obs)}</div>
+                                    </div>
+                                    <div class="tech-dates">
+                                        <div><strong>Tec:</strong> ${txt(elec.tecnico)}</div>
+                                        <div><strong>Fin:</strong> ${txt(elec.fecha_fin)}</div>
+                                    </div>
+                                ` : '<div style="text-align:center; padding:15px; color:#777; font-size:8pt;">Sin intervención registrada</div>'}
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+
+                 <!-- WARNING BAR -->
+                 <div class="warning-bar">
+                    OBSERVACIONES: SI AL REALIZAR EL TESTEO TIENE ALGUN DETALLE ESPECIFICAR "OJO"
+                 </div>
+
+                 <!-- TESTEO (Bottom Full Width) -->
+                 <div class="area-box-fixed">
+                    <div class="area-header">CONTROL DE CALIDAD (TESTEO FINAL)</div>
+                    <div class="area-content">
+                    ${testeo ? `
+                        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:5px; border-bottom:1px solid #ccc; padding-bottom:5px;">
+                            <div class="spec-row"><label>Proc:</label><span>${txt(testeo.testeo_procesador)}</span></div>
+                            <div class="spec-row"><label>Vid. Ded:</label><span>${txt(testeo.testeo_video_dedicado)}</span></div>
+                            <div class="spec-row"><label>RAM:</label><span>${txt(testeo.testeo_memoria_ram)}</span></div>
+                        </div>
+                        <div class="test-grid">
+                            <div>
+                                ${formatTestRow('Disco', testeo.testeo_disco, testeo.testeo_disco_obs)}
+                                ${formatTestRow('Pantalla', testeo.testeo_pantalla, testeo.testeo_pantalla_obs)}
+                                ${formatTestRow('Bateria', testeo.testeo_bateria, testeo.testeo_bateria_obs)}
+                                ${formatTestRow('Cargador', testeo.testeo_cargador, testeo.testeo_cargador_obs)}
+                                ${formatTestRow('Camara', testeo.testeo_camara, testeo.testeo_camara_obs)}
+                                ${formatTestRow('Microfono', testeo.testeo_microfono, testeo.testeo_microfono_obs)}
+                            </div>
+                            <div>
+                                ${formatTestRow('Auricular', testeo.testeo_auricular, testeo.testeo_auricular_obs)}
+                                ${formatTestRow('Parlantes', testeo.testeo_parlantes, testeo.testeo_parlantes_obs)}
+                                ${formatTestRow('Teclado', testeo.testeo_teclado, testeo.testeo_teclado_obs)}
+                                ${formatTestRow('Lectora', testeo.testeo_lectora, testeo.testeo_lectora_obs)}
+                                ${formatTestRow('Touchpad', testeo.testeo_touchpad, testeo.testeo_touchpad_obs)}
+                            </div>
+                        </div>
+                        <div class="bottom-grid">
+                            <div class="bottom-sub-row"><strong>WIFI: </strong> ${formatTestRow('', testeo.testeo_wifi, testeo.testeo_wifi_obs)}</div>
+                            <div class="bottom-sub-row"><strong>USB: </strong> ${formatTestRow('', testeo.testeo_usb, testeo.testeo_usb_obs)}</div>
+                            <div class="bottom-sub-row"><strong>HDMI: </strong> ${formatTestRow('', testeo.testeo_hdmi, testeo.testeo_hdmi_obs)}</div>
+                             <div class="bottom-sub-row"><strong>OTRO: </strong> ${formatTestRow('', testeo.testeo_otros, testeo.testeo_otros_obs)}</div>
+                        </div>
+                        <div style="padding:4px; border-top:1px solid #000; display:flex; justify-content:space-between; align-items:center; font-size:8pt; background:#f0f0f0;">
+                            <div><strong>TECNICO TESTEO:</strong> ${txt(testeo.tecnico)}</div>
+                            <div><strong>TRABAJO FINAL:</strong> ${txt(testeo.testeo_servicio_final)}</div>
+                        </div>
+                    ` : '<div style="padding:10px; text-align:center;">No realizado</div>'}
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 20px; align-items: flex-start;">
+                    <div style="flex-grow: 1;">
+                        <div class="payment-box">
+                            <div class="payment-title">MÉTODOS DE PAGO / NOTAS</div>
+                            <div class="payment-method">
+                                ${report.detallesPago || 'No especificado'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="totals-row">
+                        <div class="total-bubble">
+                            <span>TOTAL</span>
+                            <span>S/ ${(parseFloat(report.total) || 0).toFixed(2)}</span>
+                        </div>
+                         <div class="total-bubble">
+                            <span>A CUENTA</span>
+                            <span>S/ ${(parseFloat(report.aCuenta) || 0).toFixed(2)}</span>
+                        </div>
+                        <div class="total-bubble" style="border-color: #ec008c; color: #ec008c;">
+                            <span>SALDO</span>
+                            <span>S/ ${(parseFloat(report.saldo) || 0).toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+
+            </body>
+            </html>
+        `;
+
+        const newWindow = window.open("", "", "width=950,height=1200");
+        newWindow.document.write(printContent);
+        newWindow.document.close();
+        newWindow.focus();
+
+        setTimeout(() => {
+            newWindow.print();
+            newWindow.close();
+        }, 500);
+    };
+
     const flatHistory = useMemo(() => {
         if (!report) return [];
         return report.diagnosticoPorArea
@@ -464,6 +778,14 @@ function DetalleHistorial() {
                         title="Imprimir Informe Técnico"
                     >
                         <FaPrint className="mr-2" /> Imprimir
+                    </button>
+
+                    <button
+                        onClick={handlePrintServiceSheet}
+                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"
+                        title="Imprimir Ficha de Servicio"
+                    >
+                        <FaPrint className="mr-2" /> Ficha
                     </button>
 
                     {canDeliver && currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'SUPERUSER') && (
