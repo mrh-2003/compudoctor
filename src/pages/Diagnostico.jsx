@@ -54,9 +54,9 @@ const SERVICE_OPTIONS = [
 const MAX_SERVICES = 6;
 
 const SI_NO_DEJA_CONFIG = {
-  Laptop: ['wifi', 'bateria', 'cargador', 'auriculares', 'rj45', 'hdmi', 'vga', 'usb', 'tipoC', 'lectora', 'touchpad'],
+  Laptop: ['wifi', 'bateria', 'cargador', 'auriculares', 'rj45', 'hdmi', 'vga', 'usb', 'tipoC', 'lectora', 'touchpad', 'placaMadre', 'tarjetaVideo'],
   PC: ['wifi', 'rj45', 'hdmi', 'vga', 'usb', 'lectora', 'auriculares'],
-  'All in one': ['rj45', 'usb', 'auriculares', 'hdmi', 'vga'],
+  'All in one': ['rj45', 'usb', 'auriculares', 'hdmi', 'vga', 'placaMadre', 'tarjetaVideo'],
   Impresora: ['bandejas', 'rodillos', 'tinta', 'cables', 'cabezal']
 };
 
@@ -596,6 +596,16 @@ function Diagnostico() {
                   <div style="border-top: 1px solid #000; width: 230px; margin: 4px auto 0;"></div>
                   <div>FIRMA CLIENTE</div>
                 </div>
+
+                <div style="margin-top: 30px; padding-top: 10px; border-top: 1px dashed #ccc; font-size: 8pt;">
+                   <div style="font-weight: bold; text-decoration: underline; margin-bottom: 6px;">PERSONAL ASIGNADO:</div>
+                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div><strong>Técnico de Recepción:</strong> ${formData.tecnicoRecepcion || ''}</div>
+                      <div><strong>Técnico Inicial:</strong> ${formData.tecnicoInicial || ''}</div>
+                      <div><strong>Técnico de Testeo:</strong> ${formData.tecnicoTesteo || ''}</div>
+                      <div><strong>Técnico Responsable:</strong> ${formData.tecnicoResponsable || ''}</div>
+                   </div>
+                </div>
             </div>
         </body>
       </html>
@@ -691,7 +701,7 @@ function Diagnostico() {
     } else {
       mandatoryDetailSiPrende.push('auriculares');
     }
-    const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'wifi', 'camara', 'microfono', 'parlantes', 'tarjetaVideo', 'teclado', 'bateria'];
+    const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'camara', 'microfono', 'parlantes', 'tarjetaVideo', 'teclado', 'bateria'];
 
     // --- Lógica para "NO PRENDE" ---
     // Regla: Laptop -> procesador, placa madre, memoria ram, hdd, sdd, m2, tarejta de video, wifi, cargador
@@ -1031,10 +1041,8 @@ function Diagnostico() {
         }
         newState.area = '';
 
-        newState.items = formData.items.map(item => ({
-          ...item,
-          checked: false,
-        }));
+        // Previous logic clearing items removed to preserve state
+
 
         toast('Campos de Testeo (checks), Software, Técnico Testeo/Responsable y Área de Destino se han deshabilitado.');
       }
@@ -1160,7 +1168,7 @@ function Diagnostico() {
           const updates = { detalles: value };
           if (value === "SI DEJA") {
             updates.checked = true;
-          } else {
+          } else if (value === "NO DEJA") {
             updates.checked = false;
           }
           return { ...item, ...updates };
@@ -1370,12 +1378,6 @@ function Diagnostico() {
       if (formData.tipoEquipo === 'Otros') {
         baseData.otherComponentType = otherComponentType;
         baseData.otherDescription = otherDescription;
-      }
-
-      if (!isAdminOrSuperadmin) {
-        baseData.area = 'N/A';
-        baseData.tecnicoResponsable = "";
-        baseData.tecnicoResponsableId = "";
       }
 
       if (isEditMode) {
@@ -1789,7 +1791,7 @@ function Diagnostico() {
                         {isCheckRequired && <span className="ml-1 text-blue-500 text-lg leading-none">*</span>}
                         {isDetailRequired && <span className="ml-1 text-red-500 text-lg leading-none">*</span>}
                       </label>
-                      {SI_NO_DEJA_CONFIG[formData.tipoEquipo]?.includes(item.id) ? (
+                      {(SI_NO_DEJA_CONFIG[formData.tipoEquipo]?.includes(item.id) || (formData.canTurnOn === 'NO' && ['pantalla', 'teclado', 'camara', 'microfono', 'parlantes'].includes(item.id))) ? (
                         <select
                           name={item.id}
                           value={formData.items.find((i) => i.id === item.id)?.detalles || ""}
