@@ -366,12 +366,11 @@ function Diagnostico() {
     const clientPhone = selectedClient?.data?.telefono || "N/A";
 
     let dia, mes, anio, hora;
-    if (!diagnosticoId) {
-      dia = currentFormatted.day; mes = currentFormatted.month; anio = currentFormatted.year; hora = currentFormatted.time;
-    } else {
-      [dia, mes, anio] = formData.fecha ? formData.fecha.split("-") : ["", "", ""];
-      hora = formData.hora || "";
-    }
+    // Use saved data if available, otherwise current. 
+    // For new reports, formData.fecha/hora are set in useEffect.
+    const dateSource = formData.fecha ? formData.fecha : currentFormatted.fullDateDash;
+    [dia, mes, anio] = dateSource.split("-");
+    hora = formData.hora || currentFormatted.time;
 
     const getCheckItemData = (id) => {
       const item = formData.items.find(i => i.id === id);
@@ -679,6 +678,11 @@ function Diagnostico() {
     const isNoPrende = canTurnOn === 'NO';
     const isAIO = tipoEquipo === 'All in one';
     const isPrinter = tipoEquipo === 'Impresora';
+    const isPC = tipoEquipo === 'PC';
+    const isLaptop = tipoEquipo === 'Laptop';
+
+    // Check if Other -> Placa...
+    const isOtherPlaca = tipoEquipo === 'Otros' && ['PLACA_MADRE_LAPTOP', 'PLACA_MADRE_PC'].includes(otherComponentType);
 
     let isAvailable = true;
     let isCheckDisabled = isFormLocked;
@@ -686,55 +690,82 @@ function Diagnostico() {
 
     let isDetailRequired = false;
     let isCheckRequired = false;
+    let isSelectorMode = false; // "SI DEJA" / "NO DEJA" dropdown
 
-    // --- Configuración de campos "SI DEJA" / "NO DEJA" ---
-    // Regla: "Ademas debe ser obligatorio el detalle en todos los campos donde se marca SI DEJA, NO DEJA independiente del tipo de equipo."
-    const siNoDejaItems = SI_NO_DEJA_CONFIG[tipoEquipo] || [];
-    if (siNoDejaItems.includes(itemId)) {
-      isDetailRequired = true;
+    // --- Dynamic "SI DEJA" / "NO DEJA" Configuration ---
+    let siNoDejaItems = [...(SI_NO_DEJA_CONFIG[tipoEquipo] || [])];
+
+    // Special Rules for Selector Mode:
+
+    // 1. All in one: Wifi always selector
+    if (isAIO && !siNoDejaItems.includes('wifi')) {
+      siNoDejaItems.push('wifi');
     }
 
-    // --- Lógica para "SI PRENDE" ---
+    // 2. PC/Laptop/AIO: Tarjeta Video
+    // "SI PRENDE" -> Text Input (Not selector), UNLESS it is Laptop/AIO which have it by default?
+    // User said: "CUANDO SE SELECCIONA QUE "SI PRENDE" EL TARJ. DE VIDEO QUE SE HABILITE PARA ESCRIBIR EN DETALLES"
+    // So if SI PRENDE, we must remove it from selector mode.
+    if ((isPC || isLaptop || isAIO) && isSiPrende) {
+      siNoDejaItems = siNoDejaItems.filter(i => i !== 'tarjetaVideo');
+    }
+
+    // "NO PRENDE" -> Selector Mode
+    // "habilitar la lista de seleccion si deja o no deja para tarj. de video."
+    // Also user mentioned "PC / Laptop / All in one" for this.
+    if ((isPC || isLaptop || isAIO) && isNoPrende) {
+      if (!siNoDejaItems.includes('tarjetaVideo')) siNoDejaItems.push('tarjetaVideo');
+    }
+
+    // 3. Otros (Placa Madre): Tarjeta Video is Selector
+    if (isOtherPlaca && itemId === 'tarjetaVideo') {
+      isSelectorMode = true;
+    }
+
+    // 4. Default Selector Check
+    if (siNoDejaItems.includes(itemId)) {
+      isSelectorMode = true;
+      isDetailRequired = true; // Rule: "Ademas debe ser obligatorio el detalle en todos los campos donde se marca SI DEJA/NO DEJA"
+    }
+
+    // 5. Hardcoded NO PRENDE selectors (legacy/existing logic preserved)
+    if (isNoPrende && ['pantalla', 'teclado', 'camara', 'microfono', 'parlantes'].includes(itemId)) {
+      isSelectorMode = true;
+    }
+
+
+    // --- Requirements Logic (Mandatory Checks/Details) ---
+
+    // Logic for "SI PRENDE"
     let mandatoryDetailSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
-    if (tipoEquipo === 'Laptop') {
+    if (isLaptop) {
       mandatoryDetailSiPrende = [...mandatoryDetailSiPrende, 'camara', 'microfono', 'parlantes', 'teclado'];
     } else {
       mandatoryDetailSiPrende.push('auriculares');
     }
     const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'camara', 'microfono', 'parlantes', 'tarjetaVideo', 'teclado', 'bateria'];
 
-    // --- Lógica para "NO PRENDE" ---
-    // Regla: Laptop -> procesador, placa madre, memoria ram, hdd, sdd, m2, tarejta de video, wifi, cargador
-    const mandatoryDetailNoPrendeLaptop = ['procesador', 'placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo', 'wifi', 'cargador'];
 
-    // Regla: PC -> placa madre, memoria ram, hdd, sdd, m2, tarejta de video
+    // Logic for "NO PRENDE"
+    const mandatoryDetailNoPrendeLaptop = ['procesador', 'placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo', 'wifi', 'cargador'];
     const mandatoryDetailNoPrendePC = ['placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo'];
-    // Regla: PC Check -> placa madre, memoria ram
     const mandatoryCheckNoPrendePC = ['placaMadre', 'memoriaRam'];
 
-
-    // --- Lógica Impresora ---
+    // Lógica Impresora
     const mandatoryPrinterIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
 
-    // --- Lógica Discos ---
+    // Lógica Discos
     const diskIds = ['hdd', 'ssd', 'm2Nvme'];
 
-
     if (isPrinter) {
-      if (mandatoryPrinterIds.includes(itemId)) {
-        isDetailRequired = true;
-      }
+      if (mandatoryPrinterIds.includes(itemId)) isDetailRequired = true;
     }
 
-    if (['PC', 'Laptop', 'All in one'].includes(tipoEquipo)) {
-      if (isAIO && MANDATORY_COMPONENT_IDS.includes(itemId)) {
-        isDetailRequired = true;
-      }
+    if (isPC || isLaptop || isAIO) {
+      if (isAIO && MANDATORY_COMPONENT_IDS.includes(itemId)) isDetailRequired = true;
 
       if (isSiPrende) {
-        if (mandatoryDetailSiPrende.includes(itemId) || diskIds.includes(itemId)) {
-          isDetailRequired = true;
-        }
+        if (mandatoryDetailSiPrende.includes(itemId) || diskIds.includes(itemId)) isDetailRequired = true;
 
         if (mandatoryCheckSiPrende.filter(id => id !== 'tarjetaVideo').includes(itemId)) {
           isCheckRequired = true;
@@ -743,18 +774,10 @@ function Diagnostico() {
       }
 
       if (isNoPrende) {
-        if (tipoEquipo === 'Laptop') {
-          if (mandatoryDetailNoPrendeLaptop.includes(itemId)) {
-            isDetailRequired = true;
-          }
-        }
-        if (tipoEquipo === 'PC') {
-          if (mandatoryDetailNoPrendePC.includes(itemId)) {
-            isDetailRequired = true;
-          }
-          if (mandatoryCheckNoPrendePC.includes(itemId)) {
-            isCheckRequired = true;
-          }
+        if (isLaptop && mandatoryDetailNoPrendeLaptop.includes(itemId)) isDetailRequired = true;
+        if (isPC) {
+          if (mandatoryDetailNoPrendePC.includes(itemId)) isDetailRequired = true;
+          if (mandatoryCheckNoPrendePC.includes(itemId)) isCheckRequired = true;
         }
       }
     }
@@ -764,10 +787,17 @@ function Diagnostico() {
       isAvailable = otherStatus.isAvailable;
       isCheckDisabled = otherStatus.isCheckDisabled;
       isDetailDisabled = otherStatus.isDetailDisabled;
-    }
 
-    if (canTurnOn === 'NO' && !isFormLocked) {
-      // isCheckDisabled = true; // Habilitado siempre a pedido del usuario
+      // New Rule: Otros / Placa Madre
+      if (isOtherPlaca) {
+        if (['procesador', 'memoriaRam'].includes(itemId)) {
+          isCheckRequired = true;
+          isCheckDisabled = isFormLocked; // Should be checkable/required
+        }
+        if (itemId === 'memoriaRam') {
+          isDetailRequired = true;
+        }
+      }
     }
 
     return {
@@ -775,7 +805,8 @@ function Diagnostico() {
       isCheckDisabled,
       isDetailDisabled,
       isDetailRequired,
-      isCheckRequired
+      isCheckRequired,
+      isSelectorMode
     };
   };
 
@@ -873,6 +904,20 @@ function Diagnostico() {
           const nextReportNumber = await getNextReportNumber();
           setReportNumber(nextReportNumber.toString().padStart(6, "0"));
           setInitialAreaAssignedStatus(false);
+
+          // NEW REPORT TIME INIT
+          const now = new Date();
+          const day = now.getDate().toString().padStart(2, '0');
+          const month = (now.getMonth() + 1).toString().padStart(2, '0');
+          const year = now.getFullYear();
+          const hours = now.getHours().toString().padStart(2, '0');
+          const minutes = now.getMinutes().toString().padStart(2, '0');
+
+          setFormData(prev => ({
+            ...prev,
+            fecha: `${day}-${month}-${year}`,
+            hora: `${hours}:${minutes}`
+          }));
 
           if (clientIdFromUrl) {
             const client = await getClientById(clientIdFromUrl);
@@ -1411,8 +1456,8 @@ function Diagnostico() {
         await createDiagnosticReport({
           ...baseData,
           reportNumber: parseInt(reportNumber),
-          fecha: currentFormatted.fullDateDash,
-          hora: currentFormatted.time,
+          fecha: formData.fecha,
+          hora: formData.hora,
           estado: "ASIGNADO",
         });
         toast.success(`Informe #${reportNumber} creado con éxito.`);
@@ -1427,24 +1472,14 @@ function Diagnostico() {
     }
   };
 
-  let dia, mes, anio, hora;
-  const isNewReport = !diagnosticoId;
-
-  if (isNewReport) {
-    dia = currentFormatted.day;
-    mes = currentFormatted.month;
-    anio = currentFormatted.year;
-    hora = currentFormatted.time;
-  } else {
-    [dia, mes, anio] = formData.fecha
-      ? formData.fecha.split("-")
-      : ["N/A", "N/A", "N/A"];
-    hora = formData.hora || "N/A";
-  }
-  const displayDate = isNewReport
-    ? currentFormatted.fullDateSlash
-    : formData.fecha;
-  const displayTime = isNewReport ? currentFormatted.time : formData.hora;
+  /* 
+   * Logic Adjustment:
+   * We want the time to ideally be the time when the form was opened (intialized).
+   * For new reports, we set formData.fecha/hora in the useEffect.
+   * So we should prioritize formData values if they exist.
+   */
+  const displayDate = formData.fecha ? formData.fecha.replace(/-/g, '/') : currentFormatted.fullDateSlash;
+  const displayTime = formData.hora || currentFormatted.time;
 
   if (isLoading) return <div className="text-center p-8">Cargando informe...</div>;
 
@@ -1764,7 +1799,7 @@ function Diagnostico() {
                 return true;
               }).map((item, index) => {
 
-                const { isAvailable, isCheckDisabled, isDetailDisabled, isCheckRequired, isDetailRequired } = getComponentStatus(item.id);
+                const { isAvailable, isCheckDisabled, isDetailDisabled, isCheckRequired, isDetailRequired, isSelectorMode } = getComponentStatus(item.id);
 
                 const showDetailError = errors[item.id];
                 const showCheckError = errors[item.id + '_check'];
@@ -1791,7 +1826,7 @@ function Diagnostico() {
                         {isCheckRequired && <span className="ml-1 text-blue-500 text-lg leading-none">*</span>}
                         {isDetailRequired && <span className="ml-1 text-red-500 text-lg leading-none">*</span>}
                       </label>
-                      {(SI_NO_DEJA_CONFIG[formData.tipoEquipo]?.includes(item.id) || (formData.canTurnOn === 'NO' && ['pantalla', 'teclado', 'camara', 'microfono', 'parlantes'].includes(item.id))) ? (
+                      {isSelectorMode ? (
                         <select
                           name={item.id}
                           value={formData.items.find((i) => i.id === item.id)?.detalles || ""}
