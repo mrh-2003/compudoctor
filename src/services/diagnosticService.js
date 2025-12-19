@@ -30,7 +30,10 @@ export const createDiagnosticReport = async (reportData) => {
         createdAt: now,
         tecnicoActual: initialTechnician,
         tecnicoActualId: initialTechnicianId,
-        diagnosticoPorArea: {
+    };
+
+    if (reportData.area) {
+        fullReport.diagnosticoPorArea = {
             [reportData.area]: [{
                 reparacion: '',
                 tecnico: initialTechnician,
@@ -42,8 +45,8 @@ export const createDiagnosticReport = async (reportData) => {
                 hora_fin: '',
                 estado: 'ASIGNADO',
             }],
-        },
-    };
+        };
+    }
 
     await addDoc(collection(db, DIAGNOSTICO_COLLECTION), fullReport);
     return reportNumber;

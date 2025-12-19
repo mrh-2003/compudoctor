@@ -283,12 +283,12 @@ function Diagnostico() {
   }, [currentDateState]);
 
   const isEditMode = !!diagnosticoId;
+  const isAdminOrSuperadmin = currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN');
   const isReportFinalized = isEditMode && ['ENTREGADO', 'TERMINADO'].includes(formData.estado);
-  const isFormLocked = isReportFinalized || initialAreaAssignedStatus;
+  const isRegularUserLocked = (isReportFinalized || initialAreaAssignedStatus);
+  const isFormLocked = isAdminOrSuperadmin ? false : isRegularUserLocked;
 
   const hasRepairService = servicesList.some(s => s.service === 'Reparación');
-
-  const isAdminOrSuperadmin = currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN');
 
 
   const getToday = useMemo(() => {
@@ -1365,16 +1365,22 @@ function Diagnostico() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("--- DEBUG: Handle Submit ---");
+    console.log("FormData:", formData);
+    console.log("isFormLocked:", isFormLocked, "isSaving:", isSaving);
 
     if (isFormLocked || isSaving) {
+      console.warn("Submit blocked due to lock or saving state.");
       toast.error("Procesando registro. Por favor, espera.");
       return;
     }
 
     if (!validateForm()) {
+      console.warn("Validation failed (check logs for errors).");
       toast.error("Completa los campos obligatorios marcados en rojo.");
       return;
     }
+    console.log("Validation passed. Proceeding to save.");
 
     setIsSaving(true);
 
@@ -1395,6 +1401,11 @@ function Diagnostico() {
     }).join(', ');
 
     try {
+      let finalStatus = formData.estado || "PENDIENTE";
+      if (!['ENTREGADO', 'TERMINADO'].includes(finalStatus)) { 
+        finalStatus = (finalResponsible && formData.area) ? "ASIGNADO" : "PENDIENTE"; 
+      }
+
       const baseData = {
         ...formData,
         tecnicoResponsable: finalResponsible,
@@ -1409,6 +1420,7 @@ function Diagnostico() {
         total: parseFloat(formData.total) || 0,
         aCuenta: parseFloat(formData.aCuenta) || 0,
         saldo: parseFloat(formData.saldo) || 0,
+        estado: finalStatus,
 
         pagosRealizado: [{ fecha: new Date().toISOString(), monto: parseFloat(formData.aCuenta) || 0, formaPago: formData.detallesPago }],
 
@@ -1458,7 +1470,6 @@ function Diagnostico() {
           reportNumber: parseInt(reportNumber),
           fecha: formData.fecha,
           hora: formData.hora,
-          estado: "ASIGNADO",
         });
         toast.success(`Informe #${reportNumber} creado con éxito.`);
         handlePrint();

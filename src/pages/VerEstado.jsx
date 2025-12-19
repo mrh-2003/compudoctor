@@ -4,8 +4,13 @@ import { getAllDiagnosticReports, deleteDiagnosticReport } from '../services/dia
 import { FaEdit, FaTrash, FaEye, FaChevronLeft, FaChevronRight, FaMoneyBillWave } from 'react-icons/fa';
 import Modal from '../components/common/Modal';
 import CostosModal from '../components/diagnostico/CostosModal';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import Select from 'react-select';
+import { useContext } from 'react';
+import { ThemeContext } from '../context/ThemeContext';
+import { getAllUsersDetailed } from '../services/userService';
+import { updateDiagnosticReport } from '../services/diagnosticService';
 
 const STATUS_COLORS = {
     'PENDIENTE': 'bg-gray-400',
@@ -16,6 +21,7 @@ const STATUS_COLORS = {
 
 function VerEstado() {
     const { currentUser, loading } = useAuth();
+    const { theme } = useContext(ThemeContext);
     const [allReports, setAllReports] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [notification, setNotification] = useState({ message: '', type: '' });
@@ -27,6 +33,15 @@ function VerEstado() {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedReportIdForCosts, setSelectedReportIdForCosts] = useState(null);
     const [isCostosModalOpen, setIsCostosModalOpen] = useState(false);
+
+    // Assignment Modal State
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [selectedReportForAssign, setSelectedReportForAssign] = useState(null);
+    const [technicians, setTechnicians] = useState([]);
+    const [assignData, setAssignData] = useState({ technician: null, area: '' });
+    const [isAssigning, setIsAssigning] = useState(false);
+    const navigate = useNavigate();
+
     const pageSize = 10;
 
     const canEdit = currentUser && (currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN');
@@ -36,8 +51,21 @@ function VerEstado() {
     useEffect(() => {
         if (!loading && currentUser && canView) {
             fetchReports();
+            fetchTechnicians();
         }
     }, [loading, currentUser]);
+
+    const fetchTechnicians = async () => {
+        try {
+            const users = await getAllUsersDetailed();
+            const techs = users
+                .filter(u => ['USER', 'SUPERUSER'].includes(u.rol))
+                .map(u => ({ value: u.id, label: u.nombre }));
+            setTechnicians(techs);
+        } catch (error) {
+            console.error("Error fetching technicians:", error);
+        }
+    };
 
     const fetchReports = async () => {
         setIsLoading(true);
@@ -109,6 +137,83 @@ function VerEstado() {
     const handleCloseCosts = () => {
         setSelectedReportIdForCosts(null);
         setIsCostosModalOpen(false);
+    };
+
+    const handleViewReport = (report) => {
+        if (report.tecnicoResponsableId || report.tecnicoResponsable) {
+            navigate(`/ver-estado/historial/${report.id}`);
+        } else {
+            setSelectedReportForAssign(report);
+            const currentTech = technicians.find(t => t.value === currentUser?.uid);
+            setAssignData({
+                technician: currentTech || null,
+                area: ''
+            });
+            setIsAssignModalOpen(true);
+        }
+    };
+
+    const handleAssignSubmit = async () => {
+        if (!assignData.technician) {
+            toast.error("Debe seleccionar un técnico responsable.");
+            return;
+        }
+        if (!assignData.area) {
+            toast.error("Debe seleccionar un área de destino.");
+            return;
+        }
+
+        setIsAssigning(true);
+        try {
+            const now = new Date();
+            const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
+            const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+            const updateData = {
+                tecnicoResponsable: assignData.technician.label,
+                tecnicoResponsableId: assignData.technician.value,
+                area: assignData.area,
+                estado: 'ASIGNADO',
+                tecnicoActual: assignData.technician.label,
+                tecnicoActualId: assignData.technician.value,
+                diagnosticoPorArea: {
+                    [assignData.area]: [{
+                        reparacion: '',
+                        tecnico: assignData.technician.label,
+                        tecnicoId: assignData.technician.value,
+                        ubicacionFisica: '',
+                        fecha_inicio: formattedDate,
+                        hora_inicio: formattedTime,
+                        fecha_fin: '',
+                        hora_fin: '',
+                        estado: 'ASIGNADO',
+                    }],
+                }
+            };
+
+            await updateDiagnosticReport(selectedReportForAssign.id, updateData);
+            toast.success("Técnico asignado correctamente.");
+            setIsAssignModalOpen(false);
+            navigate(`/diagnostico/${selectedReportForAssign.id}`); // User said: "En caso el tecnico asigne un tecnico responsable debe redirigirle ahora si al informe tecnico." - Assuming this means Editing the report? Or Viewing History?
+            // "redirigirle ahora si al informe tecnico" -> likely the 'Diagnostico' edit view or 'DetalleHistorial'?
+            // Re-reading: "En caso el tecnico asigne un tecnico responsable debe redirigirle ahora si al informe tecnico." 
+            // Previous part: "En caso ya tenga un tecnico responsable automaticamente se dirige a ver @[src/pages/DetalleHistorial.jsx]"
+            // Contextually, if I am assigning myself, maybe I want to Start working on it?
+            // But usually "Ver Informe Tecnico" implies the History view or Edit view?
+            // The prompt says "ver el informe tecnico". I replaced the Eye icon. The Eye icon went to History.
+            // So I should probaly go to History? Or maybe Edit?
+            // Let's assume History for consistency with the "Already Assigned" behavior, unless "Informe Tecnico" refers to the Printable/Edit view.
+            // Wait, "En caso ya tenga... DetalleHistorial.jsx".
+            // "asignar... redirigirle ahora si al informe tecnico".
+            // I'll stick to DetalleHistorial for now as it makes semantic sense (The Eye Icon View).
+            navigate(`/ver-estado/historial/${selectedReportForAssign.id}`);
+
+        } catch (error) {
+            console.error(error);
+            toast.error("Error al asignar técnico.");
+        } finally {
+            setIsAssigning(false);
+        }
     };
 
     const handleUpdateReport = () => {
@@ -225,7 +330,7 @@ function VerEstado() {
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-4">
                                         {canView && <button onClick={() => handleOpenCosts(report)} className="text-green-500 hover:text-green-700" title="Ver Costos y Pagos"><FaMoneyBillWave /></button>}
-                                        <Link to={`/ver-estado/historial/${report.id}`} className="text-blue-500 hover:text-blue-700" title="Ver historial"><FaEye /></Link>
+                                        <button onClick={() => handleViewReport(report)} className="text-blue-500 hover:text-blue-700" title="Ver informe"><FaEye /></button>
                                         {canEdit && <Link to={`/diagnostico/${report.id}`} className="text-yellow-500 hover:text-yellow-700" title="Editar"><FaEdit /></Link>}
                                         {canDelete && <button onClick={() => handleDeleteRequest(report)} className="text-red-500 hover:text-red-700" title="Eliminar"><FaTrash /></button>}
                                     </div>
@@ -281,6 +386,87 @@ function VerEstado() {
                     onClose={handleCloseCosts}
                     onUpdate={handleUpdateReport}
                 />
+            )}
+
+            {isAssignModalOpen && (
+                <Modal onClose={() => setIsAssignModalOpen(false)}>
+                    <div className="p-6 w-full max-w-lg mx-auto">
+                        <h2 className="text-xl font-bold mb-4">Asignar Responsable</h2>
+                        <p className="mb-4 text-gray-600">¿A quién le gustaría asignar el informe técnico?</p>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">Técnico Responsable</label>
+                            <Select
+                                options={technicians}
+                                value={assignData.technician}
+                                onChange={(val) => setAssignData(prev => ({ ...prev, technician: val }))}
+                                placeholder="Seleccionar técnico..."
+                                menuPortalTarget={document.body}
+                                styles={{
+                                    menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                    control: (baseStyles) => ({
+                                        ...baseStyles,
+                                        backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                                        borderColor: theme === "dark" ? "#4B5563" : baseStyles.borderColor,
+                                    }),
+                                    singleValue: (baseStyles) => ({
+                                        ...baseStyles,
+                                        color: theme === "dark" ? "#fff" : "#000",
+                                    }),
+                                    menu: (baseStyles) => ({
+                                        ...baseStyles,
+                                        backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                                    }),
+                                    option: (baseStyles, state) => ({
+                                        ...baseStyles,
+                                        backgroundColor: state.isFocused ? (theme === "dark" ? "#4B5563" : "#e5e7eb") : "transparent",
+                                        color: theme === "dark" ? "#fff" : "#000",
+                                    }),
+                                    input: (baseStyles) => ({
+                                        ...baseStyles,
+                                        color: theme === "dark" ? "#fff" : "#000",
+                                    }),
+                                    placeholder: (baseStyles) => ({
+                                        ...baseStyles,
+                                        color: theme === "dark" ? "#9CA3AF" : "#9CA3AF",
+                                    }),
+                                }}
+                                isClearable
+                            />
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">Área de Destino</label>
+                            <select
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                value={assignData.area}
+                                onChange={(e) => setAssignData(prev => ({ ...prev, area: e.target.value }))}
+                            >
+                                <option value="">Seleccionar Área</option>
+                                <option value="SOFTWARE">SOFTWARE</option>
+                                <option value="HARDWARE">HARDWARE</option>
+                                <option value="ELECTRONICA">ELECTRONICA</option>
+                            </select>
+                        </div>
+
+                        <div className="flex justify-end space-x-2">
+                            <button
+                                onClick={() => setIsAssignModalOpen(false)}
+                                className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
+                                disabled={isAssigning}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleAssignSubmit}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"
+                                disabled={isAssigning}
+                            >
+                                {isAssigning ? 'Asignando...' : 'Asignar'}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
             )}
         </div>
     );
