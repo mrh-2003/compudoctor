@@ -55,6 +55,7 @@ function DetalleDiagnostico() {
     const [tecnicoApoyo, setTecnicoApoyo] = useState(null);
     const [ubicacionFisica, setUbicacionFisica] = useState('');
     const [motivoText, setMotivoText] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     const [editableAdditionalServices, setEditableAdditionalServices] = useState([]);
     const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0 });
@@ -253,12 +254,14 @@ function DetalleDiagnostico() {
         const CHECKED = '✅';
         const UNCHECKED_CONTENT = '🟫';
 
-        // Helper to formatting lines
+        // Helper to formatted lines
         const formatLine = (checked, label, details) => {
+            const hasDetails = details && details.trim() !== '' && details !== '-' && details !== '?' && details !== 'undefined';
+
             if (checked) {
-                return `${CHECKED} ${label}${details ? ` (${details})` : ''}`;
-            } else if (details && details.trim() !== '' && details !== '-') {
-                return `${UNCHECKED_CONTENT} ${label} (${details})`;
+                return `${CHECKED} ${label}${hasDetails ? ` (${details})` : ''}`;
+            } else if (hasDetails) {
+                return `${UNCHECKED_CONTENT} ${label} (No marcado) (${details})`;
             }
             return null;
         };
@@ -304,9 +307,18 @@ function DetalleDiagnostico() {
             });
 
         } else if (report.area === 'ELECTRONICA') {
-            summary.push(formatLine(formState.elec_video, 'TARJ. VIDEO', `Reparable: ${formState.elec_video_reparable || '?'}`));
-            summary.push(formatLine(formState.elec_placa, 'PLACA', `Reparable: ${formState.elec_placa_reparable || '?'}`));
-            summary.push(formatLine(formState.elec_otro, 'OTRO', `${formState.elec_otro_especif || '-'} (Reparable: ${formState.elec_otro_reparable || '?'})`));
+            // Only show Reparable status if the component is explicitly checked
+            summary.push(formatLine(formState.elec_video, 'TARJ. VIDEO', formState.elec_video ? `Reparable: ${formState.elec_video_reparable || 'SI'}` : ''));
+
+            summary.push(formatLine(formState.elec_placa, 'PLACA', formState.elec_placa ? `Reparable: ${formState.elec_placa_reparable || 'SI'}` : ''));
+
+            // For Otro, we might want to show the specifics even if unchecked (as a 'No marcado' note), 
+            // but we hide the Reparable status if unchecked.
+            const otroDetail = formState.elec_otro_especif || '';
+            const otroReparable = formState.elec_otro ? `(Reparable: ${formState.elec_otro_reparable || 'SI'})` : '';
+            const finalOtroDetail = [otroDetail, otroReparable].filter(Boolean).join(' ');
+
+            summary.push(formatLine(formState.elec_otro, 'OTRO', finalOtroDetail));
 
             if (formState.elec_codigo) summary.push(`ℹ️ Código: ${formState.elec_codigo}`);
             if (formState.elec_etapa) summary.push(`ℹ️ Etapa: ${formState.elec_etapa}`);
@@ -366,9 +378,45 @@ function DetalleDiagnostico() {
     const handleCompleteTask = async (e) => {
         e.preventDefault();
         if (!isAllowedToEdit || isReportFinalized) return;
+
+        // ELECTRONICS VALIDATION
+        if (report.area === 'ELECTRONICA') {
+            const isVideo = formState.elec_video;
+            const isPlaca = formState.elec_placa;
+            const isOtro = formState.elec_otro;
+
+            const anySelected = isVideo || isPlaca || isOtro;
+
+            if (anySelected) {
+                const checkComponent = (checked, reparableVal, label) => {
+                    if (!checked) return true;
+                    const reparable = reparableVal === 'SI'; // Default is usually SI in handleFormChange but verify
+                    if (reparable) {
+                        if (!formState.elec_codigo?.trim()) return `El Código es obligatorio para ${label} reparable.`;
+                        if (!formState.elec_etapa?.trim()) return `La Etapa es obligatoria para ${label} reparable.`;
+                    } else {
+                        if (!formState.elec_etapa?.trim()) return `La Etapa es obligatoria para ${label} no reparable.`;
+                    }
+                    return true;
+                };
+
+                const vErr = checkComponent(isVideo, formState.elec_video_reparable, 'Tarjeta Video');
+                if (vErr !== true) return toast.error(vErr);
+
+                const pErr = checkComponent(isPlaca, formState.elec_placa_reparable, 'Placa Madre');
+                if (pErr !== true) return toast.error(pErr);
+
+                const oErr = checkComponent(isOtro, formState.elec_otro_reparable, 'Otro Componente');
+                if (oErr !== true) return toast.error(oErr);
+            }
+        }
+
         if (!reparacionFinal) return toast.error('La descripción de la reparación es obligatoria.');
         if (!nextArea) return toast.error('Debes seleccionar la siguiente área o marcar como terminado.');
         if (!ubicacionFisica) return toast.error('Debes ingresar la ubicación física.');
+
+        setIsSaving(true);
+
 
         const isTransfer = nextArea !== 'TERMINADO';
         if (isTransfer && !tecnicoSiguiente) return toast.error('Debes asignar un técnico para la siguiente área.');
@@ -455,6 +503,8 @@ function DetalleDiagnostico() {
         } catch (error) {
             toast.error('Error al actualizar el informe.');
             console.error(error);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -565,6 +615,20 @@ function DetalleDiagnostico() {
         const commonFields = (
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4">
                 <p className="font-bold text-lg text-black dark:text-white">SERVICIO EN CURSO</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico de Recepción:</label>
+                        <input type="text" value={report.tecnicoRecepcion || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico Inicial (Abrio el Equipo):</label>
+                        <input type="text" value={report.tecnicoInicial || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico de Testeo:</label>
+                        <input type="text" value={report.tecnicoTesteo || ''} readOnly className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 cursor-not-allowed" />
+                    </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium mb-1">Fecha Inicio:</label>
@@ -840,8 +904,43 @@ function DetalleDiagnostico() {
                             </div>
                         </div>
                         <div className="space-y-2 border p-4 rounded-md dark:border-gray-700">
-                            <textarea name="elec_codigo" value={formState.elec_codigo || ''} {...p('elec_generales')} placeholder="Código" className={`${inputProps.className} w-full`} rows="2"></textarea>
-                            <textarea name="elec_etapa" value={formState.elec_etapa || ''} {...p('elec_generales')} placeholder="Etapa" className={`${inputProps.className} w-full`} rows="2"></textarea>
+                            {/* Dynamic Labels with Asterisks */}
+                            {(() => {
+                                const isVideo = formState.elec_video;
+                                const isPlaca = formState.elec_placa;
+                                const isOtro = formState.elec_otro;
+                                const anySelected = isVideo || isPlaca || isOtro;
+
+                                let codigoRequired = false;
+                                let etapaRequired = false;
+
+                                if (anySelected) {
+                                    // Logic: if ANY selected is Reparable=SI -> Code Required
+                                    // If ANY selected -> Etapa Required (per instructions: Reparable->Code+Etapa, NoRepair->Etapa)
+
+                                    const isVideoRep = formState.elec_video_reparable === 'SI' || formState.elec_video_reparable === undefined;
+                                    const isPlacaRep = formState.elec_placa_reparable === 'SI' || formState.elec_placa_reparable === undefined;
+                                    const isOtroRep = formState.elec_otro_reparable === 'SI' || formState.elec_otro_reparable === undefined;
+
+                                    if ((isVideo && isVideoRep) || (isPlaca && isPlacaRep) || (isOtro && isOtroRep)) {
+                                        codigoRequired = true;
+                                    }
+                                    etapaRequired = true; // Always required if any component checked
+                                }
+
+                                return (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Código {codigoRequired && <span className="text-red-500">*</span>}</label>
+                                            <textarea name="elec_codigo" value={formState.elec_codigo || ''} {...p('elec_generales')} placeholder="Código del repuesto..." className={`${inputProps.className} w-full`} rows="2"></textarea>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Etapa {etapaRequired && <span className="text-red-500">*</span>}</label>
+                                            <textarea name="elec_etapa" value={formState.elec_etapa || ''} {...p('elec_generales')} placeholder="Etapa de la reparación..." className={`${inputProps.className} w-full`} rows="2"></textarea>
+                                        </div>
+                                    </>
+                                );
+                            })()}
                             <textarea name="elec_obs" value={formState.elec_obs || ''} {...p('elec_generales')} placeholder="Obs" className={`${inputProps.className} w-full`} rows="3"></textarea>
                         </div>
                     </div>
@@ -1246,6 +1345,14 @@ function DetalleDiagnostico() {
                             ></textarea>
                         </div>
                         <div>
+                            <div className="flex gap-4 mb-2 text-sm justify-center">
+                                <div>
+                                    <span className="font-bold">Hora Inicio:</span> {formState.hora_inicio || '--:--'}
+                                </div>
+                                <div>
+                                    <span className="font-bold">Hora Finalización:</span> {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                            </div>
                             <label className="block text-sm font-medium mb-1">Ubicación Física</label>
                             <input
                                 type="text"
@@ -1283,8 +1390,10 @@ function DetalleDiagnostico() {
                             </div>
                         )}
                         <div className="flex justify-end space-x-2">
-                            <button type="button" onClick={handleCloseCompletionModal} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                            <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Guardar y Pasar</button>
+                            <button type="button" onClick={handleCloseCompletionModal} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg" disabled={isSaving}>Cancelar</button>
+                            <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center" disabled={isSaving}>
+                                {isSaving ? 'Guardando...' : 'Guardar y Pasar'}
+                            </button>
                         </div>
                     </form>
                 </Modal>
