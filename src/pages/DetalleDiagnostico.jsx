@@ -150,6 +150,19 @@ function DetalleDiagnostico() {
                     initialFormState = currentEntry || {};
                 }
 
+                // AUTO-FILL TESTEO OBSERVATIONS
+                if (fetchedReport.area === 'TESTEO') {
+                    const hasCambioPlaca = fetchedReport.servicesList?.some(s => s.service === 'Cambio de Placa');
+
+                    if (!hasCambioPlaca) {
+                        const getDetail = (id) => fetchedReport.items?.find(i => i.id === id)?.detalles || '';
+
+                        if (!initialFormState.testeo_procesador) initialFormState.testeo_procesador = getDetail('procesador');
+                        if (!initialFormState.testeo_video_dedicado) initialFormState.testeo_video_dedicado = getDetail('tarjetaVideo');
+                        if (!initialFormState.testeo_memoria_ram) initialFormState.testeo_memoria_ram = getDetail('memoriaRam');
+                    }
+                }
+
                 setFormState(initialFormState);
 
                 setUbicacionFisica(fetchedReport.ubicacionFisica || '');
@@ -202,6 +215,21 @@ function DetalleDiagnostico() {
             ...prev,
             [name]: value,
         }));
+    };
+
+    const handleRadioClick = (e) => {
+        if (!isAllowedToEdit || isReportFinalized) return;
+        const permissionKey = e.target.dataset.pk || e.target.name;
+        if (isFieldReadOnly(permissionKey)) return;
+
+        const { name, value } = e.target;
+        if (formState[name] === value) {
+            // Deselect if already checked
+            setFormState(prev => ({
+                ...prev,
+                [name]: null,
+            }));
+        }
     };
 
     const handleAddServicioAdicional = async () => {
@@ -674,7 +702,10 @@ function DetalleDiagnostico() {
 
         const p = (key) => getProps(key, inputProps, false);
         const c = (key) => getProps(key, checkboxProps, true);
-        const r = (key) => getProps(key, radioProps, true);
+        const r = (key) => ({
+            ...getProps(key, radioProps, true),
+            onClick: handleRadioClick
+        });
 
         switch (report.area) {
             case 'HARDWARE':
