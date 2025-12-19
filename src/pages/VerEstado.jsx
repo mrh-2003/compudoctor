@@ -194,18 +194,7 @@ function VerEstado() {
             await updateDiagnosticReport(selectedReportForAssign.id, updateData);
             toast.success("Técnico asignado correctamente.");
             setIsAssignModalOpen(false);
-            navigate(`/diagnostico/${selectedReportForAssign.id}`); // User said: "En caso el tecnico asigne un tecnico responsable debe redirigirle ahora si al informe tecnico." - Assuming this means Editing the report? Or Viewing History?
-            // "redirigirle ahora si al informe tecnico" -> likely the 'Diagnostico' edit view or 'DetalleHistorial'?
-            // Re-reading: "En caso el tecnico asigne un tecnico responsable debe redirigirle ahora si al informe tecnico." 
-            // Previous part: "En caso ya tenga un tecnico responsable automaticamente se dirige a ver @[src/pages/DetalleHistorial.jsx]"
-            // Contextually, if I am assigning myself, maybe I want to Start working on it?
-            // But usually "Ver Informe Tecnico" implies the History view or Edit view?
-            // The prompt says "ver el informe tecnico". I replaced the Eye icon. The Eye icon went to History.
-            // So I should probaly go to History? Or maybe Edit?
-            // Let's assume History for consistency with the "Already Assigned" behavior, unless "Informe Tecnico" refers to the Printable/Edit view.
-            // Wait, "En caso ya tenga... DetalleHistorial.jsx".
-            // "asignar... redirigirle ahora si al informe tecnico".
-            // I'll stick to DetalleHistorial for now as it makes semantic sense (The Eye Icon View).
+            navigate(`/diagnostico/${selectedReportForAssign.id}`); 
             navigate(`/ver-estado/historial/${selectedReportForAssign.id}`);
 
         } catch (error) {

@@ -146,7 +146,7 @@ function CostosModal({ report, onClose, onUpdate }) {
             <div className="p-6 max-w-4xl mx-auto">
                 <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                     <FaWallet className="text-green-600" />
-                    Detalle de Costos y Pagos
+                    Detalle de Costos y Pagos - {report.marca || ''} / {report.modelo || ''}
                 </h2>
 
                 {/* Services Table */}
