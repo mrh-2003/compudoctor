@@ -2121,86 +2121,7 @@ function Diagnostico() {
             Información de Pago
           </h2>
 
-          <div className="flex items-center mb-4">
-            <input
-              type="checkbox"
-              checked={showAdditionalServices}
-              onChange={() => setShowAdditionalServices((prev) => !prev)}
-              className="h-4 w-4"
-              disabled={isFormLocked}
-            />
-            <label className="ml-2 text-xl font-semibold text-pink-500">
-              Agregar Servicios Adicionales
-            </label>
-          </div>
-
-          {showAdditionalServices && (
-            <div className="mt-4 border p-4 rounded-lg dark:border-gray-600">
-              <h3 className="text-lg font-semibold mb-2">Detalle Servicios Adicionales</h3>
-              <div className="flex space-x-2 mb-2">
-                <input
-                  type="text"
-                  placeholder="Descripción del servicio"
-                  value={newService.description}
-                  onChange={(e) =>
-                    setNewService((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  disabled={isFormLocked}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  onFocus={handlePaymentFocus}
-                  onWheel={handleWheel}
-                  placeholder="Monto (S/)"
-                  value={newService.amount}
-                  onChange={(e) =>
-                    setNewService((prev) => ({
-                      ...prev,
-                      amount: parseFloat(e.target.value),
-                    }))
-                  }
-                  className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
-                  disabled={isFormLocked}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddAdditionalService}
-                  className="bg-blue-500 text-white font-bold px-4 rounded-lg disabled:bg-blue-300"
-                  disabled={isFormLocked}
-                >
-                  <FaPlus />
-                </button>
-              </div>
-
-              <ul className="space-y-1">
-                {additionalServices.map((service) => (
-                  <li
-                    key={service.id}
-                    className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md"
-                  >
-                    <span>
-                      {service.description} - S/ {service.amount.toFixed(2)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteAdditionalService(service.id)}
-                      className="ml-4 text-red-500 hover:text-red-700"
-                      disabled={isFormLocked}
-                    >
-                      <FaTimes />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* Additional Services option removed as per request */}
 
           <div className="mb-4 mt-6">
             <label className="block text-sm font-medium mb-1">
@@ -2295,7 +2216,7 @@ function Diagnostico() {
               />
             </div>
           </div>
-        </div>
+        </div >
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 text-indigo-500">
@@ -2463,26 +2384,28 @@ function Diagnostico() {
           </div>
         </div>
 
-        {!isFormLocked && (
-          <button
-            type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center disabled:bg-blue-400"
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              'Guardando...'
-            ) : isEditMode ? (
-              <>
-                <FaPen className="mr-2" /> Actualizar Informe Técnico
-              </>
-            ) : (
-              <>
-                <FaSave className="mr-2" /> Guardar Informe Técnico
-              </>
-            )}
-          </button>
-        )}
-      </form>
+        {
+          !isFormLocked && (
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center disabled:bg-blue-400"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                'Guardando...'
+              ) : isEditMode ? (
+                <>
+                  <FaPen className="mr-2" /> Actualizar Informe Técnico
+                </>
+              ) : (
+                <>
+                  <FaSave className="mr-2" /> Guardar Informe Técnico
+                </>
+              )}
+            </button>
+          )
+        }
+      </form >
 
       {isNewClientModalOpen && (
         <Modal onClose={() => setIsNewClientModalOpen(false)}>
@@ -2492,7 +2415,7 @@ function Diagnostico() {
           />
         </Modal>
       )}
-    </div>
+    </div >
   );
 }
 
