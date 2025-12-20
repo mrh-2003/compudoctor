@@ -63,6 +63,8 @@ function DetalleHistorial() {
     const [report, setReport] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+    const location = useLocation();
+    const backPath = location.pathname.includes('bandeja-tecnico') ? '/bandeja-tecnico' : '/ver-estado';
     const [observacionEntrega, setObservacionEntrega] = useState('');
 
     // Estados para documentos de venta/compra
@@ -252,9 +254,9 @@ function DetalleHistorial() {
                         .text-block { width: 100%; border: 1px solid #000; padding: 6px; font-size: 9pt; min-height: 40px; border-radius: 4px; }
 
                         .financials { display: flex; justify-content: space-between; margin: 10px 0; padding: 0 20px; }
-                        .money-box { display: flex; align-items: center; border: 1px solid #000; padding: 4px 8px; border-radius: 6px; width: 28%; }
-                        .money-label { font-weight: 800; margin-right: 10px; font-size: 10pt; }
-                        .money-value { font-weight: normal; flex-grow: 1; text-align: right; }
+                        .money-box { display: flex; align-items: center; border: 1px solid #000; padding: 4px 8px; border-radius: 6px; width: 22%; }
+                        .money-label { font-weight: 800; margin-right: 5px; font-size: 9pt; white-space: nowrap; }
+                        .money-value { font-weight: normal; flex-grow: 1; text-align: right; font-size: 10pt; }
 
                         .warning-box { background-color: #ec008c; color: white; text-align: center; font-size: 8pt; font-weight: 700; padding: 6px; border-radius: 4px; margin-bottom: 8px; line-height: 1.2; }
 
@@ -334,8 +336,8 @@ function DetalleHistorial() {
                             </div>
                         </div>
 
-                        <div class="checklist-container">
-                            ${PRINT_ORDER_MAP.map((item) => {
+                         <div class="checklist-container">
+                             ${PRINT_ORDER_MAP.map((item) => {
             const { isChecked, detailText } = getCheckItemData(item.id);
             return `
                                 <div class="component-item">
@@ -363,16 +365,20 @@ function DetalleHistorial() {
                         </div>
 
                         <div class="financials">
-                            <div class="money-box">
-                                <span class="money-label">DIAGNOSTICO</span>
+                             <div class="money-box" style="width: 24%">
+                                <span class="money-label" style="font-size: 8pt;">DIAGNOSTICO</span>
                                 <span class="money-value">${(parseFloat(report.diagnostico) || 0).toFixed(2)}</span>
                             </div>
-                            <div class="money-box">
-                                <span class="money-label">A CUENTA</span>
+                            <div class="money-box" style="width: 24%">
+                                <span class="money-label" style="font-size: 8pt;">SERV. ADIC.</span>
+                                <span class="money-value">${(parseFloat(report.total) - parseFloat(report.montoServicio) - parseFloat(report.diagnostico)).toFixed(2)}</span>
+                            </div>
+                            <div class="money-box" style="width: 24%">
+                                <span class="money-label" style="font-size: 8pt;">A CUENTA</span>
                                 <span class="money-value">${(parseFloat(report.aCuenta) || 0).toFixed(2)}</span>
                             </div>
-                            <div class="money-box">
-                                <span class="money-label">SALDO</span>
+                            <div class="money-box" style="width: 24%">
+                                <span class="money-label" style="font-size: 8pt;">SALDO</span>
                                 <span class="money-value">${(parseFloat(report.saldo) || 0).toFixed(2)}</span>
                             </div>
                         </div>
@@ -762,8 +768,7 @@ function DetalleHistorial() {
     const total = parseFloat(report.total) || 0;
     const saldo = parseFloat(report.saldo) || 0;
 
-    const location = useLocation();
-    const backPath = location.pathname.includes('bandeja-tecnico') ? '/bandeja-tecnico' : '/ver-estado';
+
 
     return (
         <div className="container mx-auto p-4 md:p-8">
