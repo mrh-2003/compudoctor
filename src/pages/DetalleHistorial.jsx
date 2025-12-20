@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { getDiagnosticReportById, updateDiagnosticReport } from '../services/diagnosticService';
 import { FaArrowLeft, FaCheckCircle, FaTrash, FaPlus, FaPrint } from 'react-icons/fa';
 import toast from 'react-hot-toast';
@@ -762,11 +762,14 @@ function DetalleHistorial() {
     const total = parseFloat(report.total) || 0;
     const saldo = parseFloat(report.saldo) || 0;
 
+    const location = useLocation();
+    const backPath = location.pathname.includes('bandeja-tecnico') ? '/bandeja-tecnico' : '/ver-estado';
+
     return (
         <div className="container mx-auto p-4 md:p-8">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
-                    <Link to="/ver-estado" className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white mr-4" title="Volver a Ver Estado">
+                    <Link to={backPath} className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white mr-4" title="Volver">
                         <FaArrowLeft size={24} />
                     </Link>
                     <h1 className="text-2xl font-bold">Informe Tecnico N° {report.reportNumber}</h1>

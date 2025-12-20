@@ -147,6 +147,11 @@ function App() {
                             <DetalleDiagnostico />
                         </ProtectedRoute>
                     } />
+                    <Route path="bandeja-tecnico/historial/:reportId" element={
+                        <ProtectedRoute permissionId="diagnostico">
+                            <DetalleHistorial />
+                        </ProtectedRoute>
+                    } />
                 </Route>
             </Routes>
         </BrowserRouter>

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllDiagnosticReportsByTechnician, startDiagnosticReport } from '../services/diagnosticService';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaTasks, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaTasks, FaChevronLeft, FaChevronRight, FaEye } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const STATUS_COLORS = {
@@ -104,6 +104,10 @@ function BandejaTecnico() {
         setCurrentPage(1);
     };
 
+    const handleViewReport = (report) => {
+        navigate(`/bandeja-tecnico/historial/${report.id}`);
+    };
+
     const handlePreviousPage = () => {
         setCurrentPage(prev => Math.max(prev - 1, 1));
     };
@@ -177,6 +181,7 @@ function BandejaTecnico() {
                                         >
                                             <FaTasks />
                                         </a>
+                                        <button onClick={() => handleViewReport(report)} className="text-blue-500 hover:text-blue-700" title="Ver informe"><FaEye /></button>
                                     </div>
                                 </td>
                             </tr>
