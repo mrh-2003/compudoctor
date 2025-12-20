@@ -205,7 +205,14 @@ export const addPayment = async (reportId, paymentData) => {
         const totalPrincipal = (reportData.servicesList || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
         const totalAdicional = (reportData.additionalServices || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
         const diagnosticoCost = parseFloat(reportData.diagnostico) || 0;
-        const totalGeneral = totalPrincipal + totalAdicional + diagnosticoCost;
+
+        // Calculate subtotal
+        let totalGeneral = totalPrincipal + totalAdicional + diagnosticoCost;
+
+        // Apply IGV if enabled
+        if (reportData.includeIgv) {
+            totalGeneral = totalGeneral * 1.18;
+        }
 
         const nuevoSaldo = totalGeneral - totalPagado;
 

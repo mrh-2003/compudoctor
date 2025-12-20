@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Modal from '../common/Modal';
-import { addPayment, markReportAsPaid } from '../../services/diagnosticService';
+import { addPayment, markReportAsPaid, updateDiagnosticReport } from '../../services/diagnosticService';
 import toast from 'react-hot-toast';
 import { FaMoneyBillWave, FaWallet } from 'react-icons/fa';
 
@@ -13,6 +13,8 @@ function CostosModal({ report, onClose, onUpdate }) {
         otroMetodo: ''
     });
 
+    const [includeIgv, setIncludeIgv] = useState(report.includeIgv || false);
+
     const servicesList = report.servicesList || [];
     const additionalServices = report.additionalServices || [];
 
@@ -20,11 +22,39 @@ function CostosModal({ report, onClose, onUpdate }) {
     const totalAdicional = additionalServices.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
     const diagnosticoCost = parseFloat(report.diagnostico) || 0;
 
-    const totalGeneral = totalPrincipal + totalAdicional; // Diagnostico no suma al general
+    // Calculate totals based on IGV
+    const subTotal = totalPrincipal + totalAdicional; // Base without diagnostic
+    const totalWithIgv = includeIgv ? (subTotal * 1.18) : subTotal; 
+    const totalGeneral = totalWithIgv;
 
     const pagosRealizados = report.pagosRealizado || [];
-    const totalPagado = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
+    const totalPagado = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0); 
     const saldo = totalGeneral - totalPagado;
+
+    const handleToggleIgv = async () => {
+        const newValue = !includeIgv;
+        setIncludeIgv(newValue);
+        // Persist immediately
+        try {
+            await updateDiagnosticReport(report.id, { includeIgv: newValue }); 
+            const newTotalDB = newValue
+                ? (totalPrincipal + totalAdicional + diagnosticoCost) * 1.18
+                : (totalPrincipal + totalAdicional + diagnosticoCost);
+
+            await updateDiagnosticReport(report.id, {
+                includeIgv: newValue,
+                total: newTotalDB,
+                saldo: newTotalDB - totalPagado
+            });
+
+            if (onUpdate) onUpdate();
+            toast.success(`IGV ${newValue ? 'activado' : 'desactivado'} correcamente.`);
+        } catch (error) {
+            console.error(error);
+            toast.error("Error al actualizar IGV");
+            setIncludeIgv(!newValue); // Revert on error
+        }
+    };
 
     // Check if payment is allowed
     const canAddPayment = report.tecnicoResponsable && report.area && report.area !== 'N/A';
@@ -189,6 +219,13 @@ function CostosModal({ report, onClose, onUpdate }) {
                 {/* Financial Report */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-2">
+                        <div className="flex justify-between items-center border-b pb-2 mb-2 dark:border-gray-600">
+                            <span className="font-bold">Aplicar IGV (18%)</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked={includeIgv} onChange={handleToggleIgv} className="sr-only peer" />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
                         <div className="flex justify-between">
                             <span className="font-medium">Total Servicios Principales:</span>
                             <span>S/ {totalPrincipal.toFixed(2)}</span>
@@ -201,8 +238,14 @@ function CostosModal({ report, onClose, onUpdate }) {
                             <span className="font-medium">Diagnóstico:</span>
                             <span>S/ {diagnosticoCost.toFixed(2)}</span>
                         </div>
+                        {includeIgv && (
+                            <div className="flex justify-between text-sm text-gray-500">
+                                <span>IGV (18%):</span>
+                                <span>S/ {(subTotal * 0.18).toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="border-t border-gray-300 dark:border-gray-600 pt-2 flex justify-between font-bold text-lg">
-                            <span>Total General:</span>
+                            <span>Total General {includeIgv ? '(Inc. IGV)' : ''}:</span>
                             <span>S/ {totalGeneral.toFixed(2)}</span>
                         </div>
                     </div>

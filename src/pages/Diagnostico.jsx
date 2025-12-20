@@ -747,9 +747,10 @@ function Diagnostico() {
 
 
     // Logic for "NO PRENDE"
-    const mandatoryDetailNoPrendeLaptop = ['procesador', 'placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo', 'wifi', 'cargador'];
-    const mandatoryDetailNoPrendePC = ['placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo'];
-    const mandatoryCheckNoPrendePC = ['placaMadre', 'memoriaRam'];
+    const mandatoryDetailNoPrendeLaptop = ['pantalla', 'teclado', 'camara', 'microfono', 'parlantes', 'procesador', 'placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo', 'wifi', 'cargador'];
+    const mandatoryCheckNoPrendeLaptop = ['procesador', 'placaMadre'];
+    const mandatoryDetailNoPrendePC = ['procesador', 'placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo'];
+    const mandatoryCheckNoPrendePC = ['procesador', 'placaMadre', 'memoriaRam'];
 
     // Lógica Impresora
     const mandatoryPrinterIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
@@ -797,6 +798,10 @@ function Diagnostico() {
         if (itemId === 'memoriaRam') {
           isDetailRequired = true;
         }
+      }
+    } else if (isLaptop && isNoPrende) {
+      if (mandatoryCheckNoPrendeLaptop.includes(itemId)) {
+        isCheckRequired = true;
       }
     }
 
@@ -1402,8 +1407,8 @@ function Diagnostico() {
 
     try {
       let finalStatus = formData.estado || "PENDIENTE";
-      if (!['ENTREGADO', 'TERMINADO'].includes(finalStatus)) { 
-        finalStatus = (finalResponsible && formData.area) ? "ASIGNADO" : "PENDIENTE"; 
+      if (!['ENTREGADO', 'TERMINADO'].includes(finalStatus)) {
+        finalStatus = (finalResponsible && formData.area) ? "ASIGNADO" : "PENDIENTE";
       }
 
       const baseData = {
