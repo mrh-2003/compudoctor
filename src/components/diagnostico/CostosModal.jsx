@@ -102,7 +102,7 @@ function CostosModal({ report, onClose, onUpdate }) {
     const diagnosticoCost = parseFloat(report.diagnostico) || 0;
 
     // Calculate Totals dynamically
-    const { totalBase, totalIgv, totalFinal } = costItems.reduce((acc, item) => {
+    const { totalBase, totalIgv, totalFinal, groupedTotals } = costItems.reduce((acc, item) => {
         const base = item.amount;
         const hasIgv = !!igvMap[item.id];
         const igv = hasIgv ? (base * 0.18) : 0;
@@ -110,8 +110,14 @@ function CostosModal({ report, onClose, onUpdate }) {
         acc.totalBase += base;
         acc.totalIgv += igv;
         acc.totalFinal += (base + igv);
+
+        // Group totals breakdown
+        if (item.type === 'Diagnóstico') acc.groupedTotals.diagnostico += base;
+        else if (item.type === 'Principal') acc.groupedTotals.principal += base;
+        else acc.groupedTotals.adicional += base; // Covers 'Adicional (Global)' and 'Adicional (Área)'
+
         return acc;
-    }, { totalBase: 0, totalIgv: 0, totalFinal: 0 });
+    }, { totalBase: 0, totalIgv: 0, totalFinal: 0, groupedTotals: { diagnostico: 0, principal: 0, adicional: 0 } });
 
     const pagosRealizados = report.pagosRealizado || [];
     const totalPagado = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
@@ -352,6 +358,21 @@ function CostosModal({ report, onClose, onUpdate }) {
                 {/* Financial Report */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-2">
+                        {groupedTotals.diagnostico > 0 && (
+                            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                                <span>Diagnóstico:</span>
+                                <span>S/ {groupedTotals.diagnostico.toFixed(2)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                            <span>Total Servicios Principales:</span>
+                            <span>S/ {groupedTotals.principal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-600 pb-2 mb-2">
+                            <span>Total Servicios Adicionales:</span>
+                            <span>S/ {groupedTotals.adicional.toFixed(2)}</span>
+                        </div>
+
                         <div className="flex justify-between">
                             <span className="font-medium">Total Base (Sin IGV):</span>
                             <span>S/ {totalBase.toFixed(2)}</span>

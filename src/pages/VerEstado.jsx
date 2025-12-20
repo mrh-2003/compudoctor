@@ -29,6 +29,8 @@ function VerEstado() {
     const [filters, setFilters] = useState({
         generalSearch: '',
         estado: '',
+        specificSearchColumn: '',
+        specificSearchTerm: ''
     });
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedReportIdForCosts, setSelectedReportIdForCosts] = useState(null);
@@ -90,7 +92,21 @@ function VerEstado() {
                 String(value).toLowerCase().includes(filters.generalSearch.toLowerCase())
             );
             const statusMatch = filters.estado ? report.estado?.toLowerCase() === filters.estado.toLowerCase() : true;
-            return generalMatch && statusMatch;
+
+            let specificMatch = true;
+            if (filters.specificSearchColumn && filters.specificSearchTerm) {
+                const colValue = String(report[filters.specificSearchColumn] || '').toLowerCase();
+                const term = filters.specificSearchTerm.toLowerCase();
+
+                if (filters.specificSearchColumn === 'reportNumber') {
+                    // Exact match for Report Number
+                    specificMatch = colValue === term;
+                } else {
+                    specificMatch = colValue.includes(term);
+                }
+            }
+
+            return generalMatch && statusMatch && specificMatch;
         });
     }, [filters, allReports]);
 
@@ -194,7 +210,7 @@ function VerEstado() {
             await updateDiagnosticReport(selectedReportForAssign.id, updateData);
             toast.success("Técnico asignado correctamente.");
             setIsAssignModalOpen(false);
-            navigate(`/diagnostico/${selectedReportForAssign.id}`); 
+            navigate(`/diagnostico/${selectedReportForAssign.id}`);
             navigate(`/ver-estado/historial/${selectedReportForAssign.id}`);
 
         } catch (error) {
@@ -232,27 +248,62 @@ function VerEstado() {
                 <h1 className="text-2xl font-bold">Estado de Reparaciones</h1>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <input
-                    type="text"
-                    name="generalSearch"
-                    placeholder="Buscar en todas las columnas..."
-                    value={filters.generalSearch}
-                    onChange={handleFilterChange}
-                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 col-span-2"
-                />
-                <select
-                    name="estado"
-                    value={filters.estado}
-                    onChange={handleFilterChange}
-                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                >
-                    <option value="">Todos los estados</option>
-                    <option value="PENDIENTE">PENDIENTE</option>
-                    <option value="ASIGNADO">ASIGNADO</option>
-                    <option value="ENTREGADO">ENTREGADO</option>
-                    <option value="TERMINADO">TERMINADO</option>
-                </select>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6 space-y-4">
+                {/* General Search and Status Filter */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input
+                        type="text"
+                        name="generalSearch"
+                        placeholder="Buscar en todas las columnas..."
+                        value={filters.generalSearch}
+                        onChange={handleFilterChange}
+                        className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 col-span-2"
+                    />
+                    <select
+                        name="estado"
+                        value={filters.estado}
+                        onChange={handleFilterChange}
+                        className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    >
+                        <option value="">Todos los estados</option>
+                        <option value="PENDIENTE">PENDIENTE</option>
+                        <option value="ASIGNADO">ASIGNADO</option>
+                        <option value="ENTREGADO">ENTREGADO</option>
+                        <option value="TERMINADO">TERMINADO</option>
+                    </select>
+                </div>
+
+                {/* Specific Column Search */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center bg-gray-50 dark:bg-gray-700/30 p-3 rounded-md border border-gray-100 dark:border-gray-700">
+                    <div className="text-sm font-semibold text-gray-500 md:col-span-3 flex items-center gap-2">
+                        <FaEye className="text-blue-500" /> Búsqueda Específica
+                    </div>
+                    <select
+                        name="specificSearchColumn"
+                        value={filters.specificSearchColumn}
+                        onChange={handleFilterChange}
+                        className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    >
+                        <option value="">Seleccionar Columna...</option>
+                        <option value="reportNumber">N° Informe (Exacto)</option>
+                        <option value="clientName">Cliente</option>
+                        <option value="ruc">RUC/DNI</option>
+                        <option value="telefono">Celular</option>
+                        <option value="marca">Marca</option>
+                        <option value="modelo">Modelo</option>
+                        <option value="tecnicoResponsable">Técnico Resp.</option>
+                        <option value="area">Área</option>
+                    </select>
+                    <input
+                        type="text"
+                        name="specificSearchTerm"
+                        placeholder="Término a buscar..."
+                        value={filters.specificSearchTerm}
+                        onChange={handleFilterChange}
+                        disabled={!filters.specificSearchColumn}
+                        className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 col-span-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                </div>
             </div>
 
 
