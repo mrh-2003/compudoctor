@@ -57,8 +57,9 @@ function DetalleDiagnostico() {
     const [motivoText, setMotivoText] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    const [editableAdditionalServices, setEditableAdditionalServices] = useState([]);
+    // const [editableAdditionalServices, setEditableAdditionalServices] = useState([]); // Removed global state
     const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0 });
+    const [selectedServiceOption, setSelectedServiceOption] = useState(null); // Local selection state
 
     // New State for "Add Service" logic
     const [enabledFields, setEnabledFields] = useState([]);
@@ -70,7 +71,7 @@ function DetalleDiagnostico() {
     const isAllowedToEdit = isActualTech && ['PENDIENTE', 'ASIGNADO'].includes(report?.estado);
     const isReportFinalized = report && ['TERMINADO', 'ENTREGADO'].includes(report.estado);
 
-    const canEditAdditionalServices = isAllowedToEdit && ['HARDWARE', 'SOFTWARE'].includes(report?.area);
+    const canEditAdditionalServices = isAllowedToEdit; // Simplified permission
 
     const componentItems = useMemo(() => {
         if (!report || !report.items) return [];
@@ -82,10 +83,27 @@ function DetalleDiagnostico() {
         let diagCost = parseFloat(report?.diagnostico) || 0;
         let serviceTotal = parseFloat(report?.montoServicio) || 0;
 
-        const totalAdicionales = editableAdditionalServices.reduce(
-            (sum, service) => sum + (parseFloat(service.amount) || 0),
-            0
-        );
+        // Calculate total from ALL history entries + current form state + legacy global additionalServices
+        let totalAdicionales = 0;
+
+        // 1. History entries
+        if (report?.diagnosticoPorArea) {
+            Object.values(report.diagnosticoPorArea).flat().forEach(entry => {
+                if (entry.addedServices) {
+                    entry.addedServices.forEach(s => totalAdicionales += (parseFloat(s.amount) || 0));
+                }
+            });
+        }
+
+        // 2. Current Form State (if active)
+        if (formState.addedServices) {
+            formState.addedServices.forEach(s => totalAdicionales += (parseFloat(s.amount) || 0));
+        }
+
+        // 3. Legacy Global (if any exist from before migration)
+        if (report?.additionalServices) {
+            report.additionalServices.forEach(s => totalAdicionales += (parseFloat(s.amount) || 0));
+        }
 
         const newTotal = (serviceTotal + totalAdicionales);
         const newSaldo = newTotal - aCuenta;
@@ -96,7 +114,7 @@ function DetalleDiagnostico() {
             total: newTotal,
             saldo: newSaldo,
         };
-    }, [report, editableAdditionalServices]);
+    }, [report, formState.addedServices]);
 
     const handleUpdateReportFinance = useCallback(async (updatedData) => {
         try {
@@ -167,7 +185,8 @@ function DetalleDiagnostico() {
 
                 setUbicacionFisica(fetchedReport.ubicacionFisica || '');
 
-                setEditableAdditionalServices(fetchedReport.additionalServices || []);
+                if (!initialFormState.addedServices) initialFormState.addedServices = [];
+                // setEditableAdditionalServices(fetchedReport.additionalServices || []); // Removed
 
                 const allUsers = await getAllUsersDetailed();
                 const technicians = allUsers.filter(u => u.rol === 'USER' || u.rol === 'SUPERUSER');
@@ -232,48 +251,46 @@ function DetalleDiagnostico() {
         }
     };
 
-    const handleAddServicioAdicional = async () => {
-        if (!canEditAdditionalServices || isReportFinalized) return;
-        if (!nuevoServicio.description || !nuevoServicio.amount || parseFloat(nuevoServicio.amount) <= 0) {
-            toast.error('Debe ingresar una descripción y un monto válido.');
-            return;
+    const handleAddLocalService = () => {
+        if (!selectedServiceOption || !nuevoServicio.amount) return;
+
+        // ENABLE THE FIELD
+        // Add the field key to the enabledFields list so it becomes editable
+        if (selectedServiceOption.value) {
+            setEnabledFields(prev => {
+                if (!prev.includes(selectedServiceOption.value)) {
+                    return [...prev, selectedServiceOption.value];
+                }
+                return prev;
+            });
         }
 
-        const amountValue = parseFloat(nuevoServicio.amount);
-        const servicioConId = {
-            ...nuevoServicio,
-            amount: amountValue,
-            id: Date.now()
+        const amountVal = parseFloat(nuevoServicio.amount);
+        const serviceToAdd = {
+            id: Date.now(),
+            description: selectedServiceOption.label,
+            amount: amountVal
         };
 
-        const newAdditionalServices = [...editableAdditionalServices, servicioConId];
-        setEditableAdditionalServices(newAdditionalServices);
+        setFormState(prev => ({
+            ...prev,
+            addedServices: [...(prev.addedServices || []), serviceToAdd]
+        }));
+
+        // Reset inputs
         setNuevoServicio({ description: '', amount: 0 });
-
-        const dataToUpdate = {
-            additionalServices: newAdditionalServices,
-            hasAdditionalServices: true,
-        };
-
-        await handleUpdateReportFinance(dataToUpdate);
-        toast.success('Servicio adicional agregado y saldo actualizado.');
+        setSelectedServiceOption(null);
     };
 
-    const handleDeleteServicioAdicional = async (id) => {
-        if (!canEditAdditionalServices || isReportFinalized) return;
-        const serviceToDelete = editableAdditionalServices.find(s => s.id === id);
-        if (!serviceToDelete) return;
-
-        const newAdditionalServices = editableAdditionalServices.filter(s => s.id !== id);
-        setEditableAdditionalServices(newAdditionalServices);
-
-        const dataToUpdate = {
-            additionalServices: newAdditionalServices,
-            hasAdditionalServices: newAdditionalServices.length > 0,
-        };
-
-        await handleUpdateReportFinance(dataToUpdate);
-        toast.success('Servicio adicional eliminado y saldo actualizado.');
+    const handleRemoveLocalService = (index) => {
+        setFormState(prev => {
+            const newServices = [...(prev.addedServices || [])];
+            newServices.splice(index, 1);
+            return {
+                ...prev,
+                addedServices: newServices
+            };
+        });
     };
 
     const generateTaskSummary = () => {
@@ -476,7 +493,7 @@ function DetalleDiagnostico() {
                 fecha_fin: formattedDate,
                 hora_fin: formattedTime,
                 estado: 'TERMINADO',
-                serviciosAdicionales: editableAdditionalServices,
+                addedServices: formState.addedServices || [],
             };
 
             const updatedDiagnosticoPorArea = {
@@ -485,10 +502,10 @@ function DetalleDiagnostico() {
             };
 
             const currentACuenta = parseFloat(report.aCuenta) || 0;
-            const serviceTotal = parseFloat(report.montoServicio) || 0;
-            const totalAdicionales = editableAdditionalServices.reduce((sum, service) => sum + (parseFloat(service.amount) || 0), 0);
-            const finalTotal = serviceTotal + totalAdicionales;
-            const finalSaldo = finalTotal - currentACuenta;
+
+            // Use values calculated in useMemo
+            const finalTotal = total;
+            const finalSaldo = saldo;
 
             const newGlobalState = nextArea === 'TERMINADO' ? 'TERMINADO' : 'ASIGNADO';
 
@@ -501,10 +518,11 @@ function DetalleDiagnostico() {
                 ubicacionFisica: ubicacionFisica,
 
                 aCuenta: currentACuenta,
-                total: finalTotal,
-                saldo: finalSaldo,
-                additionalServices: editableAdditionalServices,
-                hasAdditionalServices: editableAdditionalServices.length > 0,
+                aCuenta: currentACuenta,
+                total: total, // Use the memoized calculated total from the component logic which includes all history + current
+                saldo: saldo, // Use memoized saldo
+                // additionalServices: editableAdditionalServices, // We don't update global legacy array anymore
+                // hasAdditionalServices: editableAdditionalServices.length > 0,
             };
 
             if (isTransfer) {
@@ -1245,97 +1263,23 @@ function DetalleDiagnostico() {
             {memoizedReportHeader}
 
             {/* SECCIÓN EDITABLE: SERVICIOS ADICIONALES */}
-            {isActualTech && canEditAdditionalServices && (
-                <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
-                    <h2 className="text-xl font-semibold mb-4 text-red-500 border-b pb-3 dark:border-gray-700">Servicios Adicionales (Editable)</h2>
 
-                    {/* El campo A Cuenta editable se elimina de aquí */}
-
-                    {canEditAdditionalServices && (
-                        <div className="mt-4 border p-4 rounded-lg dark:border-gray-600 space-y-4">
-                            <h3 className="text-lg font-bold text-pink-500 dark:text-pink-400 border-b pb-2">Servicios Adicionales</h3>
-
-                            <div className="flex space-x-2">
-                                <input
-                                    type="text"
-                                    placeholder="Descripción del servicio"
-                                    value={nuevoServicio.description}
-                                    onChange={(e) =>
-                                        setNuevoServicio((prev) => ({
-                                            ...prev,
-                                            description: e.target.value,
-                                        }))
-                                    }
-                                    className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                    disabled={!canEditAdditionalServices || isReportFinalized}
-                                />
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    placeholder="Monto (S/)"
-                                    value={nuevoServicio.amount}
-                                    onChange={(e) =>
-                                        setNuevoServicio((prev) => ({
-                                            ...prev,
-                                            amount: parseFloat(e.target.value) || 0,
-                                        }))
-                                    }
-                                    className="w-full md:w-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                    disabled={!canEditAdditionalServices || isReportFinalized}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={handleAddServicioAdicional}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 rounded-lg flex items-center disabled:bg-blue-400"
-                                    disabled={!canEditAdditionalServices || isReportFinalized}
-                                >
-                                    <FaPlus />
-                                </button>
-                            </div>
-
-                            <ul className="space-y-1">
-                                {editableAdditionalServices.length === 0 && (
-                                    <li className="text-gray-500">No hay servicios adicionales registrados.</li>
-                                )}
-                                {editableAdditionalServices.map((service) => (
-                                    <li
-                                        key={service.id}
-                                        className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md"
-                                    >
-                                        <span>
-                                            {service.description} - S/ {parseFloat(service.amount).toFixed(2)}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteServicioAdicional(service.id)}
-                                            className="ml-4 text-red-500 hover:text-red-700"
-                                            disabled={!canEditAdditionalServices || isReportFinalized}
-                                        >
-                                            <FaTimes />
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            )}
 
             {isActualTech && (
                 <>
                     <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
                         {renderAreaForm()}
+                        {renderAdditionalServicesSection(
+                            report, isAllowedToEdit, isReportFinalized,
+                            formState, nuevoServicio, setNuevoServicio,
+                            handleAddLocalService, handleRemoveLocalService,
+                            selectStyles, theme, getConfigForArea,
+                            setSelectedServiceOption, selectedServiceOption
+                        )}
                     </div>
 
                     <div className="mt-8 flex justify-end space-x-3">
-                        <button
-                            onClick={() => setIsAddServiceModalOpen(true)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"
-                            disabled={!isAllowedToEdit || isReportFinalized}
-                        >
-                            <FaPlus className="mr-2" /> Agregar Servicio
-                        </button>
+                        {/* Button Removed: Agregar Servicio */}
                         <button
                             onClick={handleOpenCompletionModal}
                             className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"
@@ -1430,43 +1374,150 @@ function DetalleDiagnostico() {
                 </Modal>
             )}
 
-            {/* Modal for Adding Service (Enabling Fields) */}
-            {isAddServiceModalOpen && (
-                <Modal onClose={() => setIsAddServiceModalOpen(false)}>
-                    <div className="p-4 space-y-4">
-                        <h2 className="text-xl font-bold">Agregar Servicio / Detalle</h2>
-                        <p className="text-sm text-gray-500">Seleccione el servicio o detalle que desea modificar o agregar.</p>
-
-                        <Select
-                            options={getConfigForArea(report.area)}
-                            onChange={setSelectedServiceToAdd}
-                            placeholder="Seleccione un servicio..."
-                            styles={selectStyles(theme)}
-                            menuPortalTarget={document.body}
-                            menuPosition="fixed"
-                        />
-
-                        <div className="flex justify-end space-x-2 mt-4">
-                            <button
-                                onClick={() => setIsAddServiceModalOpen(false)}
-                                className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleConfirmAddService}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
-                                disabled={!selectedServiceToAdd}
-                            >
-                                Agregar
-                            </button>
-                        </div>
-                    </div>
-                </Modal>
-            )}
+            {/* Modal for Adding Service Removed */}
         </div>
     );
 }
+
+const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinalized, formState, nuevoServicio, setNuevoServicio, handleAddLocalService, handleRemoveLocalService, selectStyles, theme, getConfigForArea, setSelectedServiceOption, selectedServiceOption) => {
+    return (
+        <div className="border p-4 rounded-md mt-6 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <h3 className="font-bold text-lg mb-4 text-gray-700 dark:text-gray-300 border-b pb-2">Servicios Adicionales de Área</h3>
+
+            {/* Locked Services (History) Logic */}
+            {(() => {
+                // Find all locked service IDs from TERMINATED entries in this area
+                const lockedServiceIds = new Set();
+                if (report.diagnosticoPorArea && report.diagnosticoPorArea[report.area]) {
+                    report.diagnosticoPorArea[report.area].forEach(entry => {
+                        if (entry.estado === 'TERMINADO' && entry.addedServices) {
+                            entry.addedServices.forEach(s => lockedServiceIds.add(s.id));
+                        }
+                    });
+                }
+
+                // formState.addedServices contains both historical (copied on init) and new session services
+                // We split them for display purposes
+
+                const allServices = formState.addedServices || [];
+                const lockedServices = allServices.filter(s => lockedServiceIds.has(s.id));
+                const sessionServices = allServices.filter(s => !lockedServiceIds.has(s.id));
+
+                return (
+                    <>
+                        {/* Adder Section */}
+                        {(isAllowedToEdit && !isReportFinalized) && (
+                            <div className="flex flex-col md:flex-row gap-4 items-end mb-6 p-4 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600">
+                                <div className="flex-grow w-full">
+                                    <label className="block text-sm font-medium mb-1">Servicio / Detalle</label>
+                                    <Select
+                                        options={getConfigForArea(report.area)}
+                                        value={selectedServiceOption}
+                                        onChange={setSelectedServiceOption}
+                                        placeholder="Seleccione un servicio..."
+                                        styles={selectStyles(theme)}
+                                        menuPortalTarget={document.body}
+                                        menuPosition="fixed"
+                                    />
+                                </div>
+                                <div className="w-full md:w-40">
+                                    <label className="block text-sm font-medium mb-1">Costo (S/)</label>
+                                    <input
+                                        type="number"
+                                        value={nuevoServicio.amount}
+                                        onChange={(e) => setNuevoServicio(prev => ({ ...prev, amount: e.target.value }))}
+                                        onClick={(e) => { if (parseFloat(e.target.value) === 0) setNuevoServicio(prev => ({ ...prev, amount: '' })) }}
+                                        onBlur={(e) => { if (e.target.value === '') setNuevoServicio(prev => ({ ...prev, amount: 0 })) }}
+                                        className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
+                                        min="0"
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleAddLocalService}
+                                    disabled={!selectedServiceOption || nuevoServicio.amount === ''}
+                                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-6 rounded-lg h-[38px] flex items-center justify-center"
+                                >
+                                    <FaPlus className="mr-2" /> Agregar
+                                </button>
+                            </div>
+                        )}
+
+                        {/* List Section */}
+                        <div className="space-y-2">
+                            {/* Render Locked Services First */}
+                            {lockedServices.length > 0 && (
+                                <div className="mb-4">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Historial (Bloqueado)</h4>
+                                    <ul className="divide-y dark:divide-gray-700 bg-gray-100 dark:bg-gray-900/50 rounded-md border dark:border-gray-700">
+                                        {lockedServices.map((service, index) => (
+                                            <li key={service.id} className="flex justify-between items-center py-2 px-3 text-sm text-gray-500">
+                                                <div className="flex items-center gap-2">
+                                                    <FaCheckCircle className="text-gray-400" size={12} />
+                                                    <span>{service.description}</span>
+                                                </div>
+                                                <span className="font-medium">S/ {parseFloat(service.amount).toFixed(2)}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Render Session Services */}
+                            {sessionServices.length > 0 ? (
+                                <div>
+                                    {lockedServices.length > 0 && <h4 className="text-xs font-bold text-blue-500 uppercase mb-2">Nuevos (Esta Sesión)</h4>}
+                                    <ul className="divide-y dark:divide-gray-700">
+                                        {sessionServices.map((service, index) => {
+                                            // We need the ACTUAL index in the main array to delete correctly?
+                                            // Actually handleRemoveLocalService takes an index. 
+                                            // If we filter, the indices are wrong.
+                                            // We should pass the ID to remove, and findIndex in the handler.
+                                            // But handleRemoveLocalService uses index.
+                                            // Let's refactor handleRemoveLocalService to use ID is safer, but simpler:
+                                            // We can find the index in original array using the object reference or ID.
+                                            const originalIndex = allServices.findIndex(s => s.id === service.id);
+
+                                            return (
+                                                <li key={service.id || index} className="flex justify-between items-center py-2 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                                                        {service.description}
+                                                    </span>
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="font-bold text-gray-900 dark:text-white bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">
+                                                            S/ {parseFloat(service.amount).toFixed(2)}
+                                                        </span>
+                                                        {(isAllowedToEdit && !isReportFinalized) && (
+                                                            <button
+                                                                onClick={() => handleRemoveLocalService(originalIndex)}
+                                                                className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                                                title="Eliminar servicio"
+                                                            >
+                                                                <FaTimes />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            ) : (
+                                lockedServices.length === 0 && <p className="text-gray-500 italic text-sm">No se han registrado servicios adicionales.</p>
+                            )}
+                        </div>
+
+                        {/* Total Local Preview */}
+                        {allServices.length > 0 && (
+                            <div className="mt-4 pt-2 border-t dark:border-gray-600 flex justify-end">
+                                <span className="font-bold text-lg">Total Adicionales Área: S/ {allServices.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0).toFixed(2)}</span>
+                            </div>
+                        )}
+                    </>
+                );
+            })()}
+        </div>
+    );
+};
 
 // Helper to get configuration of fields per area
 const getConfigForArea = (area) => {

@@ -13,46 +13,157 @@ function CostosModal({ report, onClose, onUpdate }) {
         otroMetodo: ''
     });
 
-    const [includeIgv, setIncludeIgv] = useState(report.includeIgv || false);
+    const [comprobanteData, setComprobanteData] = useState({
+        tipo: report.comprobante?.tipo || 'BOLETA ELECTRONICA',
+        numero: report.comprobante?.numero || ''
+    });
 
-    const servicesList = report.servicesList || [];
-    const additionalServices = report.additionalServices || [];
+    // Helper to gather all cost items with unique IDs
+    const getAllCostItems = () => {
+        const items = [];
 
-    const totalPrincipal = servicesList.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-    const totalAdicional = additionalServices.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+        // 1. Diagnostic
+        if (parseFloat(report.diagnostico) > 0) {
+            items.push({
+                id: 'diag-1',
+                label: 'Diagnóstico',
+                amount: parseFloat(report.diagnostico),
+                type: 'Diagnóstico'
+            });
+        }
+
+        // 2. Services List (Main) from Diagnostico Form
+        if (report.servicesList) {
+            report.servicesList.forEach((s, idx) => {
+                items.push({
+                    id: `main-${idx}`,
+                    label: s.service,
+                    amount: parseFloat(s.amount) || 0,
+                    type: 'Principal'
+                });
+            });
+        }
+
+        // 3. Legacy Additional Services (Global)
+        if (report.additionalServices) {
+            report.additionalServices.forEach((s, idx) => {
+                items.push({
+                    id: s.id || `legacy-${idx}`,
+                    label: s.description,
+                    amount: parseFloat(s.amount) || 0,
+                    type: 'Adicional (Global)'
+                });
+            });
+        }
+
+        // 4. History/Area Additional Services (New)
+        if (report.diagnosticoPorArea) {
+            const seenServiceIds = new Set();
+
+            Object.entries(report.diagnosticoPorArea).forEach(([area, entries]) => {
+                entries.forEach((entry, entryIdx) => {
+                    if (entry.addedServices) {
+                        entry.addedServices.forEach((s, sIdx) => {
+                            // If service has an ID and we've seen it, skip it.
+                            if (s.id && seenServiceIds.has(s.id)) {
+                                return;
+                            }
+                            if (s.id) {
+                                seenServiceIds.add(s.id);
+                            }
+
+                            items.push({
+                                id: s.id || `area-${area}-${entryIdx}-${sIdx}`,
+                                label: `${s.description} (${area})`,
+                                amount: parseFloat(s.amount) || 0,
+                                type: 'Adicional (Área)'
+                            });
+                        });
+                    }
+                });
+            });
+        }
+
+        return items;
+    };
+
+    const costItems = getAllCostItems();
+
+    // Map of IDs that have IGV applied
+    // Assuming report.igvApplicableIds is an array of strings. If undefined, default to empty.
+    const [igvMap, setIgvMap] = useState(() => {
+        const map = {};
+        if (report.igvApplicableIds) {
+            report.igvApplicableIds.forEach(id => map[id] = true);
+        }
+        return map;
+    });
+
     const diagnosticoCost = parseFloat(report.diagnostico) || 0;
 
-    // Calculate totals based on IGV
-    const subTotal = totalPrincipal + totalAdicional; // Base without diagnostic
-    const totalWithIgv = includeIgv ? (subTotal * 1.18) : subTotal; 
-    const totalGeneral = totalWithIgv;
+    // Calculate Totals dynamically
+    const { totalBase, totalIgv, totalFinal } = costItems.reduce((acc, item) => {
+        const base = item.amount;
+        const hasIgv = !!igvMap[item.id];
+        const igv = hasIgv ? (base * 0.18) : 0;
+
+        acc.totalBase += base;
+        acc.totalIgv += igv;
+        acc.totalFinal += (base + igv);
+        return acc;
+    }, { totalBase: 0, totalIgv: 0, totalFinal: 0 });
 
     const pagosRealizados = report.pagosRealizado || [];
-    const totalPagado = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0); 
-    const saldo = totalGeneral - totalPagado;
+    const totalPagado = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
+    const saldo = totalFinal - totalPagado;
 
-    const handleToggleIgv = async () => {
-        const newValue = !includeIgv;
-        setIncludeIgv(newValue);
-        // Persist immediately
+    // Handler for toggling IGV on a specific item
+    const handleToggleItemIgv = async (itemId) => {
+        const newMap = { ...igvMap, [itemId]: !igvMap[itemId] };
+        setIgvMap(newMap);
+
+        // Calculate new persistence data
+        const newIgvApplicableIds = Object.keys(newMap).filter(id => newMap[id]);
+
+        // Re-calculate totals for DB save (manual reducer as we are inside the handler)
+        const reCalc = costItems.reduce((acc, item) => {
+            const hasIgv = !!newMap[item.id];
+            const igv = hasIgv ? (item.amount * 0.18) : 0;
+            acc.final += (item.amount + igv);
+            return acc;
+        }, { final: 0 });
+
         try {
-            await updateDiagnosticReport(report.id, { includeIgv: newValue }); 
-            const newTotalDB = newValue
-                ? (totalPrincipal + totalAdicional + diagnosticoCost) * 1.18
-                : (totalPrincipal + totalAdicional + diagnosticoCost);
-
             await updateDiagnosticReport(report.id, {
-                includeIgv: newValue,
-                total: newTotalDB,
-                saldo: newTotalDB - totalPagado
+                igvApplicableIds: newIgvApplicableIds,
+                total: reCalc.final,
+                saldo: reCalc.final - totalPagado
             });
-
             if (onUpdate) onUpdate();
-            toast.success(`IGV ${newValue ? 'activado' : 'desactivado'} correcamente.`);
+        } catch (error) {
+            console.error("Error updating IGV", error);
+            toast.error("Error al actualizar IGV");
+            setIgvMap(igvMap); // Revert
+        }
+    };
+
+    const handleSaveComprobante = async () => {
+        if (!comprobanteData.numero) {
+            toast.error("Ingrese el número de comprobante");
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            await updateDiagnosticReport(report.id, {
+                comprobante: comprobanteData
+            });
+            toast.success("Comprobante guardado");
+            if (onUpdate) onUpdate();
         } catch (error) {
             console.error(error);
-            toast.error("Error al actualizar IGV");
-            setIncludeIgv(!newValue); // Revert on error
+            toast.error("Error al guardar comprobante");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -179,74 +290,79 @@ function CostosModal({ report, onClose, onUpdate }) {
                     Detalle de Costos y Pagos - {report.marca || ''} / {report.modelo || ''}
                 </h2>
 
-                {/* Services Table */}
+                {/* Services Table with IGV Switch */}
                 <div className="mb-6 overflow-x-auto">
-                    <h3 className="text-lg font-semibold mb-2">Servicios Solicitados y Adicionales</h3>
-                    <table className="min-w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-700">
+                    <h3 className="text-lg font-semibold mb-2">Detalle de Servicios y Productos</h3>
+                    <table className="min-w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                             <tr>
-                                <th className="px-4 py-2 text-left">Servicio</th>
-                                <th className="px-4 py-2 text-right">Monto</th>
+                                <th className="px-4 py-2 text-left">Descripción</th>
                                 <th className="px-4 py-2 text-center">Tipo</th>
+                                <th className="px-4 py-2 text-right">Monto Base</th>
+                                <th className="px-4 py-2 text-center">Aplicar IGV</th>
+                                <th className="px-4 py-2 text-right">Subtotal</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {servicesList.map((service, index) => (
-                                <tr key={`principal-${index}`} className="border-t border-gray-200 dark:border-gray-700">
-                                    <td className="px-4 py-2">{service.service}</td>
-                                    <td className="px-4 py-2 text-right">S/ {(parseFloat(service.amount) || 0).toFixed(2)}</td>
-                                    <td className="px-4 py-2 text-center"><span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Principal</span></td>
-                                </tr>
-                            ))}
-                            {additionalServices.map((service, index) => (
-                                <tr key={`additional-${index}`} className="border-t border-gray-200 dark:border-gray-700">
-                                    <td className="px-4 py-2">{service.description}</td>
-                                    <td className="px-4 py-2 text-right">S/ {(parseFloat(service.amount) || 0).toFixed(2)}</td>
-                                    <td className="px-4 py-2 text-center"><span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Adicional</span></td>
-                                </tr>
-                            ))}
-                            {diagnosticoCost > 0 && (
-                                <tr className="border-t border-gray-200 dark:border-gray-700">
-                                    <td className="px-4 py-2">Diagnóstico</td>
-                                    <td className="px-4 py-2 text-right">S/ {diagnosticoCost.toFixed(2)}</td>
-                                    <td className="px-4 py-2 text-center"><span className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">Diagnóstico</span></td>
-                                </tr>
-                            )}
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {costItems.map((item) => {
+                                const hasIgv = !!igvMap[item.id];
+                                const subTotalItem = item.amount + (hasIgv ? item.amount * 0.18 : 0);
+
+                                return (
+                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                        <td className="px-4 py-2 font-medium">{item.label}</td>
+                                        <td className="px-4 py-2 text-center">
+                                            <span className={`text-[10px] px-2 py-1 rounded border ${item.type === 'Diagnóstico' ? 'bg-gray-100 border-gray-300 text-gray-600' :
+                                                item.type === 'Principal' ? 'bg-blue-50 border-blue-200 text-blue-600' :
+                                                    'bg-yellow-50 border-yellow-200 text-yellow-600'
+                                                }`}>
+                                                {item.type}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right">S/ {item.amount.toFixed(2)}</td>
+                                        <td className="px-4 py-2 text-center">
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={hasIgv}
+                                                    onChange={() => handleToggleItemIgv(item.id)}
+                                                    className="sr-only peer"
+                                                />
+                                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </label>
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-bold w-24">
+                                            S/ {subTotalItem.toFixed(2)}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
+                        <tfoot className="bg-gray-50 dark:bg-gray-700 font-bold">
+                            <tr>
+                                <td colSpan="2" className="px-4 py-2 text-right">Totales:</td>
+                                <td className="px-4 py-2 text-right">S/ {totalBase.toFixed(2)}</td>
+                                <td className="px-4 py-2 text-right text-gray-500 text-xs">IGV: S/ {totalIgv.toFixed(2)}</td>
+                                <td className="px-4 py-2 text-right text-blue-600 text-base">S/ {totalFinal.toFixed(2)}</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
 
                 {/* Financial Report */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-2">
-                        <div className="flex justify-between items-center border-b pb-2 mb-2 dark:border-gray-600">
-                            <span className="font-bold">Aplicar IGV (18%)</span>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" checked={includeIgv} onChange={handleToggleIgv} className="sr-only peer" />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
                         <div className="flex justify-between">
-                            <span className="font-medium">Total Servicios Principales:</span>
-                            <span>S/ {totalPrincipal.toFixed(2)}</span>
+                            <span className="font-medium">Total Base (Sin IGV):</span>
+                            <span>S/ {totalBase.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="font-medium">Total Servicios Adicionales:</span>
-                            <span>S/ {totalAdicional.toFixed(2)}</span>
+                        <div className="flex justify-between text-sm text-gray-500">
+                            <span>Total IGV (18%):</span>
+                            <span>S/ {totalIgv.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="font-medium">Diagnóstico:</span>
-                            <span>S/ {diagnosticoCost.toFixed(2)}</span>
-                        </div>
-                        {includeIgv && (
-                            <div className="flex justify-between text-sm text-gray-500">
-                                <span>IGV (18%):</span>
-                                <span>S/ {(subTotal * 0.18).toFixed(2)}</span>
-                            </div>
-                        )}
                         <div className="border-t border-gray-300 dark:border-gray-600 pt-2 flex justify-between font-bold text-lg">
-                            <span>Total General {includeIgv ? '(Inc. IGV)' : ''}:</span>
-                            <span>S/ {totalGeneral.toFixed(2)}</span>
+                            <span>Total General:</span>
+                            <span>S/ {totalFinal.toFixed(2)}</span>
                         </div>
                     </div>
 
@@ -323,6 +439,48 @@ function CostosModal({ report, onClose, onUpdate }) {
                     ) : (
                         <p className="text-gray-500 italic">No se han registrado pagos.</p>
                     )}
+                </div>
+
+                {/* Voucher Section */}
+                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        Comprobante de Pago
+                    </h3>
+                    <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg flex flex-col md:flex-row gap-4 items-end">
+                        <div className="w-full md:w-1/3">
+                            <label className="block text-sm font-medium mb-1">Tipo de Comprobante</label>
+                            <select
+                                value={comprobanteData.tipo}
+                                onChange={(e) => setComprobanteData(prev => ({ ...prev, tipo: e.target.value }))}
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                disabled={isSubmitting}
+                            >
+                                <option value="BOLETA FISICA">BOLETA FISICA</option>
+                                <option value="BOLETA ELECTRONICA">BOLETA ELECTRONICA</option>
+                                <option value="FACTURA ELECTRONICA">FACTURA ELECTRONICA</option>
+                            </select>
+                        </div>
+                        <div className="w-full md:w-1/3">
+                            <label className="block text-sm font-medium mb-1">Número</label>
+                            <input
+                                type="text"
+                                value={comprobanteData.numero}
+                                onChange={(e) => setComprobanteData(prev => ({ ...prev, numero: e.target.value }))}
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                placeholder="Ejem: B001-000123"
+                                disabled={isSubmitting}
+                            />
+                        </div>
+                        <div className="w-full md:w-auto">
+                            <button
+                                onClick={handleSaveComprobante}
+                                disabled={isSubmitting}
+                                className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting ? 'Guardando...' : 'Guardar Comprobante'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="mt-6 flex justify-end">

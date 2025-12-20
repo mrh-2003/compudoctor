@@ -504,6 +504,21 @@ const ReadOnlyAreaHistory = ({ entry, areaName }) => {
     return (
         <div className="border p-4 rounded-md mt-4 bg-white dark:bg-gray-800 dark:border-gray-600 shadow-md">
             {renderAreaContent()}
+
+            {/* Render Added Services (Common for all areas now) */}
+            {entry.addedServices && entry.addedServices.length > 0 && (
+                <div className="mt-4 pt-3 border-t dark:border-gray-700">
+                    <h4 className="font-bold text-sm text-gray-700 dark:text-gray-300 mb-2">Servicios Adicionales:</h4>
+                    <ul className="text-sm space-y-1">
+                        {entry.addedServices.map((service, idx) => (
+                            <li key={idx} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded">
+                                <span>{service.description}</span>
+                                <span className="font-bold">S/ {parseFloat(service.amount).toFixed(2)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </div>
     );
 };
