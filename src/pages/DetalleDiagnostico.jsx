@@ -58,8 +58,13 @@ function DetalleDiagnostico() {
     const [isSaving, setIsSaving] = useState(false);
 
     // const [editableAdditionalServices, setEditableAdditionalServices] = useState([]); // Removed global state
-    const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0 });
+    const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0, specification: '' });
+    const [nuevoServicioPrinterRealizado, setNuevoServicioPrinterRealizado] = useState({ description: '', amount: 0, specification: '' });
+    const [nuevoServicioPrinterAdicional, setNuevoServicioPrinterAdicional] = useState({ description: '', amount: 0, specification: '' });
+
     const [selectedServiceOption, setSelectedServiceOption] = useState(null); // Local selection state
+    const [selectedPrinterServiceRealizado, setSelectedPrinterServiceRealizado] = useState(null);
+    const [selectedPrinterServiceAdicional, setSelectedPrinterServiceAdicional] = useState(null);
 
     // New State for "Add Service" logic
     const [enabledFields, setEnabledFields] = useState([]);
@@ -92,12 +97,18 @@ function DetalleDiagnostico() {
                 if (entry.addedServices) {
                     entry.addedServices.forEach(s => totalAdicionales += (parseFloat(s.amount) || 0));
                 }
+                if (entry.printer_services_additional) {
+                    entry.printer_services_additional.forEach(s => totalAdicionales += (parseFloat(s.amount) || 0));
+                }
             });
         }
 
         // 2. Current Form State (if active)
         if (formState.addedServices) {
             formState.addedServices.forEach(s => totalAdicionales += (parseFloat(s.amount) || 0));
+        }
+        if (formState.printer_services_additional) {
+            formState.printer_services_additional.forEach(s => totalAdicionales += (parseFloat(s.amount) || 0));
         }
 
         // 3. Legacy Global (if any exist from before migration)
@@ -114,7 +125,7 @@ function DetalleDiagnostico() {
             total: newTotal,
             saldo: newSaldo,
         };
-    }, [report, formState.addedServices]);
+    }, [report, formState.addedServices, formState.printer_services_additional]);
 
     const handleUpdateReportFinance = useCallback(async (updatedData) => {
         try {
@@ -178,7 +189,22 @@ function DetalleDiagnostico() {
                         if (!initialFormState.testeo_procesador) initialFormState.testeo_procesador = getDetail('procesador');
                         if (!initialFormState.testeo_video_dedicado) initialFormState.testeo_video_dedicado = getDetail('tarjetaVideo');
                         if (!initialFormState.testeo_memoria_ram) initialFormState.testeo_memoria_ram = getDetail('memoriaRam');
+                        if (!initialFormState.testeo_memoria_ram) initialFormState.testeo_memoria_ram = getDetail('memoriaRam');
                     }
+                }
+
+                // AUTO-FILL PRINTER SERVICES REALIZED (FIRST TIME)
+                if (fetchedReport.tipoEquipo === 'Impresora' && isFirstTime) {
+                    // Transform servicesList to the structure we use { id, description, amount, specification }
+                    // Note: servicesList items have { service, specification, amount }
+                    initialFormState.printer_services_realized = (fetchedReport.servicesList || []).map(s => ({
+                        id: Date.now() + Math.random(),
+                        description: s.service,
+                        amount: s.amount,
+                        specification: s.specification,
+                        isOther: s.isOther
+                    }));
+                    initialFormState.printer_services_additional = [];
                 }
 
                 setFormState(initialFormState);
@@ -266,10 +292,25 @@ function DetalleDiagnostico() {
         }
 
         const amountVal = parseFloat(nuevoServicio.amount);
+        let finalDescription = selectedServiceOption.label;
+        let finalSpec = '';
+        let isOther = false;
+
+        if (selectedServiceOption.value === 'Otros') {
+            if (!nuevoServicio.specification) {
+                toast.error("Debe especificar el servicio.");
+                return;
+            }
+            finalDescription = nuevoServicio.specification;
+            isOther = true;
+        }
+
         const serviceToAdd = {
             id: Date.now(),
-            description: selectedServiceOption.label,
-            amount: amountVal
+            description: finalDescription,
+            amount: amountVal,
+            specification: finalSpec,
+            isOther: isOther
         };
 
         setFormState(prev => ({
@@ -278,8 +319,61 @@ function DetalleDiagnostico() {
         }));
 
         // Reset inputs
-        setNuevoServicio({ description: '', amount: 0 });
+        setNuevoServicio({ description: '', amount: 0, specification: '' });
+        // Reset inputs
+        setNuevoServicio({ description: '', amount: 0, specification: '' });
         setSelectedServiceOption(null);
+    };
+
+    const handleAddPrinterService = (type) => {
+        // type: 'REALIZADOS' or 'ADICIONALES'
+        const isRealizado = type === 'REALIZADOS';
+        const currentSelection = isRealizado ? selectedPrinterServiceRealizado : selectedPrinterServiceAdicional;
+        const currentNewService = isRealizado ? nuevoServicioPrinterRealizado : nuevoServicioPrinterAdicional;
+        const setSelection = isRealizado ? setSelectedPrinterServiceRealizado : setSelectedPrinterServiceAdicional;
+        const setNewService = isRealizado ? setNuevoServicioPrinterRealizado : setNuevoServicioPrinterAdicional;
+        const listKey = isRealizado ? 'printer_services_realized' : 'printer_services_additional';
+
+        if (!currentSelection || !currentNewService.amount) return;
+
+        const amountVal = parseFloat(currentNewService.amount);
+        let finalDescription = currentSelection.label;
+        let finalSpec = '';
+        let isOther = false;
+
+        if (currentSelection.value === 'Otros') {
+            if (!currentNewService.specification) {
+                toast.error("Debe especificar el servicio.");
+                return;
+            }
+            finalDescription = currentNewService.specification;
+            isOther = true;
+        }
+
+        const serviceToAdd = {
+            id: Date.now(),
+            description: finalDescription,
+            amount: amountVal,
+            specification: finalSpec, // We use description for the spec text if 'Otros', otherwise no extra spec needed or we could add it
+            isOther: isOther
+        };
+
+        setFormState(prev => ({
+            ...prev,
+            [listKey]: [...(prev[listKey] || []), serviceToAdd]
+        }));
+
+        setNewService({ description: '', amount: 0, specification: '' });
+        setSelection(null);
+    };
+
+    const handleRemovePrinterService = (index, type) => {
+        const listKey = type === 'REALIZADOS' ? 'printer_services_realized' : 'printer_services_additional';
+        setFormState(prev => {
+            const newList = [...(prev[listKey] || [])];
+            newList.splice(index, 1);
+            return { ...prev, [listKey]: newList };
+        });
     };
 
     const handleRemoveLocalService = (index) => {
@@ -424,8 +518,19 @@ function DetalleDiagnostico() {
         e.preventDefault();
         if (!isAllowedToEdit || isReportFinalized) return;
 
+
+        // PRINTER VALIDATION
+        if (report.tipoEquipo === 'Impresora') {
+            // Tech 1 is usually auto-filled or strictly from report.tecnicoResponsable. 
+            // Tech 2 is the external one.
+            if (!formState.printer_tech2) return toast.error("El Técnico de Apoyo 2 es obligatorio.");
+
+            // Check Imprime. It must be SI or NO.
+            if (formState.printer_imprime !== 'SI' && formState.printer_imprime !== 'NO') return toast.error("Debe indicar si IMPRIME o NO.");
+        }
+
         // ELECTRONICS VALIDATION
-        if (report.area === 'ELECTRONICA') {
+        if (report.area === 'ELECTRONICA' && report.tipoEquipo !== 'Impresora') {
             const isVideo = formState.elec_video;
             const isPlaca = formState.elec_placa;
             const isOtro = formState.elec_otro;
@@ -493,7 +598,11 @@ function DetalleDiagnostico() {
                 fecha_fin: formattedDate,
                 hora_fin: formattedTime,
                 estado: 'TERMINADO',
+                estado: 'TERMINADO',
                 addedServices: formState.addedServices || [],
+                // Printer specific lists persistence
+                printer_services_realized: formState.printer_services_realized || [],
+                printer_services_additional: formState.printer_services_additional || [],
             };
 
             const updatedDiagnosticoPorArea = {
@@ -557,7 +666,12 @@ function DetalleDiagnostico() {
     const nextAreaOptions = useMemo(() => {
         if (!report) return [];
         const areaOptions = AREA_OPTIONS_CONSTANT.map(area => ({ value: area, label: area }));
-        if (report.area === 'TESTEO') {
+        if (report.area === 'TESTEO' || report.tipoEquipo === 'Impresora') { // Updated: Printer also defaults to TERMINADO flow
+            if (report.tipoEquipo === 'Impresora') {
+                // User request: "luego del area de testeo de impresora, solo se puede pasar a terminado"
+                // Effectively we can just offer TERMINADO.
+                return [{ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' }];
+            }
             areaOptions.push({ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' });
         }
         return areaOptions;
@@ -657,6 +771,208 @@ function DetalleDiagnostico() {
 
     const renderAreaForm = () => {
         const techniciansForSupport = users.filter(u => u.value !== currentUser.uid);
+
+        // PRINTER SPECIAL VIEW OVERRIDE
+        if (report.tipoEquipo === 'Impresora') {
+            const inputProps = {
+                onChange: handleFormChange,
+                className: "p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600",
+                readOnly: !isAllowedToEdit || isReportFinalized
+            };
+            const radioProps = {
+                onChange: handleRadioChange,
+                className: "h-4 w-4 mr-1 accent-red-600", // Using red to match the design vibe or standard
+                readOnly: !isAllowedToEdit || isReportFinalized
+            };
+
+            const p = (key) => ({ name: key, value: formState[key] || '', ...inputProps });
+            const r = (key) => ({ name: key, ...radioProps });
+
+
+            const PRINTER_SERVICES_OPTIONS = ['Limpieza de Cabezal Manual', 'Limpieza de Cabezal Software', 'Reseteo', 'Cambio de Placa', 'Cambio de Escaner', 'Mantenimiento de Hardware', 'Otros'].map(s => ({ value: s, label: s }));
+
+            const renderPrinterServiceAdder = (title, type, selection, setSelection, newServiceState, setNewServiceState, list) => {
+                return (
+                    <div className="border border-gray-300 dark:border-gray-600 p-4 rounded-md mb-4 bg-gray-50 dark:bg-gray-700/50">
+                        <h4 className="font-bold text-sm mb-2 text-gray-700 dark:text-gray-300 uppercase">{title}</h4>
+                        {/* List */}
+                        <ul className="mb-4 space-y-1">
+                            {list && list.map((item, idx) => (
+                                <li key={idx} className="flex justify-between items-center text-sm bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600">
+                                    <span>{item.description}</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-bold">S/ {parseFloat(item.amount).toFixed(2)}</span>
+                                        {!isReportFinalized && isAllowedToEdit && (
+                                            <button onClick={() => handleRemovePrinterService(idx, type)} className="text-red-500 hover:text-red-700"><FaTimes /></button>
+                                        )}
+                                    </div>
+                                </li>
+                            ))}
+                            {(!list || list.length === 0) && <li className="text-xs text-gray-500 italic">No hay servicios registrados.</li>}
+                        </ul>
+
+                        {/* Adder */}
+                        {(!isReportFinalized && isAllowedToEdit) && (
+                            <div className="flex flex-col md:flex-row gap-2 items-end">
+                                <div className="flex-grow w-full">
+                                    <label className="text-xs font-bold mb-1 block">SERVICIO / DETALLE</label>
+                                    <Select
+                                        options={PRINTER_SERVICES_OPTIONS}
+                                        value={selection}
+                                        onChange={setSelection}
+                                        placeholder="Seleccione..."
+                                        styles={selectStyles(theme)}
+                                        menuPortalTarget={document.body}
+                                        menuPosition="fixed"
+                                    />
+                                </div>
+                                <div className="w-24">
+                                    <label className="text-xs font-bold mb-1 block">COSTO (S/)</label>
+                                    <input
+                                        type="number"
+                                        value={newServiceState.amount}
+                                        onChange={(e) => setNewServiceState(prev => ({ ...prev, amount: e.target.value }))}
+                                        className="w-full p-2 border rounded-md dark:bg-gray-700 text-sm h-[38px]"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => handleAddPrinterService(type)}
+                                    disabled={!selection || !newServiceState.amount}
+                                    className="bg-black text-white px-3 py-2 rounded h-[38px] text-xs font-bold uppercase disabled:bg-gray-400 whitespace-nowrap"
+                                >
+                                    + AGREGAR {type === 'ADICIONALES' ? 'S.A' : ''}
+                                </button>
+                            </div>
+                        )}
+                        {/* Other Spec */}
+                        {selection && selection.label === 'Otros' && (
+                            <div className="mt-2">
+                                <input
+                                    type="text"
+                                    value={newServiceState.specification}
+                                    onChange={(e) => setNewServiceState(prev => ({ ...prev, specification: e.target.value }))}
+                                    placeholder="Especifique..."
+                                    className="w-full p-2 border border-red-500 rounded text-sm"
+                                />
+                            </div>
+                        )}
+                    </div>
+                )
+            };
+
+            return (
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700 space-y-6">
+                    <h2 className="text-xl font-bold text-center mb-6 uppercase border-b pb-4 dark:border-gray-700">ÁREA DE TESTEO DE IMPRESORA</h2>
+
+                    {/* Header Info */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="flex flex-col">
+                            <span className="font-bold text-gray-500 text-xs">N° INFORME</span>
+                            <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded font-mono font-bold">{report.reportNumber}</div>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-gray-500 text-xs">MARCA</span>
+                            <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded font-bold">{report.marca}</div>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-gray-500 text-xs">MODELO</span>
+                            <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded font-bold">{report.modelo}</div>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-gray-500 text-xs">SERIE</span>
+                            <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded font-bold">{report.serie}</div>
+                        </div>
+                    </div>
+
+                    {/* Technicians */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-bold mb-1">TEC. DE APOYO 1 (ASIGNADO/RESPONSABLE)</label>
+                            <input
+                                type="text"
+                                value={report.tecnicoResponsable || 'No asignado'}
+                                readOnly
+                                className="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed font-bold"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold mb-1">TEC. DE APOYO 2 (EXTERNO) <span className="text-red-500">*</span></label>
+                            <input
+                                type="text"
+                                {...p('printer_tech2')}
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                placeholder="Nombre del técnico externo"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Imprime */}
+                    <div className="flex flex-col items-center justify-center p-4 border rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                        <span className="font-bold mb-3">¿IMPRIME?</span>
+                        <div className="flex gap-8">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" value="SI" checked={formState.printer_imprime === 'SI'} {...r('printer_imprime')} className="w-5 h-5 accent-black dark:accent-white" />
+                                <span className="font-bold">SI</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" value="NO" checked={formState.printer_imprime === 'NO'} {...r('printer_imprime')} className="w-5 h-5 accent-black dark:accent-white" />
+                                <span className="font-bold">NO</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Services Lists */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {renderPrinterServiceAdder(
+                            "SERVICIO REALIZADO",
+                            "REALIZADOS",
+                            selectedPrinterServiceRealizado,
+                            setSelectedPrinterServiceRealizado,
+                            nuevoServicioPrinterRealizado,
+                            setNuevoServicioPrinterRealizado,
+                            formState.printer_services_realized
+                        )}
+                        {renderPrinterServiceAdder(
+                            "SERVICIO ADICIONAL",
+                            "ADICIONALES",
+                            selectedPrinterServiceAdicional,
+                            setSelectedPrinterServiceAdicional,
+                            nuevoServicioPrinterAdicional,
+                            setNuevoServicioPrinterAdicional,
+                            formState.printer_services_additional
+                        )}
+                    </div>
+
+                    {/* Observations */}
+                    <div>
+                        <label className="block text-sm font-bold mb-1 uppercase bg-black text-white px-2 py-1 w-max rounded-t">OBSERVACIONES</label>
+                        <textarea
+                            name="printer_observaciones"
+                            value={formState.printer_observaciones || ''}
+                            onChange={handleFormChange}
+                            rows="4"
+                            className="w-full p-3 border-2 border-black rounded-b-md rounded-tr-md dark:bg-gray-700 dark:border-gray-600 font-medium"
+                            placeholder="Ingrese las observaciones técnicas aquí..."
+                            readOnly={!isAllowedToEdit || isReportFinalized}
+                        ></textarea>
+                    </div>
+
+                    {/* Cobro Revision */}
+                    <div className="flex justify-end items-center gap-4">
+                        <span className="font-bold text-sm">¿SE COBRA REVISIÓN?</span>
+                        <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                            <input type="radio" value="SI" checked={formState.printer_cobra_revision === 'SI'} {...r('printer_cobra_revision')} className="w-4 h-4 accent-black" />
+                            <span className="font-bold text-sm">SI</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                            <input type="radio" value="NO" checked={formState.printer_cobra_revision === 'NO'} {...r('printer_cobra_revision')} className="w-4 h-4 accent-black" />
+                            <span className="font-bold text-sm">NO</span>
+                        </label>
+                    </div>
+
+                </div>
+            );
+        }
 
         const commonFields = (
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4">
@@ -1269,7 +1585,7 @@ function DetalleDiagnostico() {
                 <>
                     <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
                         {renderAreaForm()}
-                        {renderAdditionalServicesSection(
+                        {report.tipoEquipo !== 'Impresora' && renderAdditionalServicesSection(
                             report, isAllowedToEdit, isReportFinalized,
                             formState, nuevoServicio, setNuevoServicio,
                             handleAddLocalService, handleRemoveLocalService,
@@ -1411,7 +1727,10 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                 <div className="flex-grow w-full">
                                     <label className="block text-sm font-medium mb-1">Servicio / Detalle</label>
                                     <Select
-                                        options={getConfigForArea(report.area)}
+                                        options={report.tipoEquipo === 'Impresora'
+                                            ? ['Limpieza de Cabezal Manual', 'Limpieza de Cabezal Software', 'Reseteo', 'Cambio de Placa', 'Cambio de Escaner', 'Mantenimiento de Hardware', 'Otros'].map(s => ({ value: s, label: s }))
+                                            : getConfigForArea(report.area)
+                                        }
                                         value={selectedServiceOption}
                                         onChange={setSelectedServiceOption}
                                         placeholder="Seleccione un servicio..."
@@ -1432,6 +1751,21 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                         min="0"
                                     />
                                 </div>
+
+                                {selectedServiceOption && selectedServiceOption.value === 'Others' /* Removed old check, using 'Otros' string */}
+                                {selectedServiceOption && selectedServiceOption.label === 'Otros' && (
+                                    <div className="w-full md:w-64">
+                                        <label className="block text-sm font-medium mb-1">Especifique</label>
+                                        <input
+                                            type="text"
+                                            value={nuevoServicio.specification || ''}
+                                            onChange={(e) => setNuevoServicio(prev => ({ ...prev, specification: e.target.value }))}
+                                            className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500 border-red-500 ring-1 ring-red-500"
+                                            placeholder="Detalle del servicio..."
+                                        />
+                                    </div>
+                                )}
+
                                 <button
                                     onClick={handleAddLocalService}
                                     disabled={!selectedServiceOption || nuevoServicio.amount === ''}

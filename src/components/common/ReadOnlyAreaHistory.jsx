@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ReadOnlyAreaHistory = ({ entry, areaName }) => {
+const ReadOnlyAreaHistory = ({ entry, areaName, report }) => {
     const readOnlyInputProps = {
         readOnly: true,
         // disabled: true, // Removed as per request to avoid grayed out look
@@ -66,6 +66,68 @@ const ReadOnlyAreaHistory = ({ entry, areaName }) => {
     );
 
     const renderAreaContent = () => {
+        // PRINTER VIEW (Detected by content or type)
+        if (entry.printer_imprime || (report?.tipoEquipo === 'Impresora' && areaName === 'TESTEO')) {
+            return (
+                <div className="space-y-4">
+                    <h2 className="text-2xl font-bold text-indigo-500">DIAGNÓSTICO DE IMPRESORA</h2>
+                    {commonFieldsReadOnly}
+                    <div className="space-y-4 border p-4 rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Técnico de Apoyo 1 (Responsable):</label>
+                                <input type="text" value={report?.tecnicoResponsable || ''} {...readOnlyInputProps} className={`${readOnlyInputProps.className} w-full`} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Técnico de Apoyo 2 (Externo):</label>
+                                <input type="text" value={entry.printer_tech2 || ''} {...readOnlyInputProps} className={`${readOnlyInputProps.className} w-full`} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">¿Imprime?</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center text-sm"><input type="radio" checked={entry.printer_imprime === 'SI'} {...readOnlyRadioProps} /> SI</label>
+                                <label className="flex items-center text-sm"><input type="radio" checked={entry.printer_imprime === 'NO'} {...readOnlyRadioProps} /> NO</label>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-bold mb-1 text-gray-700 dark:text-gray-300">SERVICIOS REALIZADOS:</label>
+                                {entry.printer_services_realized && entry.printer_services_realized.length > 0 ? (
+                                    <ul className="list-disc list-inside text-sm p-2 bg-white dark:bg-gray-700 rounded border dark:border-gray-600">
+                                        {entry.printer_services_realized.map((s, i) => (
+                                            <li key={i}>{s.description} {s.specification ? `(${s.specification})` : ''} - <strong>S/ {parseFloat(s.amount).toFixed(2)}</strong></li>
+                                        ))}
+                                    </ul>
+                                ) : <span className="text-sm italic text-gray-500">Ninguno</span>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold mb-1 text-gray-700 dark:text-gray-300">SERVICIOS ADICIONALES:</label>
+                                {entry.printer_services_additional && entry.printer_services_additional.length > 0 ? (
+                                    <ul className="list-disc list-inside text-sm p-2 bg-white dark:bg-gray-700 rounded border dark:border-gray-600">
+                                        {entry.printer_services_additional.map((s, i) => (
+                                            <li key={i}>{s.description} {s.specification ? `(${s.specification})` : ''} - <strong>S/ {parseFloat(s.amount).toFixed(2)}</strong></li>
+                                        ))}
+                                    </ul>
+                                ) : <span className="text-sm italic text-gray-500">Ninguno</span>}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Observaciones:</label>
+                            <textarea value={entry.printer_obs || ''} {...readOnlyInputProps} className={`${readOnlyInputProps.className} w-full`} rows="3"></textarea>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">¿Se cobra revisión?</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center text-sm"><input type="radio" checked={entry.printer_revision_charge === 'SI'} {...readOnlyRadioProps} /> SI</label>
+                                <label className="flex items-center text-sm"><input type="radio" checked={entry.printer_revision_charge === 'NO'} {...readOnlyRadioProps} /> NO</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         switch (areaName) {
             case 'HARDWARE':
                 return (

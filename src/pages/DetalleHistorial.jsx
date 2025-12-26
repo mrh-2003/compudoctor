@@ -861,7 +861,7 @@ function DetalleHistorial() {
                 {flatHistory.length > 0 ? (
                     <div className="space-y-4">
                         {flatHistory.map((entry, index) => (
-                            <ReadOnlyAreaHistory key={index} entry={entry} areaName={entry.areaName} />
+                            <ReadOnlyAreaHistory key={index} entry={entry} areaName={entry.areaName} report={report} />
                         ))}
                     </div>
                 ) : (

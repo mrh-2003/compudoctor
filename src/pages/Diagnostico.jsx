@@ -568,8 +568,8 @@ function Diagnostico() {
 
                 <div class="financials">
                     <div class="money-box">
-                        <span class="money-label">DIAGNOSTICO</span>
-                        <span class="money-value">${formData.diagnostico.toFixed(2)}</span>
+                        <span class="money-label">TOTAL</span>
+                        <span class="money-value">${formData.total.toFixed(2)}</span>
                     </div>
                     <div class="money-box">
                         <span class="money-label">A CUENTA</span>
