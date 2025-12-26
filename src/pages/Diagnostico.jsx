@@ -743,7 +743,7 @@ function Diagnostico() {
     } else {
       mandatoryDetailSiPrende.push('auriculares');
     }
-    const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'camara', 'microfono', 'parlantes', 'tarjetaVideo', 'teclado', 'bateria'];
+    const mandatoryCheckSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'camara', 'microfono', 'parlantes', 'tarjetaVideo', 'teclado', 'pantalla'];
 
 
     // Logic for "NO PRENDE"
