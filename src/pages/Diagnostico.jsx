@@ -41,7 +41,7 @@ const SERVICE_OPTIONS = [
   "Reparación",
   "Cambio de Teclado",
   "Cambio de Pantalla",
-  "Cambio de Disco",
+  "Disco",
   "Memoria RAM",
   "Mantenimiento de Hardware con Reconstrucción",
   "Mantenimiento de Hardware con Teclado",
@@ -225,7 +225,7 @@ function Diagnostico() {
   const [otherComponentType, setOtherComponentType] = useState("");
   const [otherDescription, setOtherDescription] = useState("");
   const [servicesList, setServicesList] = useState([]);
-  const [newServiceSelection, setNewServiceSelection] = useState({ service: "", amount: 0 });
+  const [newServiceSelection, setNewServiceSelection] = useState({ service: "", amount: 0, specification: "" });
   const [otherServiceText, setOtherServiceText] = useState("");
   const [initialAreaAssignedStatus, setInitialAreaAssignedStatus] = useState(false);
   const [formData, setFormData] = useState({
@@ -752,6 +752,9 @@ function Diagnostico() {
     const mandatoryDetailNoPrendePC = ['procesador', 'placaMadre', 'memoriaRam', 'hdd', 'ssd', 'm2Nvme', 'tarjetaVideo'];
     const mandatoryCheckNoPrendePC = ['procesador', 'placaMadre', 'memoriaRam'];
 
+    // Logic for "All in one" & "NO PRENDE" (Same as PC checks + specifics if needed)
+    const mandatoryCheckNoPrendeAIO = ['procesador', 'placaMadre', 'memoriaRam'];
+
     // Lógica Impresora
     const mandatoryPrinterIds = ['rodillos', 'cabezal', 'tinta', 'bandejas'];
 
@@ -780,6 +783,11 @@ function Diagnostico() {
           if (mandatoryDetailNoPrendePC.includes(itemId)) isDetailRequired = true;
           if (mandatoryCheckNoPrendePC.includes(itemId)) isCheckRequired = true;
         }
+        if (isAIO) {
+          // "EN ALL IN ONE NO PRENDE, AGREGAR EL CHECK OBLIGATORIO EN LA CASILLA DEL PROCESADOR"
+          if (mandatoryCheckNoPrendeAIO.includes(itemId)) isCheckRequired = true;
+          if (MANDATORY_COMPONENT_IDS.includes(itemId) || mandatoryDetailNoPrendePC.includes(itemId)) isDetailRequired = true;
+        }
       }
     }
 
@@ -791,9 +799,12 @@ function Diagnostico() {
 
       // New Rule: Otros / Placa Madre
       if (isOtherPlaca) {
-        if (['procesador', 'memoriaRam'].includes(itemId)) {
+        // En NO PRENDE (OTROS / PLACA), memoriaRam NO es obligatorio marcar check
+        const mandatoryCheckOtherPlaca = isNoPrende ? ['procesador'] : ['procesador', 'memoriaRam'];
+
+        if (mandatoryCheckOtherPlaca.includes(itemId)) {
           isCheckRequired = true;
-          isCheckDisabled = isFormLocked; // Should be checkable/required
+          isCheckDisabled = isFormLocked;
         }
         if (itemId === 'memoriaRam') {
           isDetailRequired = true;
@@ -1340,9 +1351,14 @@ function Diagnostico() {
       }
     }
 
-    const isTecnicoInicialRequired =
+    // We use the `isOther` flag we added to services, OR check if service name matches 'Mantenimiento de Software'
+    // Also need to check if ANY service is 'Otros' (which we are now renaming, so we use the flag)
+    const hasSoftwareOrOtherService = servicesList.some(s => s.service === 'Mantenimiento de Software' || s.isOther === true);
+
+    const isTecnicoInicialRequired = !hasSoftwareOrOtherService && (
       (formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) ||
-      (formData.canTurnOn === 'NO' && ['Laptop', 'PC', 'All in one'].includes(formData.tipoEquipo));
+      (formData.canTurnOn === 'NO' && ['Laptop', 'PC', 'All in one'].includes(formData.tipoEquipo))
+    );
 
     if (isTecnicoInicialRequired && !formData.tecnicoInicialId) {
       newErrors.tecnicoInicialId = "El Técnico Inicial es obligatorio.";
@@ -1402,7 +1418,8 @@ function Diagnostico() {
 
     const motivoIngresoText = servicesList.map(s => {
       const amountDisplay = s.service === 'Revisión' ? `(Diagnóstico: S/ ${s.amount.toFixed(2)})` : `(S/ ${s.amount.toFixed(2)})`;
-      return `${s.service.charAt(0).toUpperCase() + s.service.slice(1)} ${amountDisplay}`;
+      const specDisplay = s.specification ? ` [${s.specification}]` : '';
+      return `${s.service.charAt(0).toUpperCase() + s.service.slice(1)}${specDisplay} ${amountDisplay}`;
     }).join(', ');
 
     try {
@@ -1496,6 +1513,19 @@ function Diagnostico() {
    */
   const displayDate = formData.fecha ? formData.fecha.replace(/-/g, '/') : currentFormatted.fullDateSlash;
   const displayTime = formData.hora || currentFormatted.time;
+
+  const hasSoftwareOrOtherService = servicesList.some(s => s.service === 'Mantenimiento de Software' || s.service === 'Otros' || (s.isOther === true));
+  // Note: Since 'Otros' services rename themselves, we need a robust way to identify them. 
+  // However, the requirement says "AL agregar MANTENIMIENTO DE SOFTWARE O OTROS".
+  // If we change 'Otros' name, we might lose track. But checking if service is NOT in the default list could work, or adding a flag.
+  // Let's check for 'Mantenimiento de Software' OR if the service name is not in the predefined non-Otros list?
+  // Actually, simpler: if I add "Otros", I am replacing "Otros" with the text. 
+  // Let's add a property `isOther` to the service item for sure tracking.
+
+  const isTecnicoInicialRequired = !hasSoftwareOrOtherService && (
+    (formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) ||
+    (formData.canTurnOn === 'NO' && ['Laptop', 'PC', 'All in one'].includes(formData.tipoEquipo))
+  );
 
   if (isLoading) return <div className="text-center p-8">Cargando informe...</div>;
 
@@ -1979,22 +2009,21 @@ function Diagnostico() {
                 </div>
               </div>
 
-              {newServiceSelection.service === 'Otros' ? (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Detalle (Otros)</label>
-                  <input
-                    type="text"
-                    name="otherServiceText"
-                    value={otherServiceText}
-                    onChange={(e) => setOtherServiceText(e.target.value)}
-                    placeholder="Especifique el servicio"
-                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                    disabled={isFormLocked}
-                  />
-                </div>
-              ) : (
-                <div className="md:col-span-2"></div>
-              )}
+
+
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium mb-1">
+                  {newServiceSelection.service === 'Otros' ? 'Especificación (Servicio)' : 'Especificación'}
+                </label>
+                <input
+                  type="text"
+                  value={newServiceSelection.specification || ''}
+                  onChange={(e) => setNewServiceSelection(prev => ({ ...prev, specification: e.target.value }))}
+                  placeholder={newServiceSelection.service === 'Otros' ? "Especifique el servicio..." : "Ej. Marca, Modelo, Capacidad..."}
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  disabled={isFormLocked || !newServiceSelection.service}
+                />
+              </div>
 
               <div className="md:col-span-1">
                 <label className="block text-sm font-medium mb-1">Monto (S/)</label>
@@ -2023,10 +2052,20 @@ function Diagnostico() {
                     return;
                   }
 
-                  let serviceDesc = newServiceSelection.service === 'Otros' ? otherServiceText : newServiceSelection.service;
-                  if (newServiceSelection.service === 'Otros' && !otherServiceText) {
-                    toast.error("Debe especificar la descripción del servicio 'Otros'.");
-                    return;
+                  let serviceDesc = newServiceSelection.service;
+                  let finalSpec = newServiceSelection.specification;
+                  let isOther = false;
+
+                  if (newServiceSelection.service === 'Otros') {
+                    if (!newServiceSelection.specification) {
+                      toast.error("Debe especificar el nombre del servicio en 'Especificación (Servicio)'.");
+                      return;
+                    }
+                    serviceDesc = newServiceSelection.specification; // The name of the service becomes what they typed
+                    finalSpec = ""; // Clear specification to avoid redundancy, OR keep it? 
+                    // User said: "EL MISMO CAMPO QUE APARECE PARA ESPECIFICAR DEBE SER LO QUE SE USE".
+                    // Implicitly, this text IS the service. So we don't need a separate spec.
+                    isOther = true;
                   }
 
                   setServicesList(prev => {
@@ -2037,6 +2076,8 @@ function Diagnostico() {
                       id: Date.now(),
                       service: serviceDesc,
                       amount: amount,
+                      specification: finalSpec || '',
+                      isOther: isOther
                     };
 
                     if (serviceDesc === 'Reparación') {
@@ -2050,7 +2091,7 @@ function Diagnostico() {
                     }
                   });
 
-                  setNewServiceSelection({ service: "", amount: 0 });
+                  setNewServiceSelection({ service: "", amount: 0, specification: "" });
                   setOtherServiceText("");
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center disabled:bg-blue-300 h-10"
@@ -2065,6 +2106,7 @@ function Diagnostico() {
                 <li key={s.id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md">
                   <span className="flex-1">
                     {index + 1}. {s.service}
+                    {s.specification && <span className="text-gray-500 italic ml-1">[{s.specification}]</span>}
                     {s.service === 'Reparación' && <span className="ml-2 text-red-500">(Habilita Diagnóstico)</span>}
                   </span>
                   <span className="font-semibold text-gray-800 dark:text-gray-200">
@@ -2239,7 +2281,7 @@ function Diagnostico() {
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico Inicial (Abrio el Equipo) {((formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) || (formData.canTurnOn === 'NO' && ['Laptop', 'PC', 'All in one'].includes(formData.tipoEquipo))) && <span className="text-red-500">*</span>}
+                Técnico Inicial (Abrio el Equipo) {isTecnicoInicialRequired && <span className="text-red-500">*</span>}
               </label>
               <Select
                 options={users}

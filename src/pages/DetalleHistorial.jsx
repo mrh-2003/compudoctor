@@ -186,7 +186,10 @@ function DetalleHistorial() {
         const servicesList = report.servicesList || [];
         const additionalServices = report.additionalServices || [];
 
-        const motivoText = servicesList.map(s => `${s.service} (S/${s.amount})`).join(', ') + (additionalServices.length > 0 ? ', ' + additionalServices.map(s => s.description).join(', ') : '');
+        const motivoText = servicesList.map(s => {
+            const specDisplay = s.specification ? ` [${s.specification}]` : '';
+            return `${s.service}${specDisplay} (S/${s.amount})`;
+        }).join(', ') + (additionalServices.length > 0 ? ', ' + additionalServices.map(s => s.description).join(', ') : '');
 
         const otherComponentType = report.otherComponentType;
         const otherDescription = report.otherDescription;
