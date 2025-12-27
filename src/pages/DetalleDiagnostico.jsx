@@ -598,7 +598,6 @@ function DetalleDiagnostico() {
                 fecha_fin: formattedDate,
                 hora_fin: formattedTime,
                 estado: 'TERMINADO',
-                estado: 'TERMINADO',
                 addedServices: formState.addedServices || [],
                 // Printer specific lists persistence
                 printer_services_realized: formState.printer_services_realized || [],
@@ -626,7 +625,6 @@ function DetalleDiagnostico() {
                 tecnicoActualId: isTransfer ? nextTechnicianId : report.tecnicoActualId,
                 ubicacionFisica: ubicacionFisica,
 
-                aCuenta: currentACuenta,
                 aCuenta: currentACuenta,
                 total: total, // Use the memoized calculated total from the component logic which includes all history + current
                 saldo: saldo, // Use memoized saldo
@@ -724,7 +722,7 @@ function DetalleDiagnostico() {
             <div className="space-y-4">
                 {flatHistory.length > 0 ? (
                     flatHistory.map((entry, index) => (
-                        <ReadOnlyAreaHistory key={index} entry={entry} areaName={entry.areaName} />
+                        <ReadOnlyAreaHistory key={index} entry={entry} areaName={entry.areaName} report={report} />
                     ))
                 ) : (
                     <p className="text-gray-500">No hay intervenciones previas.</p>
