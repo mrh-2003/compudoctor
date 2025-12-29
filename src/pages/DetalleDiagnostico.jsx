@@ -11,7 +11,7 @@ import { getAllUsersDetailed } from '../services/userService';
 import ReadOnlyAreaHistory from '../components/common/ReadOnlyAreaHistory';
 import ReadOnlyReportHeader from '../components/common/ReadOnlyReportHeader';
 
-const AREA_OPTIONS_CONSTANT = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO'];
+const AREA_OPTIONS_CONSTANT = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO', 'IMPRESORA'];
 
 const selectStyles = (theme) => ({
     control: (baseStyles) => ({
@@ -492,6 +492,20 @@ function DetalleDiagnostico() {
             }
         }
 
+        if (report.area === 'IMPRESORA') {
+            if (formState.printer_imprime === 'SI') summary.push(`${CHECKED} Imprime: SI`);
+            if (formState.printer_imprime === 'NO') summary.push(`${UNCHECKED_CONTENT} Imprime: NO`);
+            if (formState.printer_services_realized && formState.printer_services_realized.length > 0) {
+                summary.push('Servicios Realizados:');
+                formState.printer_services_realized.forEach(s => summary.push(`- ${s.description}`));
+            }
+            if (formState.printer_services_additional && formState.printer_services_additional.length > 0) {
+                summary.push('Servicios Adicionales:');
+                formState.printer_services_additional.forEach(s => summary.push(`- ${s.description}`));
+            }
+            if (formState.printer_obs) summary.push(`Obs: ${formState.printer_obs}`);
+        }
+
         // Filter nulls
         summary = summary.filter(line => line !== null);
 
@@ -664,10 +678,8 @@ function DetalleDiagnostico() {
     const nextAreaOptions = useMemo(() => {
         if (!report) return [];
         const areaOptions = AREA_OPTIONS_CONSTANT.map(area => ({ value: area, label: area }));
-        if (report.area === 'TESTEO' || report.tipoEquipo === 'Impresora') { // Updated: Printer also defaults to TERMINADO flow
-            if (report.tipoEquipo === 'Impresora') {
-                // User request: "luego del area de testeo de impresora, solo se puede pasar a terminado"
-                // Effectively we can just offer TERMINADO.
+        if (report.area === 'TESTEO' || report.area === 'IMPRESORA' || report.tipoEquipo === 'Impresora') {
+            if (report.area === 'IMPRESORA' || report.tipoEquipo === 'Impresora') {
                 return [{ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' }];
             }
             areaOptions.push({ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' });
@@ -770,8 +782,8 @@ function DetalleDiagnostico() {
     const renderAreaForm = () => {
         const techniciansForSupport = users.filter(u => u.value !== currentUser.uid);
 
-        // PRINTER SPECIAL VIEW OVERRIDE
-        if (report.tipoEquipo === 'Impresora') {
+        // PRINTER SPECIAL VIEW OVERRIDE or if Area is IMPRESORA
+        if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
             const inputProps = {
                 onChange: handleFormChange,
                 className: "p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600",

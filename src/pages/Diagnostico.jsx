@@ -347,7 +347,7 @@ function Diagnostico() {
   const OS_OPTIONS = [
     "Windows 11", "Windows 10", "Windows 8", "Windows 7", "macOS", "Linux", "Otro",
   ];
-  const AREA_OPTIONS = ["SOFTWARE", "HARDWARE", "ELECTRONICA"];
+  const AREA_OPTIONS = ["SOFTWARE", "HARDWARE", "ELECTRONICA", "IMPRESORA"];
 
   const handlePrint = () => {
     if (isEditMode && !formData.reportNumber) {
@@ -1205,6 +1205,7 @@ function Diagnostico() {
       sistemaOperativo: "",
       bitlockerKey: false,
       modelo: value === 'Otros' ? '' : prev.modelo,
+      area: value === 'Impresora' ? 'IMPRESORA' : '', // Auto-assign IMPRESORA or reset
     }));
   };
 
@@ -2410,7 +2411,7 @@ function Diagnostico() {
                 onChange={handleInputChange}
                 className={`w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 ${errors.area ? "ring-2 ring-red-500" : ""
                   }`}
-                disabled={isFormLocked}
+                disabled={isFormLocked || formData.tipoEquipo === 'Impresora'}
               >
                 <option value="">Selecciona un área</option>
                 {AREA_OPTIONS.map((area) => (

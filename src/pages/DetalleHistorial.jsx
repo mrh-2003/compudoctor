@@ -439,6 +439,7 @@ function DetalleHistorial() {
         const sw = getLastEntry('SOFTWARE');
         const elec = getLastEntry('ELECTRONICA');
         const testeo = getLastEntry('TESTEO');
+        const impresora = getLastEntry('IMPRESORA');
 
         // Styles helpers
         const checkbox = (val) => val ? '☑' : '☐';
@@ -699,6 +700,40 @@ function DetalleHistorial() {
                     ` : '<div style="padding:10px; text-align:center;">No realizado</div>'}
                     </div>
                 </div>
+
+                ${impresora ? `
+                <div class="area-box-fixed" style="margin-top: 8px;">
+                    <div class="area-header">SERVICIO TÉCNICO IMPRESORA</div>
+                    <div class="area-content" style="padding: 6px;">
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; margin-bottom:5px; padding-bottom:5px;">
+                            <div style="font-weight:bold; font-size:9pt;">IMPRIME: ${impresora.printer_imprime || '-'}</div>
+                            <div style="font-size:8pt;">
+                                <strong>Tec. Apoyo:</strong> ${txt(impresora.tec_apoyo)}<br/>
+                                <strong>Tec. Responsable:</strong> ${txt(impresora.tecnico)}
+                            </div>
+                        </div>
+                        
+                        <div style="font-weight:bold; font-size:8pt; margin-bottom:2px; text-decoration:underline;">Servicios Realizados:</div>
+                        <ul style="margin:0 0 8px 15px; padding:0; font-size:8pt;">
+                            ${(impresora.printer_services_realized || []).map(s => `<li>${s.description}</li>`).join('')}
+                        </ul>
+
+                        ${impresora.printer_services_additional && impresora.printer_services_additional.length > 0 ? `
+                            <div style="font-weight:bold; font-size:8pt; margin-bottom:2px; text-decoration:underline;">Adicionales:</div>
+                            <ul style="margin:0 0 8px 15px; padding:0; font-size:8pt;">
+                                ${(impresora.printer_services_additional || []).map(s => `<li>${s.description}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+
+                        <div style="border-top:1px solid #eee; padding-top:4px; font-size:8pt;">
+                            <strong>Observaciones:</strong> ${txt(impresora.printer_obs)}
+                        </div>
+                        <div style="text-align:right; font-size:7pt; color:#555; margin-top:4px;">
+                            Finalizado: ${txt(impresora.fecha_fin)} ${txt(impresora.hora_fin)}
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
                 
                 <div style="display: flex; gap: 20px; align-items: flex-start;">
                     <div style="flex-grow: 1;">

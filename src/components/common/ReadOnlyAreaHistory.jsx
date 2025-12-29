@@ -67,7 +67,7 @@ const ReadOnlyAreaHistory = ({ entry, areaName, report }) => {
 
     const renderAreaContent = () => {
         // PRINTER VIEW (Detected by content or type)
-        if (entry.printer_imprime || (report?.tipoEquipo === 'Impresora' && areaName === 'TESTEO')) {
+        if (entry.printer_imprime || (report?.tipoEquipo === 'Impresora' && areaName === 'TESTEO') || areaName === 'IMPRESORA') {
             return (
                 <div className="space-y-4">
                     <h2 className="text-2xl font-bold text-indigo-500">DIAGNÓSTICO DE IMPRESORA</h2>
