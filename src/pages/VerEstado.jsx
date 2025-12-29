@@ -161,9 +161,10 @@ function VerEstado() {
         } else {
             setSelectedReportForAssign(report);
             const currentTech = technicians.find(t => t.value === currentUser?.uid);
+            const isPrinter = report.area === 'IMPRESORA' || report.tipoEquipo === 'Impresora';
             setAssignData({
                 technician: currentTech || null,
-                area: ''
+                area: isPrinter ? 'IMPRESORA' : ''
             });
             setIsAssignModalOpen(true);
         }
@@ -478,14 +479,16 @@ function VerEstado() {
                         <div className="mb-6">
                             <label className="block text-sm font-medium mb-1 dark:text-gray-300">Área de Destino</label>
                             <select
-                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                 value={assignData.area}
                                 onChange={(e) => setAssignData(prev => ({ ...prev, area: e.target.value }))}
+                                disabled={selectedReportForAssign?.area === 'IMPRESORA' || selectedReportForAssign?.tipoEquipo === 'Impresora'}
                             >
                                 <option value="">Seleccionar Área</option>
                                 <option value="SOFTWARE">SOFTWARE</option>
                                 <option value="HARDWARE">HARDWARE</option>
                                 <option value="ELECTRONICA">ELECTRONICA</option>
+                                <option value="IMPRESORA">IMPRESORA</option>
                             </select>
                         </div>
 

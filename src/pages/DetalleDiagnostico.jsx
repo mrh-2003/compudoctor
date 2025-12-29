@@ -516,6 +516,12 @@ function DetalleDiagnostico() {
         if (!isAllowedToEdit || isReportFinalized) return;
         const summary = generateTaskSummary();
         setMotivoText(summary);
+
+        if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
+            setNextArea('TERMINADO');
+            setUbicacionFisica(report.ubicacionFisica || 'TALLER');
+        }
+
         setIsCompletionModalOpen(true);
     };
 
@@ -1645,50 +1651,54 @@ function DetalleDiagnostico() {
                                 required
                             ></textarea>
                         </div>
-                        <div>
-                            <div className="flex gap-4 mb-2 text-sm justify-center">
+                        {!(report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') && (
+                            <>
                                 <div>
-                                    <span className="font-bold">Hora Inicio:</span> {formState.hora_inicio || '--:--'}
+                                    <div className="flex gap-4 mb-2 text-sm justify-center">
+                                        <div>
+                                            <span className="font-bold">Hora Inicio:</span> {formState.hora_inicio || '--:--'}
+                                        </div>
+                                        <div>
+                                            <span className="font-bold">Hora Finalización:</span> {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </div>
+                                    <label className="block text-sm font-medium mb-1">Ubicación Física</label>
+                                    <input
+                                        type="text"
+                                        value={ubicacionFisica}
+                                        onChange={(e) => setUbicacionFisica(e.target.value)}
+                                        className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                        placeholder="Ingresa la ubicación física del equipo"
+                                        required
+                                    />
                                 </div>
                                 <div>
-                                    <span className="font-bold">Hora Finalización:</span> {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                                    <label className="block text-sm font-medium mb-1">Pasar a la Siguiente Área</label>
+                                    <Select
+                                        options={nextAreaOptions}
+                                        onChange={(option) => setNextArea(option.value)}
+                                        placeholder="Selecciona la siguiente área..."
+                                        styles={selectStyles(theme)}
+                                        menuPortalTarget={document.body}
+                                        menuPosition="fixed"
+                                    />
                                 </div>
-                            </div>
-                            <label className="block text-sm font-medium mb-1">Ubicación Física</label>
-                            <input
-                                type="text"
-                                value={ubicacionFisica}
-                                onChange={(e) => setUbicacionFisica(e.target.value)}
-                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                placeholder="Ingresa la ubicación física del equipo"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Pasar a la Siguiente Área</label>
-                            <Select
-                                options={nextAreaOptions}
-                                onChange={(option) => setNextArea(option.value)}
-                                placeholder="Selecciona la siguiente área..."
-                                styles={selectStyles(theme)}
-                                menuPortalTarget={document.body}
-                                menuPosition="fixed"
-                            />
-                        </div>
-                        {nextArea && nextArea !== 'TERMINADO' && (
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Asignar a:</label>
-                                <Select
-                                    options={techniciansForNextArea}
-                                    value={tecnicoSiguiente}
-                                    onChange={setTecnicoSiguiente}
-                                    placeholder="Selecciona el técnico..."
-                                    isClearable
-                                    styles={selectStyles(theme)}
-                                    menuPortalTarget={document.body}
-                                    menuPosition="fixed"
-                                />
-                            </div>
+                                {nextArea && nextArea !== 'TERMINADO' && (
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Asignar a:</label>
+                                        <Select
+                                            options={techniciansForNextArea}
+                                            value={tecnicoSiguiente}
+                                            onChange={setTecnicoSiguiente}
+                                            placeholder="Selecciona el técnico..."
+                                            isClearable
+                                            styles={selectStyles(theme)}
+                                            menuPortalTarget={document.body}
+                                            menuPosition="fixed"
+                                        />
+                                    </div>
+                                )}
+                            </>
                         )}
                         <div className="flex justify-end space-x-2">
                             <button type="button" onClick={handleCloseCompletionModal} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg" disabled={isSaving}>Cancelar</button>
