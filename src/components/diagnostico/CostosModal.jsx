@@ -8,10 +8,10 @@ function CostosModal({ report, onClose, onUpdate }) {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [paymentData, setPaymentData] = useState({
-        monto: '',
         metodoPago: 'Yape',
         otroMetodo: ''
     });
+    const [discount, setDiscount] = useState(report.descuento || 0);
 
     const [comprobanteData, setComprobanteData] = useState({
         tipo: report.comprobante?.tipo || 'BOLETA ELECTRONICA',
@@ -121,7 +121,7 @@ function CostosModal({ report, onClose, onUpdate }) {
 
     const pagosRealizados = report.pagosRealizado || [];
     const totalPagado = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
-    const saldo = totalFinal - totalPagado;
+    const saldo = (totalFinal - (parseFloat(discount) || 0)) - totalPagado;
 
     // Handler for toggling IGV on a specific item
     const handleToggleItemIgv = async (itemId) => {
@@ -139,11 +139,14 @@ function CostosModal({ report, onClose, onUpdate }) {
             return acc;
         }, { final: 0 });
 
+        const newDiscount = parseFloat(discount) || 0;
+        const newTotal = reCalc.final - newDiscount;
+
         try {
             await updateDiagnosticReport(report.id, {
                 igvApplicableIds: newIgvApplicableIds,
-                total: reCalc.final,
-                saldo: reCalc.final - totalPagado
+                total: newTotal,
+                saldo: newTotal - totalPagado
             });
             if (onUpdate) onUpdate();
         } catch (error) {
@@ -230,6 +233,30 @@ function CostosModal({ report, onClose, onUpdate }) {
         }
     };
 
+    const handleDiscountChange = (e) => {
+        const val = e.target.value;
+        if (parseFloat(val) < 0) return;
+        setDiscount(val);
+    };
+
+    const saveDiscount = async () => {
+        const val = parseFloat(discount) || 0;
+        const totalAfterDiscount = totalFinal - val; // totalFinal comes from the reducing logic in render scope (costItems + igvMap)
+
+        try {
+            await updateDiagnosticReport(report.id, {
+                descuento: val,
+                total: totalAfterDiscount,
+                saldo: totalAfterDiscount - totalPagado
+            });
+            if (onUpdate) onUpdate();
+            toast.success("Descuento actualizado");
+        } catch (error) {
+            console.error(error);
+            toast.error("Error al actualizar descuento");
+        }
+    };
+
     const handleFillBalance = () => {
         setPaymentData(prev => ({ ...prev, monto: saldo.toFixed(2) }));
     };
@@ -291,10 +318,21 @@ function CostosModal({ report, onClose, onUpdate }) {
     return (
         <Modal onClose={onClose}>
             <div className="p-6 max-w-4xl mx-auto">
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                    <FaWallet className="text-green-600" />
-                    Detalle de Costos y Pagos - {report.marca || ''} / {report.modelo || ''}
-                </h2>
+                <div className="flex justify-between items-start mb-6">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                        <FaWallet className="text-green-600" />
+                        Detalle de Costos y Pagos
+                    </h2>
+                    <div className="text-right">
+                        <div className="text-xl font-bold text-gray-800 dark:text-gray-100">N° {report.reportNumber}</div>
+                        <div className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase">
+                            {report.razonSocial || report.clientName || 'Cliente sin nombre'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            {report.marca || ''} {report.modelo || ''}
+                        </div>
+                    </div>
+                </div>
 
                 {/* Services Table with IGV Switch */}
                 <div className="mb-6 overflow-x-auto">
@@ -374,16 +412,32 @@ function CostosModal({ report, onClose, onUpdate }) {
                         </div>
 
                         <div className="flex justify-between">
-                            <span className="font-medium">Total Base (Sin IGV):</span>
                             <span>S/ {totalBase.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm text-gray-500">
                             <span>Total IGV (18%):</span>
                             <span>S/ {totalIgv.toFixed(2)}</span>
                         </div>
+
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium text-gray-700 dark:text-gray-300">Descuento:</span>
+                            <div className="flex items-center gap-1">
+                                <span className="text-red-500 font-bold">- S/</span>
+                                <input
+                                    type="number"
+                                    value={discount}
+                                    onChange={handleDiscountChange}
+                                    onBlur={saveDiscount}
+                                    className="w-24 p-1 border rounded text-right dark:bg-gray-600 dark:border-gray-500"
+                                    min="0"
+                                    step="0.01"
+                                />
+                            </div>
+                        </div>
+
                         <div className="border-t border-gray-300 dark:border-gray-600 pt-2 flex justify-between font-bold text-lg">
                             <span>Total General:</span>
-                            <span>S/ {totalFinal.toFixed(2)}</span>
+                            <span>S/ {(totalFinal - (parseFloat(discount) || 0)).toFixed(2)}</span>
                         </div>
                     </div>
 
