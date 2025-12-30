@@ -116,7 +116,7 @@ function DetalleDiagnostico() {
             report.additionalServices.forEach(s => totalAdicionales += (parseFloat(s.amount) || 0));
         }
 
-        const newTotal = (serviceTotal + totalAdicionales);
+        const newTotal = (serviceTotal + diagCost + totalAdicionales);
         const newSaldo = newTotal - aCuenta;
 
         return {
@@ -280,15 +280,28 @@ function DetalleDiagnostico() {
     const handleAddLocalService = () => {
         if (!selectedServiceOption || !nuevoServicio.amount) return;
 
-        // ENABLE THE FIELD
-        // Add the field key to the enabledFields list so it becomes editable
-        if (selectedServiceOption.value) {
+        // For TesteoManual, we don't enable fields in formState like others
+        if (selectedServiceOption.value === 'TesteoManual') {
+            // Pass through
+        } else if (selectedServiceOption.value) {
             setEnabledFields(prev => {
                 if (!prev.includes(selectedServiceOption.value)) {
                     return [...prev, selectedServiceOption.value];
                 }
                 return prev;
             });
+
+            // 1. AUTO-CHECK for ELECTRONICA, HARDWARE, SOFTWARE
+            if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area) && selectedServiceOption.value) {
+                setFormState(prev => {
+                    const updates = { ...prev, [selectedServiceOption.value]: true };
+                    // If electronics, set reparable default
+                    if (report.area === 'ELECTRONICA' && ['elec_video', 'elec_placa', 'elec_otro'].includes(selectedServiceOption.value)) {
+                        updates[`${selectedServiceOption.value}_reparable`] = 'SI';
+                    }
+                    return updates;
+                });
+            }
         }
 
         const amountVal = parseFloat(nuevoServicio.amount);
@@ -296,13 +309,18 @@ function DetalleDiagnostico() {
         let finalSpec = '';
         let isOther = false;
 
-        if (selectedServiceOption.value === 'Otros') {
-            if (!nuevoServicio.specification) {
+        // Show spec input logic now covers Hardware and Software too as requested
+        const areasWithSpec = ['ELECTRONICA', 'HARDWARE', 'SOFTWARE'];
+        if (selectedServiceOption.value === 'Otros' || (areasWithSpec.includes(report.area) && report.area !== 'TESTEO')) {
+            if (!nuevoServicio.specification && selectedServiceOption.value === 'Otros') {
                 toast.error("Debe especificar el servicio.");
                 return;
             }
-            finalDescription = nuevoServicio.specification;
-            isOther = true;
+            if (nuevoServicio.specification) {
+                // 2.1 Append details
+                finalDescription = `${selectedServiceOption.label} (${nuevoServicio.specification})`;
+            }
+            if (selectedServiceOption.value === 'Otros') isOther = true;
         }
 
         const serviceToAdd = {
@@ -512,14 +530,26 @@ function DetalleDiagnostico() {
         return summary.length > 0 ? summary.join('\n') : 'No se registraron detalles específicos.';
     };
 
+    // Auto-select IMPRESORA if it's a printer and first time opening modal? 
+    // Usually handled in handleOpenCompletionModal
     const handleOpenCompletionModal = () => {
         if (!isAllowedToEdit || isReportFinalized) return;
         const summary = generateTaskSummary();
         setMotivoText(summary);
 
-        if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
-            setNextArea('TERMINADO');
+        if (report.tipoEquipo === 'Impresora') {
+            // "debe aparecer ya marcado"
+            // If the next logical step is IMPRESORA area, set it.
+            // If current area is already IMPRESORA, then TERMINADO.
+            if (report.area !== 'IMPRESORA') {
+                setNextArea('IMPRESORA');
+            } else {
+                setNextArea('TERMINADO');
+            }
             setUbicacionFisica(report.ubicacionFisica || 'TALLER');
+        } else {
+            // Reset or keep default
+            setNextArea('');
         }
 
         setIsCompletionModalOpen(true);
@@ -683,13 +713,27 @@ function DetalleDiagnostico() {
 
     const nextAreaOptions = useMemo(() => {
         if (!report) return [];
-        const areaOptions = AREA_OPTIONS_CONSTANT.map(area => ({ value: area, label: area }));
-        if (report.area === 'TESTEO' || report.area === 'IMPRESORA' || report.tipoEquipo === 'Impresora') {
-            if (report.area === 'IMPRESORA' || report.tipoEquipo === 'Impresora') {
-                return [{ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' }];
-            }
+        let areaOptions = [];
+
+        // Filter Area Options: Exclude 'IMPORTANT' areas often not needed in next step or filter logical flows
+        // User request: "IMPRESORA debe aparecer solo si se trata de impresora"
+
+        if (report.tipoEquipo === 'Impresora') {
+            // For printers, usually goes to IMPRESORA or TERMINADO
+            // Request says: "debe aparecer ya marcado" - handled in useEffect or defaults, but here we list options.
+            areaOptions = [
+                { value: 'IMPRESORA', label: 'IMPRESORA' },
+                { value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' }
+            ];
+        } else {
+            // For non-printers, exclude IMPRESORA from the list
+            areaOptions = AREA_OPTIONS_CONSTANT
+                .filter(area => area !== 'IMPRESORA')
+                .map(area => ({ value: area, label: area }));
+
             areaOptions.push({ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' });
         }
+
         return areaOptions;
     }, [report]);
 
@@ -1746,25 +1790,48 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                             <div className="flex flex-col md:flex-row gap-4 items-end mb-6 p-4 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600">
                                 <div className="flex-grow w-full">
                                     <label className="block text-sm font-medium mb-1">Servicio / Detalle</label>
-                                    <Select
-                                        options={report.tipoEquipo === 'Impresora'
-                                            ? ['Limpieza de Cabezal Manual', 'Limpieza de Cabezal Software', 'Reseteo', 'Cambio de Placa', 'Cambio de Escaner', 'Mantenimiento de Hardware', 'Otros'].map(s => ({ value: s, label: s }))
-                                            : getConfigForArea(report.area)
-                                        }
-                                        value={selectedServiceOption}
-                                        onChange={setSelectedServiceOption}
-                                        placeholder="Seleccione un servicio..."
-                                        styles={selectStyles(theme)}
-                                        menuPortalTarget={document.body}
-                                        menuPosition="fixed"
-                                    />
+                                    {report.area === 'TESTEO' ? (
+                                        <input
+                                            type="text"
+                                            value={nuevoServicio.description || ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setNuevoServicio(prev => ({ ...prev, description: val }));
+                                                // Identify as "Others" logically for handleAddLocalService to work without a Select option
+                                                setSelectedServiceOption({ value: 'TesteoManual', label: val });
+                                            }}
+                                            className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
+                                            placeholder="Describa el servicio..."
+                                        />
+                                    ) : (
+                                        <Select
+                                            options={report.tipoEquipo === 'Impresora'
+                                                ? ['Limpieza de Cabezal Manual', 'Limpieza de Cabezal Software', 'Reseteo', 'Cambio de Placa', 'Cambio de Escaner', 'Mantenimiento de Hardware', 'Otros'].map(s => ({ value: s, label: s }))
+                                                : getConfigForArea(report.area)
+                                            }
+                                            value={selectedServiceOption}
+                                            onChange={(opt) => {
+                                                setSelectedServiceOption(opt);
+                                                // Reset description if switching back to select to avoid ghost text
+                                                if (opt) setNuevoServicio(prev => ({ ...prev, description: opt.label }));
+                                            }}
+                                            placeholder="Seleccione un servicio..."
+                                            styles={selectStyles(theme)}
+                                            menuPortalTarget={document.body}
+                                            menuPosition="fixed"
+                                        />
+                                    )}
                                 </div>
                                 <div className="w-full md:w-40">
                                     <label className="block text-sm font-medium mb-1">Costo (S/)</label>
                                     <input
                                         type="number"
                                         value={nuevoServicio.amount}
-                                        onChange={(e) => setNuevoServicio(prev => ({ ...prev, amount: e.target.value }))}
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            if (val < 0) return; // Prevent negative inputs
+                                            setNuevoServicio(prev => ({ ...prev, amount: e.target.value }))
+                                        }}
                                         onClick={(e) => { if (parseFloat(e.target.value) === 0) setNuevoServicio(prev => ({ ...prev, amount: '' })) }}
                                         onBlur={(e) => { if (e.target.value === '') setNuevoServicio(prev => ({ ...prev, amount: 0 })) }}
                                         className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
@@ -1772,8 +1839,7 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                     />
                                 </div>
 
-                                {selectedServiceOption && selectedServiceOption.value === 'Others' /* Removed old check, using 'Otros' string */}
-                                {selectedServiceOption && selectedServiceOption.label === 'Otros' && (
+                                {selectedServiceOption && (selectedServiceOption.label === 'Otros' || (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area) && report.area !== 'TESTEO')) && (
                                     <div className="w-full md:w-64">
                                         <label className="block text-sm font-medium mb-1">Especifique</label>
                                         <input
@@ -1911,8 +1977,7 @@ const getConfigForArea = (area) => {
             return [
                 { value: 'elec_video', label: 'Tarjeta de Video' },
                 { value: 'elec_placa', label: 'Placa Madre' },
-                { value: 'elec_otro', label: 'Otro Componente' },
-                { value: 'elec_generales', label: 'Datos Generales (Código, Etapa, Obs)' } // Virtual key for textareas
+                { value: 'elec_otro', label: 'Otro Componente' }
             ];
         case 'TESTEO':
             // Testeo might be different, but user asked for "Add Service" in general. 

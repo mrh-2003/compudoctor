@@ -198,10 +198,12 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                         <label className="block text-sm font-medium mb-1">Costo Diagnóstico (S/)</label>
                         <input type="text" value={diagnostico.toFixed(2)} {...readOnlyInputProps} />
                     </div>
-                    <div className="hidden lg:block">
-                        <label className="block text-sm font-medium mb-1">Servicios Adicionales (S/)</label>
-                        <input type="text" value={(total - montoServicio - diagnostico).toFixed(2)} {...readOnlyInputProps} />
-                    </div>
+                    {(total - montoServicio - diagnostico) > 0 && (
+                        <div className="hidden lg:block">
+                            <label className="block text-sm font-medium mb-1">Servicios Adicionales (S/)</label>
+                            <input type="text" value={(total - montoServicio - diagnostico).toFixed(2)} {...readOnlyInputProps} />
+                        </div>
+                    )}
                     <div className="col-span-1 md:col-span-2 lg:col-span-1">
                         <label className="block text-sm font-medium mb-1">A Cuenta (S/)</label>
                         <input type="text" value={(parseFloat(report.aCuenta) || 0).toFixed(2)} {...readOnlyInputProps} />
