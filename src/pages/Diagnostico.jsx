@@ -391,7 +391,20 @@ function Diagnostico() {
       return obs;
     };
 
-    const motivoText = servicesList.map(s => `${s.service} (S/${s.amount})`).join(', ') + (additionalServices.length > 0 ? ', ' + additionalServices.map(s => s.description).join(', ') : '');
+    // Construir texto de Servicios + Diagnostico + Adicionales
+    const servicesPart = servicesList.map(s => {
+      const specDisplay = s.specification ? ` [${s.specification}]` : '';
+      return `${s.service}${specDisplay} (S/${s.amount})`;
+    }).join(', ');
+
+    const diagPart = formData.diagnostico > 0 ? `Diagnóstico (S/${formData.diagnostico})` : '';
+
+    // Si tienes "additionalServices" globales en este componente (que parece que sí se usan):
+    const addPart = additionalServices.length > 0 ? additionalServices.map(s => s.description).join(', ') : '';
+
+    const parts = [servicesPart, diagPart, addPart].filter(p => p && p.trim() !== '');
+    const motivoText = parts.join(', ');
+
     const otherTypeDesc = otherComponentType === 'OTRO_DESCRIPCION' ? otherDescription : (OTHER_EQUIPMENT_OPTIONS.find(o => o.value === otherComponentType)?.label || '');
 
     const printContent = `

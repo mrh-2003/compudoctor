@@ -186,10 +186,18 @@ function DetalleHistorial() {
         const servicesList = report.servicesList || [];
         const additionalServices = report.additionalServices || [];
 
-        const motivoText = servicesList.map(s => {
+        // Construcción de texto Motivo unificado
+        const servicesPart = servicesList.map(s => {
             const specDisplay = s.specification ? ` [${s.specification}]` : '';
             return `${s.service}${specDisplay} (S/${s.amount})`;
-        }).join(', ') + (additionalServices.length > 0 ? ', ' + additionalServices.map(s => s.description).join(', ') : '');
+        }).join(', ');
+
+        const diagVal = parseFloat(report.diagnostico) || 0;
+        const diagPart = diagVal > 0 ? `Diagnóstico (S/${diagVal.toFixed(2)})` : '';
+        const addPart = additionalServices.length > 0 ? additionalServices.map(s => s.description).join(', ') : '';
+
+        const parts = [servicesPart, diagPart, addPart].filter(p => p && p.trim() !== '');
+        const motivoText = parts.join(', ');
 
         const otherComponentType = report.otherComponentType;
         const otherDescription = report.otherDescription;
@@ -257,7 +265,7 @@ function DetalleHistorial() {
                         .text-block { width: 100%; border: 1px solid #000; padding: 6px; font-size: 9pt; min-height: 40px; border-radius: 4px; }
 
                         .financials { display: flex; justify-content: space-between; margin: 10px 0; padding: 0 20px; }
-                        .money-box { display: flex; align-items: center; border: 1px solid #000; padding: 4px 8px; border-radius: 6px; width: 22%; }
+                        .money-box { display: flex; align-items: center; border: 1px solid #000; padding: 4px 8px; border-radius: 6px; width: 28%; }
                         .money-label { font-weight: 800; margin-right: 5px; font-size: 9pt; white-space: nowrap; }
                         .money-value { font-weight: normal; flex-grow: 1; text-align: right; font-size: 10pt; }
 
@@ -369,19 +377,15 @@ function DetalleHistorial() {
 
                         <div class="financials">
                              <div class="money-box" style="width: 24%">
-                                <span class="money-label" style="font-size: 8pt;">DIAGNOSTICO</span>
-                                <span class="money-value">${(parseFloat(report.diagnostico) || 0).toFixed(2)}</span>
+                                <span class="money-label">TOTAL</span>
+                                <span class="money-value">${(parseFloat(report.total) || 0).toFixed(2)}</span>
                             </div>
                             <div class="money-box" style="width: 24%">
-                                <span class="money-label" style="font-size: 8pt;">SERV. ADIC.</span>
-                                <span class="money-value">${(parseFloat(report.total) - parseFloat(report.montoServicio) - parseFloat(report.diagnostico)).toFixed(2)}</span>
-                            </div>
-                            <div class="money-box" style="width: 24%">
-                                <span class="money-label" style="font-size: 8pt;">A CUENTA</span>
+                                <span class="money-label">A CUENTA</span>
                                 <span class="money-value">${(parseFloat(report.aCuenta) || 0).toFixed(2)}</span>
                             </div>
                             <div class="money-box" style="width: 24%">
-                                <span class="money-label" style="font-size: 8pt;">SALDO</span>
+                                <span class="money-label">SALDO</span>
                                 <span class="money-value">${(parseFloat(report.saldo) || 0).toFixed(2)}</span>
                             </div>
                         </div>

@@ -24,9 +24,12 @@ import Categorias from './pages/Inventario/Categorias';
 import EstadosFuncionales from './pages/Inventario/EstadosFuncionales';
 import UnidadesMedida from './pages/Inventario/UnidadesMedida';
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
     return (
         <BrowserRouter>
+            <Toaster position="top-right" reverseOrder={false} />
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/change-password" element={<ChangePassword />} />
