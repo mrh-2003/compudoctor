@@ -980,10 +980,7 @@ function Diagnostico() {
     servicesList.forEach(item => {
       const amount = item.amount || 0;
 
-      if (item.service === 'Revisión') {
-        diagnosisCost = amount;
-        diagnosisServiceFound = true;
-      } else if (item.service === 'Reparación') {
+      if (item.service === 'Reparación') {
         serviceTotal += amount;
         diagnosisCost = formData.diagnostico;
         diagnosisServiceFound = true;
@@ -1316,7 +1313,7 @@ function Diagnostico() {
         if (!item.service) {
           newErrors[`service-${index}`] = "Debe seleccionar un servicio.";
         }
-        if (item.service !== 'Revisión' && item.service !== 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
+        if (item.service !== 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
           newErrors[`amount-${index}`] = "El monto es obligatorio y debe ser mayor a 0.";
         }
         if (item.service === 'Otros' && !item.description) {
@@ -1390,7 +1387,7 @@ function Diagnostico() {
       }
     }
 
-    if (formData.montoServicio <= 0 && !hasRepairService && !servicesList.some(s => s.service === 'Revisión')) {
+    if (formData.montoServicio <= 0 && !hasRepairService) {
       newErrors.montoServicio = "Monto inválido.";
     }
 
@@ -1431,7 +1428,7 @@ function Diagnostico() {
     }
 
     const motivoIngresoText = servicesList.map(s => {
-      const amountDisplay = s.service === 'Revisión' ? `(Diagnóstico: S/ ${s.amount.toFixed(2)})` : `(S/ ${s.amount.toFixed(2)})`;
+      const amountDisplay = `(S/ ${s.amount.toFixed(2)})`;
       const specDisplay = s.specification ? ` [${s.specification}]` : '';
       return `${s.service.charAt(0).toUpperCase() + s.service.slice(1)}${specDisplay} ${amountDisplay}`;
     }).join(', ');
@@ -2059,9 +2056,9 @@ function Diagnostico() {
               <button
                 type="button"
                 onClick={() => {
-                  const amount = newServiceSelection.service === 'Revisión' ? (newServiceSelection.amount || 0) : newServiceSelection.amount;
+                  const amount = newServiceSelection.amount;
 
-                  if (newServiceSelection.service && newServiceSelection.service !== 'Revisión' && newServiceSelection.service !== 'Reparación' && (!amount || amount <= 0)) {
+                  if (newServiceSelection.service && newServiceSelection.service !== 'Reparación' && (!amount || amount <= 0)) {
                     toast.error("El monto debe ser mayor a 0 para este servicio.");
                     return;
                   }
@@ -2097,9 +2094,6 @@ function Diagnostico() {
                     if (serviceDesc === 'Reparación') {
                       setFormData(p => ({ ...p, diagnostico: amount }));
                       return [newEntry];
-                    } else if (serviceDesc === 'Revisión') {
-                      setFormData(p => ({ ...p, diagnostico: amount }));
-                      return [...prev.filter(s => s.service !== 'Reparación'), newEntry];
                     } else {
                       return [...prev.filter(s => s.service !== 'Reparación'), newEntry];
                     }
@@ -2124,7 +2118,7 @@ function Diagnostico() {
                     {s.service === 'Reparación' && <span className="ml-2 text-red-500">(Habilita Diagnóstico)</span>}
                   </span>
                   <span className="font-semibold text-gray-800 dark:text-gray-200">
-                    {s.service === 'Revisión' ? 'Diagnóstico' : 'Monto'} S/ {s.amount.toFixed(2)}
+                    Monto S/ {s.amount.toFixed(2)}
                   </span>
                   <button
                     type="button"
@@ -2470,7 +2464,8 @@ function Diagnostico() {
             onCancel={() => setIsNewClientModalOpen(false)}
           />
         </Modal>
-      )}
+      )
+      }
     </div >
   );
 }

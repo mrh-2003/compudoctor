@@ -611,7 +611,7 @@ function DetalleDiagnostico() {
             }
         }
 
-        if (!reparacionFinal) return toast.error('La descripción de la reparación es obligatoria.');
+
         if (!nextArea) return toast.error('Debes seleccionar la siguiente área o marcar como terminado.');
         if (!ubicacionFisica) return toast.error('Debes ingresar la ubicación física.');
 
@@ -1674,16 +1674,18 @@ function DetalleDiagnostico() {
                 <Modal onClose={handleCloseCompletionModal}>
                     <form onSubmit={handleCompleteTask} className="space-y-4 p-4">
                         <h2 className="text-xl font-bold">Completar Tarea en Área de {report.area}</h2>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Diagnostico y Servicios Realizados</label>
-                            <textarea
-                                value={motivoText}
-                                rows="4"
-                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                placeholder="Motivo de la tarea."
-                                readOnly
-                            ></textarea>
-                        </div>
+                        {report.area !== 'TESTEO' && (
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Diagnostico y Servicios Realizados</label>
+                                <textarea
+                                    value={motivoText}
+                                    rows="4"
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    placeholder="Motivo de la tarea."
+                                    readOnly
+                                ></textarea>
+                            </div>
+                        )}
                         <div>
                             <label className="block text-sm font-medium mb-1">Observaciones</label>
                             <textarea
@@ -1692,7 +1694,6 @@ function DetalleDiagnostico() {
                                 rows="4"
                                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                                 placeholder="Describe las observaciones del equipo."
-                                required
                             ></textarea>
                         </div>
                         {!(report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') && (
