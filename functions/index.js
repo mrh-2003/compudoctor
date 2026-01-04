@@ -2,7 +2,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
-const db = admin.firestore(); 
+const db = admin.firestore();
 
 exports.createUser = functions.https.onCall(async (request) => {
     const { email, nombre, rol, telefono, especialidad, permissions } = request.data;
@@ -19,7 +19,7 @@ exports.createUser = functions.https.onCall(async (request) => {
             especialidad: especialidad || "",
             email,
             rol: rol.toUpperCase(),
-            permissions: permissions || [], 
+            permissions: permissions || [],
             passwordChanged: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         };
