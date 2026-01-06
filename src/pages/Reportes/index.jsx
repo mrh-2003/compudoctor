@@ -26,10 +26,10 @@ function ReportesIndex() {
             color: 'border-l-4 border-purple-500'
         },
         {
-            title: 'Ingresos vs Costos',
+            title: 'Ingresos',
             description: 'Análisis financiero, ingresos brutos y operativos.',
             icon: <FaChartLine className="text-4xl text-green-500" />,
-            link: '/reportes/ingresos-costos',
+            link: '/reportes/ingresos',
             color: 'border-l-4 border-green-500'
         },
         {

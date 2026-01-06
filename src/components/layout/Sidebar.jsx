@@ -63,7 +63,7 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
                 { name: 'Saldos Pendientes', path: '/reportes/saldos-pendientes' },
                 { name: 'Productividad', path: '/reportes/productividad-tecnicos' },
                 { name: 'Top Servicios', path: '/reportes/top-servicios' },
-                { name: 'Ingresos vs Costos', path: '/reportes/ingresos-costos' },
+                { name: 'Ingresos', path: '/reportes/ingresos-costos' },
                 { name: 'Tiempos Resolución', path: '/reportes/tiempos-resolucion' },
                 { name: 'Inventario', path: '/reportes/inventario-entrada' },
             ],

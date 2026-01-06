@@ -110,9 +110,9 @@ function IngresosCostos() {
             });
 
             pdf.setFontSize(16);
-            pdf.text(`Ingresos vs Costos - ${selectedMonth}`, margin, 15);
+            pdf.text(`Ingresos - ${selectedMonth}`, margin, 15);
             pdf.addImage(imgData, 'PNG', margin, 25, contentWidth, imgHeight);
-            pdf.save("Ingresos_vs_Costos.pdf");
+            pdf.save("Ingresos.pdf");
         } catch (err) {
             console.error(err);
         } finally {
@@ -127,7 +127,7 @@ function IngresosCostos() {
             <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Link to="/reportes" className="text-gray-500 hover:text-gray-700"><FaArrowLeft /></Link>
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Ingresos vs Costos</h1>
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Ingresos</h1>
                 </div>
                 <div className="flex items-center gap-4">
                     <input
