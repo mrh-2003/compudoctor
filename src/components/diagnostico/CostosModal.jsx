@@ -22,8 +22,19 @@ function CostosModal({ report, onClose, onUpdate }) {
     const getAllCostItems = () => {
         const items = [];
 
+        // Check if Revision Check is strictly 'NO' in Impresora history
+        let shouldChargeRevision = true;
+        if (report.diagnosticoPorArea && report.diagnosticoPorArea['IMPRESORA']) {
+            const history = report.diagnosticoPorArea['IMPRESORA'];
+            // Find the last entry that has a explicit decision
+            const entryWithDecision = [...history].reverse().find(h => h.printer_cobra_revision);
+            if (entryWithDecision && entryWithDecision.printer_cobra_revision === 'NO') {
+                shouldChargeRevision = false;
+            }
+        }
+
         // 1. Diagnostic
-        if (parseFloat(report.diagnostico) > 0) {
+        if (shouldChargeRevision && parseFloat(report.diagnostico) > 0) {
             items.push({
                 id: 'diag-1',
                 label: 'Diagnóstico',
@@ -35,9 +46,14 @@ function CostosModal({ report, onClose, onUpdate }) {
         // 2. Services List (Main) from Diagnostico Form
         if (report.servicesList) {
             report.servicesList.forEach((s, idx) => {
+                // If Revision is disabled and service name contains "Revisión", exclude it
+                if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
+                    return;
+                }
+
                 items.push({
                     id: `main-${idx}`,
-                    label: s.service,
+                    label: s.service + (s.specification ? ` [${s.specification}]` : ''),
                     amount: parseFloat(s.amount) || 0,
                     type: 'Principal'
                 });
@@ -47,9 +63,10 @@ function CostosModal({ report, onClose, onUpdate }) {
         // 3. Legacy Additional Services (Global)
         if (report.additionalServices) {
             report.additionalServices.forEach((s, idx) => {
+                const specInfo = s.specification ? ` [${s.specification}]` : '';
                 items.push({
                     id: s.id || `legacy-${idx}`,
-                    label: s.description,
+                    label: `${s.description}${specInfo}`,
                     amount: parseFloat(s.amount) || 0,
                     type: 'Adicional (Global)'
                 });
@@ -72,9 +89,10 @@ function CostosModal({ report, onClose, onUpdate }) {
                                 seenServiceIds.add(s.id);
                             }
 
+                            const specInfo = s.specification ? ` [${s.specification}]` : '';
                             items.push({
                                 id: s.id || `area-${area}-${entryIdx}-${sIdx}`,
-                                label: `${s.description} (${area})`,
+                                label: `${s.description}${specInfo} (${area})`,
                                 amount: parseFloat(s.amount) || 0,
                                 type: 'Adicional (Área)'
                             });

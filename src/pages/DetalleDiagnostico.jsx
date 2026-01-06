@@ -85,8 +85,29 @@ function DetalleDiagnostico() {
 
     const { diagnostico, montoServicio, total, saldo } = useMemo(() => {
         const aCuenta = parseFloat(report?.aCuenta) || 0;
+
+        // Handle "Cobra Revisión" logic
+        const shouldChargeRevision = formState.printer_cobra_revision !== 'NO';
+
         let diagCost = parseFloat(report?.diagnostico) || 0;
-        let serviceTotal = parseFloat(report?.montoServicio) || 0;
+        if (!shouldChargeRevision) {
+            diagCost = 0;
+        }
+
+        // Recalculate service total to allow excluding specific items like "Revisión" service
+        let serviceTotal = 0;
+        if (report?.servicesList) {
+            report.servicesList.forEach(s => {
+                // If Revision is disabled and service name contains "Revisión", exclude it
+                if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
+                    return;
+                }
+                serviceTotal += (parseFloat(s.amount) || 0);
+            });
+        } else {
+            // Fallback for legacy
+            serviceTotal = parseFloat(report?.montoServicio) || 0;
+        }
 
         // Calculate total from ALL history entries + current form state + legacy global additionalServices
         let totalAdicionales = 0;
@@ -513,18 +534,56 @@ function DetalleDiagnostico() {
         if (report.area === 'IMPRESORA') {
             if (formState.printer_imprime === 'SI') summary.push(`${CHECKED} Imprime: SI`);
             if (formState.printer_imprime === 'NO') summary.push(`${UNCHECKED_CONTENT} Imprime: NO`);
+
             if (formState.printer_services_realized && formState.printer_services_realized.length > 0) {
                 summary.push('Servicios Realizados:');
-                formState.printer_services_realized.forEach(s => summary.push(`- ${s.description}`));
+                formState.printer_services_realized.forEach(s => {
+                    const spec = s.specification ? ` (${s.specification})` : '';
+                    const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
+                    summary.push(`- ${s.description}${spec} - ${amount}`);
+                });
             }
             if (formState.printer_services_additional && formState.printer_services_additional.length > 0) {
                 summary.push('Servicios Adicionales:');
-                formState.printer_services_additional.forEach(s => summary.push(`- ${s.description}`));
+                formState.printer_services_additional.forEach(s => {
+                    const spec = s.specification ? ` (${s.specification})` : '';
+                    const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
+                    summary.push(`- ${s.description}${spec} - ${amount}`);
+                });
             }
-            if (formState.printer_obs) summary.push(`Obs: ${formState.printer_obs}`);
+            if (formState.printer_observaciones) summary.push(`Obs: ${formState.printer_observaciones}`);
         }
 
-        // Filter nulls
+
+        // --- NEW LOGIC: Include Services (Initial + Additional) for NON-TESTEO/NON-IMPRESORA ---
+        // The user wants to see "Servicios Realizados" (from Diagnostico) and "Servicios Adicionales" (from this area)
+        // with Name, Spec/Code, and Amount.
+        if (report.area !== 'TESTEO' && report.area !== 'IMPRESORA') {
+            const initialServices = report.servicesList || [];
+            const additionalServices = formState.addedServices || [];
+
+            if (initialServices.length > 0 || additionalServices.length > 0) {
+                summary.push(''); // Empty line for separation
+                summary.push('--- SERVICIOS ---');
+
+                if (initialServices.length > 0) {
+                    initialServices.forEach(s => {
+                        const spec = s.specification ? ` (${s.specification})` : '';
+                        const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
+                        summary.push(`• [Inicial] ${s.service}${spec} - ${amount}`);
+                    });
+                }
+
+                if (additionalServices.length > 0) {
+                    additionalServices.forEach(s => {
+                        const spec = s.specification ? ` (${s.specification})` : '';
+                        const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
+                        summary.push(`• [Adicional] ${s.description}${spec} - ${amount}`);
+                    });
+                }
+            }
+        }
+
         summary = summary.filter(line => line !== null);
 
         return summary.length > 0 ? summary.join('\n') : 'No se registraron detalles específicos.';
@@ -537,7 +596,7 @@ function DetalleDiagnostico() {
         const summary = generateTaskSummary();
         setMotivoText(summary);
 
-        if (report.tipoEquipo === 'Impresora') {
+        if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
             // "debe aparecer ya marcado"
             // If the next logical step is IMPRESORA area, set it.
             // If current area is already IMPRESORA, then TERMINADO.
@@ -547,6 +606,11 @@ function DetalleDiagnostico() {
                 setNextArea('TERMINADO');
             }
             setUbicacionFisica(report.ubicacionFisica || 'TALLER');
+
+            // Copy observations from the Printer form to the Modal's observation field
+            if (formState.printer_observaciones) {
+                setReparacionFinal(formState.printer_observaciones);
+            }
         } else {
             // Reset or keep default
             setNextArea('');
@@ -892,6 +956,7 @@ function DetalleDiagnostico() {
                                         type="number"
                                         value={newServiceState.amount}
                                         onChange={(e) => setNewServiceState(prev => ({ ...prev, amount: e.target.value }))}
+                                        onFocus={() => setNewServiceState(prev => ({ ...prev, amount: '' }))}
                                         className="w-full p-2 border rounded-md dark:bg-gray-700 text-sm h-[38px]"
                                     />
                                 </div>
@@ -1834,6 +1899,7 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                             setNuevoServicio(prev => ({ ...prev, amount: e.target.value }))
                                         }}
                                         onClick={(e) => { if (parseFloat(e.target.value) === 0) setNuevoServicio(prev => ({ ...prev, amount: '' })) }}
+                                        onFocus={() => setNuevoServicio(prev => ({ ...prev, amount: '' }))}
                                         onBlur={(e) => { if (e.target.value === '') setNuevoServicio(prev => ({ ...prev, amount: 0 })) }}
                                         className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
                                         min="0"
