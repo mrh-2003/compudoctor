@@ -138,12 +138,12 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
 
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
                 <p className="font-bold text-lg text-cyan-500 dark:text-cyan-400">COMPONENTES Y ACCESORIOS REGISTRADOS</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                <div className="columns-1 md:columns-2 lg:columns-3 gap-4 text-sm">
                     {PRINT_ORDER_MAP.map(item => {
                         const { isChecked, detailText } = getCheckItemData(item.id);
 
                         return (
-                            <div key={item.id} className="flex items-center space-x-2">
+                            <div key={item.id} className="flex items-center space-x-2 break-inside-avoid mb-2">
                                 <div className="flex items-center w-40 flex-shrink-0">
                                     <span className="text-gray-500 text-xs mr-2 font-mono w-4 text-right">{item.num}.</span>
                                     <input

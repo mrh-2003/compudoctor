@@ -58,7 +58,7 @@ const ReadOnlyAreaHistory = ({ entry, areaName, report }) => {
             )}
             {entry.reparacion && (
                 <div>
-                    <label className="block text-sm font-medium mb-1">Descripción del Trabajo:</label>
+                    <label className="block text-sm font-medium mb-1">Observaciones:</label>
                     <textarea value={entry.reparacion || ''} {...readOnlyInputProps} className={`${readOnlyInputProps.className} w-full`} rows="3"></textarea>
                 </div>
             )}
@@ -111,16 +111,12 @@ const ReadOnlyAreaHistory = ({ entry, areaName, report }) => {
                                     </ul>
                                 ) : <span className="text-sm italic text-gray-500">Ninguno</span>}
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Observaciones:</label>
-                            <textarea value={entry.printer_obs || ''} {...readOnlyInputProps} className={`${readOnlyInputProps.className} w-full`} rows="3"></textarea>
-                        </div>
+                        </div> 
                         <div>
                             <label className="block text-sm font-medium mb-1">¿Se cobra revisión?</label>
                             <div className="flex gap-4">
-                                <label className="flex items-center text-sm"><input type="radio" checked={entry.printer_revision_charge === 'SI'} {...readOnlyRadioProps} /> SI</label>
-                                <label className="flex items-center text-sm"><input type="radio" checked={entry.printer_revision_charge === 'NO'} {...readOnlyRadioProps} /> NO</label>
+                                <label className="flex items-center text-sm"><input type="radio" checked={entry.printer_cobra_revision === 'SI'} {...readOnlyRadioProps} /> SI</label>
+                                <label className="flex items-center text-sm"><input type="radio" checked={entry.printer_cobra_revision === 'NO'} {...readOnlyRadioProps} /> NO</label>
                             </div>
                         </div>
                     </div>

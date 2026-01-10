@@ -710,30 +710,44 @@ function DetalleHistorial() {
                     <div class="area-header">SERVICIO TÉCNICO IMPRESORA</div>
                     <div class="area-content" style="padding: 6px;">
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; margin-bottom:5px; padding-bottom:5px;">
-                            <div style="font-weight:bold; font-size:9pt;">IMPRIME: ${impresora.printer_imprime || '-'}</div>
-                            <div style="font-size:8pt;">
-                                <strong>Tec. Apoyo:</strong> ${txt(impresora.tec_apoyo)}<br/>
-                                <strong>Tec. Responsable:</strong> ${txt(impresora.tecnico)}
+                            <div style="font-weight:bold; font-size:9pt;">
+                                IMPRIME: ${impresora.printer_imprime || '-'}<br/>
+                                COBRA REVISIÓN: ${impresora.printer_cobra_revision || '-'}
+                            </div>
+                            <div style="font-size:8pt; text-align:right;">
+                                <strong>Tec. Responsable:</strong> ${txt(impresora.tecnico)}<br/>
+                                <strong>Tec. Externo:</strong> ${txt(impresora.printer_tech2)} 
                             </div>
                         </div>
                         
                         <div style="font-weight:bold; font-size:8pt; margin-bottom:2px; text-decoration:underline;">Servicios Realizados:</div>
                         <ul style="margin:0 0 8px 15px; padding:0; font-size:8pt;">
-                            ${(impresora.printer_services_realized || []).map(s => `<li>${s.description}</li>`).join('')}
+                            ${(impresora.printer_services_realized || []).map(s => `
+                                <li>
+                                    ${s.description}
+                                    ${s.specification ? `(${s.specification})` : ''} 
+                                    - <strong>S/ ${parseFloat(s.amount).toFixed(2)}</strong>
+                                </li>`).join('')}
                         </ul>
 
                         ${impresora.printer_services_additional && impresora.printer_services_additional.length > 0 ? `
                             <div style="font-weight:bold; font-size:8pt; margin-bottom:2px; text-decoration:underline;">Adicionales:</div>
                             <ul style="margin:0 0 8px 15px; padding:0; font-size:8pt;">
-                                ${(impresora.printer_services_additional || []).map(s => `<li>${s.description}</li>`).join('')}
+                                ${(impresora.printer_services_additional || []).map(s => `
+                                    <li>
+                                        ${s.description}
+                                        ${s.specification ? `(${s.specification})` : ''} 
+                                        - <strong>S/ ${parseFloat(s.amount).toFixed(2)}</strong>
+                                    </li>`).join('')}
                             </ul>
                         ` : ''}
 
                         <div style="border-top:1px solid #eee; padding-top:4px; font-size:8pt;">
-                            <strong>Observaciones:</strong> ${txt(impresora.printer_obs)}
+                            <strong>Observaciones:</strong> ${txt(impresora.reparacion || impresora.printer_observaciones)}
                         </div>
                         <div style="text-align:right; font-size:7pt; color:#555; margin-top:4px;">
-                            Finalizado: ${txt(impresora.fecha_fin)} ${txt(impresora.hora_fin)}
+                            <div>Ingreso: ${txt(report.fecha)} ${txt(report.hora)}</div>
+                            <div>Finalizado: ${txt(impresora.fecha_fin)} ${txt(impresora.hora_fin)}</div>
                         </div>
                     </div>
                 </div>
