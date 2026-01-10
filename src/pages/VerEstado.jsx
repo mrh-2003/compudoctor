@@ -19,6 +19,43 @@ const STATUS_COLORS = {
     'TERMINADO': 'bg-orange-500',
 };
 
+const calculateReportTotal = (report) => {
+    let diagCost = parseFloat(report.diagnostico) || 0;
+    const isPrinter = report.tipoEquipo === 'Impresora';
+
+    let shouldChargeRevision = true;
+    if (report.diagnosticoPorArea && report.diagnosticoPorArea['IMPRESORA']) {
+        const history = report.diagnosticoPorArea['IMPRESORA'];
+        const entry = [...history].reverse().find(h => h.printer_cobra_revision);
+        if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+    } else if (report.printer_cobra_revision === 'NO') {
+        shouldChargeRevision = false;
+    }
+
+    if (isPrinter && !shouldChargeRevision) diagCost = 0;
+
+    let serviceTotal = 0;
+    let additionalTotal = 0;
+
+    if (!isPrinter && report.servicesList) {
+        report.servicesList.forEach(s => serviceTotal += (parseFloat(s.amount) || 0));
+    }
+
+    if (report.diagnosticoPorArea) {
+        Object.values(report.diagnosticoPorArea).flat().forEach(entry => {
+            if (entry.addedServices) entry.addedServices.forEach(s => additionalTotal += (parseFloat(s.amount) || 0));
+            if (entry.printer_services_realized) entry.printer_services_realized.forEach(s => serviceTotal += (parseFloat(s.amount) || 0));
+            if (entry.printer_services_additional) entry.printer_services_additional.forEach(s => additionalTotal += (parseFloat(s.amount) || 0));
+        });
+    }
+
+    if (report.additionalServices) {
+        report.additionalServices.forEach(s => additionalTotal += (parseFloat(s.amount) || 0));
+    }
+
+    return diagCost + serviceTotal + additionalTotal - (parseFloat(report.descuento) || 0);
+};
+
 function VerEstado() {
     const { currentUser, loading } = useAuth();
     const { theme } = useContext(ThemeContext);
@@ -363,9 +400,9 @@ function VerEstado() {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.ubicacionFisica}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">S/ {report.total ? report.total.toFixed(2) : '0.00'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">S/ {calculateReportTotal(report).toFixed(2)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">S/ {report.aCuenta ? report.aCuenta.toFixed(2) : '0.00'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">S/ {report.saldo ? report.saldo.toFixed(2) : '0.00'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">S/ {(calculateReportTotal(report) - (parseFloat(report.aCuenta) || 0)).toFixed(2)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.fechaEntrega} {report.horaEntrega}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.observaciones}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">

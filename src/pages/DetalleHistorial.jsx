@@ -813,16 +813,57 @@ function DetalleHistorial() {
     const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
     const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
+    const canDeliver = report?.estado === 'TERMINADO';
+
+    const diagnostico = parseFloat(report?.diagnostico) || 0;
+    const montoServicio = parseFloat(report?.montoServicio) || 0;
+
+    const { total, saldo } = useMemo(() => {
+        if (!report) return { total: 0, saldo: 0 };
+
+        let diagCost = parseFloat(report.diagnostico) || 0;
+        const isPrinter = report.tipoEquipo === 'Impresora';
+        const aCuenta = parseFloat(report.aCuenta) || 0;
+
+        let shouldChargeRevision = true;
+        if (report.diagnosticoPorArea && report.diagnosticoPorArea['IMPRESORA']) {
+            const history = report.diagnosticoPorArea['IMPRESORA'];
+            const entry = [...history].reverse().find(h => h.printer_cobra_revision);
+            if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+        } else if (report.printer_cobra_revision === 'NO') {
+            shouldChargeRevision = false;
+        }
+
+        if (isPrinter && !shouldChargeRevision) diagCost = 0;
+
+        let serviceTotal = 0;
+        let additionalTotal = 0;
+
+        if (!isPrinter && report.servicesList) {
+            report.servicesList.forEach(s => serviceTotal += (parseFloat(s.amount) || 0));
+        }
+
+        if (report.diagnosticoPorArea) {
+            Object.values(report.diagnosticoPorArea).flat().forEach(entry => {
+                if (entry.addedServices) entry.addedServices.forEach(s => additionalTotal += (parseFloat(s.amount) || 0));
+                if (entry.printer_services_realized) entry.printer_services_realized.forEach(s => serviceTotal += (parseFloat(s.amount) || 0));
+                if (entry.printer_services_additional) entry.printer_services_additional.forEach(s => additionalTotal += (parseFloat(s.amount) || 0));
+            });
+        }
+
+        if (report.additionalServices) {
+            report.additionalServices.forEach(s => additionalTotal += (parseFloat(s.amount) || 0));
+        }
+
+        const calculatedTotal = diagCost + serviceTotal + additionalTotal - (parseFloat(report.descuento) || 0);
+        return {
+            total: calculatedTotal,
+            saldo: calculatedTotal - aCuenta
+        };
+    }, [report]);
+
     if (isLoading) return <div className="text-center p-8">Cargando historial...</div>;
     if (!report) return <div className="text-center p-8 text-red-500">Informe no encontrado.</div>;
-
-    // La acción de entrega solo está disponible si el estado es TERMINADO y no ENTREGADO
-    const canDeliver = report.estado === 'TERMINADO';
-
-    const diagnostico = parseFloat(report.diagnostico) || 0;
-    const montoServicio = parseFloat(report.montoServicio) || 0;
-    const total = parseFloat(report.total) || 0;
-    const saldo = parseFloat(report.saldo) || 0;
 
 
 
