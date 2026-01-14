@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Modal from '../common/Modal';
 import { addPayment, markReportAsPaid, updateDiagnosticReport } from '../../services/diagnosticService';
 import toast from 'react-hot-toast';
-import { FaMoneyBillWave, FaWallet } from 'react-icons/fa';
+import { FaMoneyBillWave, FaWallet, FaTrash, FaPlus } from 'react-icons/fa';
 
 function CostosModal({ report, onClose, onUpdate }) {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -11,6 +11,7 @@ function CostosModal({ report, onClose, onUpdate }) {
         metodoPago: 'Yape',
         otroMetodo: ''
     });
+    const [paymentBatch, setPaymentBatch] = useState([]);
     const [discount, setDiscount] = useState(report.descuento || 0);
 
     const [comprobanteData, setComprobanteData] = useState({
@@ -221,6 +222,7 @@ function CostosModal({ report, onClose, onUpdate }) {
             metodoPago: 'Yape',
             otroMetodo: ''
         });
+        setPaymentBatch([]);
         setIsPaymentModalOpen(true);
         setPaymentType('SERVICE'); // Default type
     };
@@ -294,18 +296,22 @@ function CostosModal({ report, onClose, onUpdate }) {
     };
 
     const handleFillBalance = () => {
-        setPaymentData(prev => ({ ...prev, monto: saldo.toFixed(2) }));
+        const currentBatchTotal = paymentBatch.reduce((sum, p) => sum + parseFloat(p.monto), 0);
+        const remaining = Math.max(0, saldo - currentBatchTotal);
+        setPaymentData(prev => ({ ...prev, monto: remaining.toFixed(2) }));
     };
 
-    const handlePaymentSubmit = async (e) => {
-        e.preventDefault();
+    const handleAddPaymentToBatch = () => {
         const monto = parseFloat(paymentData.monto);
         if (!monto || monto <= 0) {
             toast.error('Ingrese un monto válido');
             return;
         }
-        if (monto > saldo + 0.1) { // Tolerance for float errors
-            toast.error('El monto no puede ser mayor al saldo');
+
+        const currentBatchTotal = paymentBatch.reduce((sum, p) => sum + parseFloat(p.monto), 0);
+        // Allow a tiny tolerance for float precision issues
+        if (monto + currentBatchTotal > saldo + 0.1) {
+            toast.error('El monto total supera el saldo pendiente');
             return;
         }
 
@@ -316,36 +322,61 @@ function CostosModal({ report, onClose, onUpdate }) {
         }
 
         const newPayment = {
+            id: Date.now(),
             fecha: new Date().toISOString(),
             monto: monto,
             formaPago: metodo
         };
 
+        setPaymentBatch([...paymentBatch, newPayment]);
+        // Reset amount but keep method? Or reset method? User might pay multiple with same method.
+        // Let's reset amount to avoid double addition of same large number.
+        setPaymentData(prev => ({ ...prev, monto: '' }));
+    };
+
+    const handleRemovePaymentFromBatch = (id) => {
+        setPaymentBatch(paymentBatch.filter(p => p.id !== id));
+    };
+
+    const handlePaymentSubmit = async (e) => {
+        if (e) e.preventDefault();
+
+        if (paymentBatch.length === 0) {
+            toast.error('Debe agregar al menos un pago a la lista antes de registrar.');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
+            // Process each payment in the batch
+            for (const payment of paymentBatch) {
+                await addPayment(report.id, {
+                    fecha: payment.fecha,
+                    monto: payment.monto,
+                    formaPago: payment.formaPago
+                });
+            }
+
             if (paymentType === 'DIAGNOSTICO') {
-                const success = await markReportAsPaid(report.id, newPayment);
+                // If it was a diagnostic payment flow, mark as fully paid/closed
+                // Pass null as payment data because we already added the payments above
+                const success = await markReportAsPaid(report.id, null);
                 if (success) {
                     toast.success('Diagnóstico pagado y reporte cerrado');
                     setIsPaymentModalOpen(false);
                     onClose();
                     onUpdate();
                 } else {
-                    toast.error('Error al registrar el pago del diagnóstico');
+                    toast.error('Error al finalizar el pago del diagnóstico');
                 }
             } else {
-                const success = await addPayment(report.id, newPayment);
-                if (success) {
-                    toast.success('Pago registrado correctamente');
-                    setIsPaymentModalOpen(false);
-                    onUpdate();
-                } else {
-                    toast.error('Error al registrar el pago');
-                }
+                toast.success('Pagos registrados correctamente');
+                setIsPaymentModalOpen(false);
+                onUpdate();
             }
         } catch (error) {
             console.error(error);
-            toast.error('Error al registrar el pago');
+            toast.error('Error al registrar los pagos');
         } finally {
             setIsSubmitting(false);
         }
@@ -634,94 +665,162 @@ function CostosModal({ report, onClose, onUpdate }) {
             {/* Payment Modal */}
             {isPaymentModalOpen && (
                 <Modal onClose={() => !isSubmitting && setIsPaymentModalOpen(false)}>
-                    <div className="p-6 max-w-md mx-auto">
-                        <h3 className="text-xl font-bold mb-4">Registrar Nuevo Pago</h3>
-                        <form onSubmit={handlePaymentSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Fecha</label>
-                                <input
-                                    type="text"
-                                    value={new Date().toLocaleString()}
-                                    disabled
-                                    className="w-full p-2 border rounded bg-gray-100 dark:bg-gray-700"
-                                />
-                            </div>
+                    <div className="p-6 max-w-2xl mx-auto">
+                        <h3 className="text-xl font-bold mb-4 text-center">Registrar Pagos</h3>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Monto</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        max={saldo}
-                                        value={paymentData.monto}
-                                        onChange={(e) => setPaymentData({ ...paymentData, monto: e.target.value })}
+
+                        <div className="flex flex-col items-center mb-6">
+                            <label className="text-sm font-medium text-gray-500 mb-1">Fecha de Transacción</label>
+                            <div className="text-xl font-bold text-gray-800 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg border dark:border-gray-600 mb-2">
+                                {new Date().toLocaleString()}
+                            </div>
+                            <div className="text-sm text-red-600 font-bold bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full border border-red-200 dark:border-red-800">
+                                Saldo Pendiente: S/ {Math.max(0, saldo - paymentBatch.reduce((sum, p) => sum + parseFloat(p.monto), 0)).toFixed(2)}
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-200 dark:border-gray-600 mb-6">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                                <div className="md:col-span-4">
+                                    <label className="block text-sm font-medium mb-1">Método de Pago</label>
+                                    <select
+                                        value={paymentData.metodoPago}
+                                        onChange={(e) => setPaymentData({ ...paymentData, metodoPago: e.target.value })}
                                         className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
-                                        placeholder="0.00"
-                                        required
-                                        disabled={isSubmitting}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleFillBalance}
-                                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 rounded disabled:bg-blue-300"
-                                        title="Completar saldo"
                                         disabled={isSubmitting}
                                     >
-                                        <FaWallet />
+                                        <option value="Yape">Yape</option>
+                                        <option value="Plin">Plin</option>
+                                        <option value="Transferencia">Transferencia</option>
+                                        <option value="Efectivo">Efectivo</option>
+                                        <option value="Otro">Otro</option>
+                                    </select>
+                                </div>
+
+                                <div className="md:col-span-6">
+                                    <label className="block text-sm font-medium mb-1">Monto (S/)</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            max={saldo}
+                                            value={paymentData.monto}
+                                            onChange={(e) => setPaymentData({ ...paymentData, monto: e.target.value })}
+                                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 font-bold text-right"
+                                            placeholder="0.00"
+                                            disabled={isSubmitting}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleAddPaymentToBatch();
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleFillBalance}
+                                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded disabled:bg-blue-300 whitespace-nowrap"
+                                            title="Completar saldo restante"
+                                            disabled={isSubmitting}
+                                        >
+                                            <FaWallet />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleAddPaymentToBatch}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center disabled:bg-indigo-300 h-[42px]"
+                                        disabled={isSubmitting || !paymentData.monto}
+                                        title="Agregar a la lista"
+                                    >
+                                        <FaPlus />
                                     </button>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Método de Pago</label>
-                                <select
-                                    value={paymentData.metodoPago}
-                                    onChange={(e) => setPaymentData({ ...paymentData, metodoPago: e.target.value })}
-                                    className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
-                                    disabled={isSubmitting}
-                                >
-                                    <option value="Yape">Yape</option>
-                                    <option value="Plin">Plin</option>
-                                    <option value="Transferencia">Transferencia</option>
-                                    <option value="Efectivo">Efectivo</option>
-                                    <option value="Otro">Otro</option>
-                                </select>
-                            </div>
-
                             {paymentData.metodoPago === 'Otro' && (
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Especifique</label>
+                                <div className="mt-3">
+                                    <label className="block text-sm font-medium mb-1">Especifique Método</label>
                                     <input
                                         type="text"
                                         value={paymentData.otroMetodo}
                                         onChange={(e) => setPaymentData({ ...paymentData, otroMetodo: e.target.value })}
                                         className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
-                                        required
+                                        placeholder="Detalle el método..."
                                         disabled={isSubmitting}
                                     />
                                 </div>
                             )}
+                        </div>
 
-                            <div className="flex justify-end gap-2 mt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsPaymentModalOpen(false)}
-                                    className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded disabled:bg-gray-300"
-                                    disabled={isSubmitting}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:bg-green-300"
-                                    disabled={isSubmitting}
-                                >
-                                    {isSubmitting ? 'Registrando...' : 'Registrar Pago'}
-                                </button>
-                            </div>
-                        </form>
+                        <div className="mb-4">
+                            <h4 className="text-xs font-bold mb-2 uppercase text-gray-500 tracking-wider">Pagos a Registrar en esta Transacción</h4>
+                            {paymentBatch.length > 0 ? (
+                                <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden shadow-sm">
+                                    <table className="min-w-full text-sm">
+                                        <thead className="bg-gray-100 dark:bg-gray-700">
+                                            <tr>
+                                                <th className="px-4 py-2 text-left">Método</th>
+                                                <th className="px-4 py-2 text-right">Monto</th>
+                                                <th className="px-4 py-2 w-10"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
+                                            {paymentBatch.map((p) => (
+                                                <tr key={p.id}>
+                                                    <td className="px-4 py-3 font-medium">{p.formaPago}</td>
+                                                    <td className="px-4 py-3 text-right">S/ {p.monto.toFixed(2)}</td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <button
+                                                            onClick={() => handleRemovePaymentFromBatch(p.id)}
+                                                            className="text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-900/20 p-1 rounded transition-colors"
+                                                            disabled={isSubmitting}
+                                                            title="Quitar"
+                                                        >
+                                                            <FaTrash size={12} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            <tr className="bg-gray-50 dark:bg-gray-700/50 font-bold border-t-2 border-gray-200 dark:border-gray-600">
+                                                <td className="px-4 py-2 text-right">TOTAL A REGISTRAR:</td>
+                                                <td className="px-4 py-2 text-right text-blue-600 text-base">
+                                                    S/ {paymentBatch.reduce((acc, curr) => acc + curr.monto, 0).toFixed(2)}
+                                                </td>
+                                                <td></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                                    No hay pagos en la lista. Agregue un pago arriba.
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-8 border-t pt-5 dark:border-gray-700">
+                            <button
+                                type="button"
+                                onClick={() => setIsPaymentModalOpen(false)}
+                                className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded disabled:bg-gray-300"
+                                disabled={isSubmitting}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handlePaymentSubmit}
+                                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-8 rounded disabled:bg-green-300 shadow-sm"
+                                disabled={isSubmitting || paymentBatch.length === 0}
+                            >
+                                {isSubmitting ? 'Registrando...' : 'Registrar Pagos'}
+                            </button>
+                        </div>
                     </div>
                 </Modal>
             )}
