@@ -69,7 +69,7 @@ function DetalleHistorial() {
 
     // Estados para documentos de venta/compra
     const [deliveryDocuments, setDeliveryDocuments] = useState([]);
-    const [newDoc, setNewDoc] = useState({ type: DOC_TYPES[0], description: '', number: '' });
+    const [newDoc, setNewDoc] = useState({ type: DOC_TYPES[0], description: '', number: '', amount: '' });
 
     useEffect(() => {
         if (reportId) {
@@ -91,7 +91,7 @@ function DetalleHistorial() {
 
     const handleOpenDeliveryModal = () => {
         setDeliveryDocuments([]);
-        setNewDoc({ type: DOC_TYPES[0], description: '', number: '' });
+        setNewDoc({ type: DOC_TYPES[0], description: '', number: '', amount: '' });
         setIsDeliveryModalOpen(true);
     };
 
@@ -102,12 +102,12 @@ function DetalleHistorial() {
     };
 
     const handleAddDocument = () => {
-        if (!newDoc.type || !newDoc.description || !newDoc.number) {
+        if (!newDoc.type || !newDoc.description || !newDoc.number || !newDoc.amount) {
             toast.error('Por favor complete todos los campos del documento.');
             return;
         }
         setDeliveryDocuments([...deliveryDocuments, { ...newDoc, id: Date.now() }]);
-        setNewDoc({ type: DOC_TYPES[0], description: '', number: '' });
+        setNewDoc({ type: DOC_TYPES[0], description: '', number: '', amount: '' });
     };
 
     const handleRemoveDocument = (id) => {
@@ -926,7 +926,7 @@ function DetalleHistorial() {
 
             {(report.documentosVentaCompra && report.documentosVentaCompra.length > 0) && (
                 <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
-                    <h2 className="text-xl font-semibold text-green-600 mb-3">Comprobantes Registrados</h2>
+                    <h2 className="text-xl font-semibold text-green-600 mb-3">Comprobantes de Compra Registrados</h2>
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm text-left">
                             <thead className="bg-gray-50 dark:bg-gray-700">
@@ -934,6 +934,7 @@ function DetalleHistorial() {
                                     <th className="px-4 py-2">Tipo</th>
                                     <th className="px-4 py-2">Descripción</th>
                                     <th className="px-4 py-2">N° Comprobante</th>
+                                    <th className="px-4 py-2">Monto</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
@@ -942,6 +943,33 @@ function DetalleHistorial() {
                                         <td className="px-4 py-2">{doc.type}</td>
                                         <td className="px-4 py-2">{doc.description}</td>
                                         <td className="px-4 py-2">{doc.number}</td>
+                                        <td className="px-4 py-2">{doc.amount ? `S/ ${parseFloat(doc.amount).toFixed(2)}` : '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {(report.comprobantesPago && report.comprobantesPago.length > 0) && (
+                <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
+                    <h2 className="text-xl font-semibold text-blue-600 mb-3">Comprobantes de Pago Emitidos</h2>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm text-left">
+                            <thead className="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th className="px-4 py-2">Tipo</th>
+                                    <th className="px-4 py-2">N° Comprobante</th>
+                                    <th className="px-4 py-2">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                                {report.comprobantesPago.map((doc, index) => (
+                                    <tr key={index}>
+                                        <td className="px-4 py-2">{doc.tipo}</td>
+                                        <td className="px-4 py-2">{doc.numero}</td>
+                                        <td className="px-4 py-2">{doc.monto ? `S/ ${parseFloat(doc.monto).toFixed(2)}` : '-'}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -986,11 +1014,11 @@ function DetalleHistorial() {
 
                         {/* Sección de Documentos */}
                         <div className="border-t pt-4 dark:border-gray-600">
-                            <h3 className="text-sm font-bold mb-2">Comprobantes de Venta/Compra {currentUser?.rol === 'ADMIN' && <span className="text-red-500">*</span>}</h3>
+                            <h3 className="text-sm font-bold mb-2">Comprobantes de Compra {currentUser?.rol === 'ADMIN' && <span className="text-red-500">*</span>}</h3>
 
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2">
                                 <select
-                                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm md:col-span-1"
                                     value={newDoc.type}
                                     onChange={(e) => setNewDoc({ ...newDoc, type: e.target.value })}
                                 >
@@ -998,25 +1026,34 @@ function DetalleHistorial() {
                                 </select>
                                 <input
                                     type="text"
-                                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm md:col-span-2"
                                     placeholder="Descripción"
                                     value={newDoc.description}
                                     onChange={(e) => setNewDoc({ ...newDoc, description: e.target.value })}
                                 />
                                 <input
                                     type="text"
-                                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm md:col-span-1"
                                     placeholder="N° Comprobante"
                                     value={newDoc.number}
                                     onChange={(e) => setNewDoc({ ...newDoc, number: e.target.value })}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={handleAddDocument}
-                                    className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-md flex items-center justify-center"
-                                >
-                                    <FaPlus />
-                                </button>
+                                <div className="flex gap-2 md:col-span-1">
+                                    <input
+                                        type="number"
+                                        className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm w-full"
+                                        placeholder="Monto"
+                                        value={newDoc.amount}
+                                        onChange={(e) => setNewDoc({ ...newDoc, amount: e.target.value })}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleAddDocument}
+                                        className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-md flex items-center justify-center shrink-0"
+                                    >
+                                        <FaPlus />
+                                    </button>
+                                </div>
                             </div>
 
                             {deliveryDocuments.length > 0 && (
@@ -1027,6 +1064,7 @@ function DetalleHistorial() {
                                                 <th className="px-2 py-1">Tipo</th>
                                                 <th className="px-2 py-1">Desc.</th>
                                                 <th className="px-2 py-1">N°</th>
+                                                <th className="px-2 py-1">Monto</th>
                                                 <th className="px-2 py-1"></th>
                                             </tr>
                                         </thead>
@@ -1036,6 +1074,7 @@ function DetalleHistorial() {
                                                     <td className="px-2 py-1">{doc.type}</td>
                                                     <td className="px-2 py-1">{doc.description}</td>
                                                     <td className="px-2 py-1">{doc.number}</td>
+                                                    <td className="px-2 py-1">{doc.amount ? `S/ ${parseFloat(doc.amount).toFixed(2)}` : '-'}</td>
                                                     <td className="px-2 py-1 text-center">
                                                         <button
                                                             type="button"

@@ -214,6 +214,8 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                     </div>
                 </div>
             </div>
+
+
         </div>
     );
 });
