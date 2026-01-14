@@ -87,7 +87,7 @@ function DetalleDiagnostico() {
         const aCuenta = parseFloat(report?.aCuenta) || 0;
 
         // Handle "Cobra Revisión" logic
-        const shouldChargeRevision = formState.printer_cobra_revision !== 'NO';
+        const shouldChargeRevision = formState.printer_cobra_revision !== 'NO' && formState.cobra_revision !== 'NO';
 
         let diagCost = parseFloat(report?.diagnostico) || 0;
         if (!shouldChargeRevision) {
@@ -1251,6 +1251,18 @@ function DetalleDiagnostico() {
                                 <input type="text" name="repoten_ram_cod" value={formState.repoten_ram_cod || ''} {...p('repoten_ram')} placeholder="Cód." className={`${inputProps.className} flex-1`} />
                             </div>
                         </div>
+                        {/* Cobro Revision Generic */}
+                        <div className="flex justify-end items-center gap-4 mt-4 pt-4 border-t dark:border-gray-700">
+                            <span className="font-bold text-sm">¿SE COBRA REVISIÓN?</span>
+                            <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                                <input type="radio" value="SI" checked={formState.cobra_revision === 'SI' || !formState.cobra_revision} {...r('cobra_revision')} className="w-4 h-4 accent-black" />
+                                <span className="font-bold text-sm">SI</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                                <input type="radio" value="NO" checked={formState.cobra_revision === 'NO'} {...r('cobra_revision')} className="w-4 h-4 accent-black" />
+                                <span className="font-bold text-sm">NO</span>
+                            </label>
+                        </div>
                     </div>
                 );
             case 'SOFTWARE':
@@ -1273,6 +1285,18 @@ function DetalleDiagnostico() {
                                 <div className="flex items-center gap-2"><label className="flex items-center w-48"><input type="checkbox" name="diseno" checked={formState.diseno || false} {...c('diseno')} />Inst. de Prog. de Diseño:</label><input type="text" name="diseno_spec" value={formState.diseno_spec || ''} {...p('diseno')} placeholder="Especif." className={`${inputProps.className} flex-1`} /></div>
                                 <div className="flex items-center gap-2"><label className="flex items-center w-48"><input type="checkbox" name="ingenieria" checked={formState.ingenieria || false} {...c('ingenieria')} />Inst. de Prog. de Ing.:</label><input type="text" name="ingenieria_spec" value={formState.ingenieria_spec || ''} {...p('ingenieria')} placeholder="Especif." className={`${inputProps.className} flex-1`} /></div>
                             </div>
+                        </div>
+                        {/* Cobro Revision Generic */}
+                        <div className="flex justify-end items-center gap-4 mt-4 pt-4 border-t dark:border-gray-700">
+                            <span className="font-bold text-sm">¿SE COBRA REVISIÓN?</span>
+                            <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                                <input type="radio" value="SI" checked={formState.cobra_revision === 'SI' || !formState.cobra_revision} {...r('cobra_revision')} className="w-4 h-4 accent-black" />
+                                <span className="font-bold text-sm">SI</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                                <input type="radio" value="NO" checked={formState.cobra_revision === 'NO'} {...r('cobra_revision')} className="w-4 h-4 accent-black" />
+                                <span className="font-bold text-sm">NO</span>
+                            </label>
                         </div>
                     </div>
                 );
@@ -1432,6 +1456,18 @@ function DetalleDiagnostico() {
                                 );
                             })()}
                             <textarea name="elec_obs" value={formState.elec_obs || ''} {...p('elec_generales')} placeholder="Obs" className={`${inputProps.className} w-full`} rows="3"></textarea>
+                        </div>
+                        {/* Cobro Revision Generic */}
+                        <div className="flex justify-end items-center gap-4 mt-4 pt-4 border-t dark:border-gray-700">
+                            <span className="font-bold text-sm">¿SE COBRA REVISIÓN?</span>
+                            <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                                <input type="radio" value="SI" checked={formState.cobra_revision === 'SI' || !formState.cobra_revision} {...r('cobra_revision')} className="w-4 h-4 accent-black" />
+                                <span className="font-bold text-sm">SI</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                                <input type="radio" value="NO" checked={formState.cobra_revision === 'NO'} {...r('cobra_revision')} className="w-4 h-4 accent-black" />
+                                <span className="font-bold text-sm">NO</span>
+                            </label>
                         </div>
                     </div>
                 );

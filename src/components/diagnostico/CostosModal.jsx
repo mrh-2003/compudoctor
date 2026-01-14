@@ -22,14 +22,25 @@ function CostosModal({ report, onClose, onUpdate }) {
     const getAllCostItems = () => {
         const items = [];
 
-        // Check if Revision Check is strictly 'NO' in Impresora history
+        // Check if Revision Check is strictly 'NO' in ANY area history
         let shouldChargeRevision = true;
-        if (report.diagnosticoPorArea && report.diagnosticoPorArea['IMPRESORA']) {
-            const history = report.diagnosticoPorArea['IMPRESORA'];
-            // Find the last entry that has a explicit decision
-            const entryWithDecision = [...history].reverse().find(h => h.printer_cobra_revision);
-            if (entryWithDecision && entryWithDecision.printer_cobra_revision === 'NO') {
-                shouldChargeRevision = false;
+        if (report.diagnosticoPorArea) {
+            const areasToCheck = ['IMPRESORA', 'HARDWARE', 'SOFTWARE', 'ELECTRONICA'];
+
+            for (const area of areasToCheck) {
+                if (report.diagnosticoPorArea[area]) {
+                    const history = report.diagnosticoPorArea[area];
+                    // Find the last entry that has a explicit decision
+                    const entryWithDecision = [...history].reverse().find(h => h.printer_cobra_revision || h.cobra_revision);
+
+                    if (entryWithDecision) {
+                        const decision = entryWithDecision.printer_cobra_revision || entryWithDecision.cobra_revision;
+                        if (decision === 'NO') {
+                            shouldChargeRevision = false;
+                            break; // If any area says NO, we don't charge (Customer Service waiver)
+                        }
+                    }
+                }
             }
         }
 
@@ -46,15 +57,17 @@ function CostosModal({ report, onClose, onUpdate }) {
         // 2. Services List (Main) from Diagnostico Form
         if (report.servicesList) {
             report.servicesList.forEach((s, idx) => {
-                // If Revision is disabled and service name contains "Revisión", exclude it
+                let amount = parseFloat(s.amount) || 0;
+
+                // If Revision is disabled and service name contains "Revisión", set amount to 0
                 if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
-                    return;
+                    amount = 0;
                 }
 
                 items.push({
                     id: `main-${idx}`,
                     label: s.service + (s.specification ? ` [${s.specification}]` : ''),
-                    amount: parseFloat(s.amount) || 0,
+                    amount: amount,
                     type: 'Principal'
                 });
             });
@@ -79,25 +92,30 @@ function CostosModal({ report, onClose, onUpdate }) {
 
             Object.entries(report.diagnosticoPorArea).forEach(([area, entries]) => {
                 entries.forEach((entry, entryIdx) => {
-                    if (entry.addedServices) {
-                        entry.addedServices.forEach((s, sIdx) => {
-                            // If service has an ID and we've seen it, skip it.
-                            if (s.id && seenServiceIds.has(s.id)) {
-                                return;
-                            }
-                            if (s.id) {
-                                seenServiceIds.add(s.id);
-                            }
+                    const processServiceList = (list, listName) => {
+                        if (list) {
+                            list.forEach((s, sIdx) => {
+                                // If service has an ID and we've seen it, skip it.
+                                if (s.id && seenServiceIds.has(s.id)) {
+                                    return;
+                                }
+                                if (s.id) {
+                                    seenServiceIds.add(s.id);
+                                }
 
-                            const specInfo = s.specification ? ` [${s.specification}]` : '';
-                            items.push({
-                                id: s.id || `area-${area}-${entryIdx}-${sIdx}`,
-                                label: `${s.description}${specInfo} (${area})`,
-                                amount: parseFloat(s.amount) || 0,
-                                type: 'Adicional (Área)'
+                                const specInfo = s.specification ? ` [${s.specification}]` : '';
+                                items.push({
+                                    id: s.id || `area-${area}-${entryIdx}-${listName}-${sIdx}`,
+                                    label: `${s.description}${specInfo} (${area})`,
+                                    amount: parseFloat(s.amount) || 0,
+                                    type: 'Adicional (Área)'
+                                });
                             });
-                        });
-                    }
+                        }
+                    };
+
+                    processServiceList(entry.addedServices, 'added');
+                    processServiceList(entry.printer_services_additional, 'printer-add');
                 });
             });
         }

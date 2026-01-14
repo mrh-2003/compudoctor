@@ -348,6 +348,9 @@ function Diagnostico() {
     "Windows 11", "Windows 10", "Windows 8", "Windows 7", "macOS", "Linux", "Otro",
   ];
   const AREA_OPTIONS = ["SOFTWARE", "HARDWARE", "ELECTRONICA", "IMPRESORA"];
+  if (isAdminOrSuperadmin) {
+    AREA_OPTIONS.push("TESTEO");
+  }
 
   const handlePrint = () => {
     if (isEditMode && !formData.reportNumber) {
