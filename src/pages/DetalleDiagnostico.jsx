@@ -287,7 +287,6 @@ function DetalleDiagnostico() {
 
                         // 1. Initial Services
                         if (fetchedReport.servicesList && fetchedReport.servicesList.length > 0) {
-                            finalSummary.push("SERVICIOS INICIALES SOLICITADOS:");
                             fetchedReport.servicesList.forEach(s => {
                                 finalSummary.push(`- ${s.service}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
                             });
@@ -306,8 +305,6 @@ function DetalleDiagnostico() {
                                 });
 
                                 if (areaAddedServices.length > 0) {
-                                    if (finalSummary.length > 0) finalSummary.push("");
-                                    finalSummary.push(`ÁREA ${area}:`);
                                     areaAddedServices.forEach(s => {
                                         finalSummary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
                                     });
@@ -315,7 +312,7 @@ function DetalleDiagnostico() {
                             });
                         }
 
-                        initialFormState.testeo_servicio_final = finalSummary.join('\n');
+                        initialFormState.testeo_servicio_final = finalSummary.join('\n').trim();
                     }
                 }
 
@@ -566,57 +563,16 @@ function DetalleDiagnostico() {
 
     const generateTaskSummary = () => {
         if (!formState) return '';
-        let summary = [];
-        const CHECKED = '✅';
-        const UNCHECKED_CONTENT = '🟫';
-
-        // Helper to formatted lines
-        const formatLine = (checked, label, details) => {
-            const hasDetails = details && details.trim() !== '' && details !== '-' && details !== '?' && details !== 'undefined';
-            if (checked) {
-                return `${CHECKED} ${label}${hasDetails ? ` (${details})` : ''}`;
-            }
-            return null;
-        };
-
+        let summary = []; 
         // For TESTEO, we keep the checklist summary because it's a diagnostic checklist
-        if (report.area === 'TESTEO') {
-            const testFields = [
-                'disco', 'pantalla', 'bateria', 'cargador', 'camara',
-                'microfono', 'auricular', 'parlantes', 'teclado', 'lectora',
-                'touchpad', 'wifi', 'rj45', 'usb', 'tipo_c', 'hdmi', 'vga', 'otros'
-            ];
-
-            if (formState.testeo_procesador) summary.push(`ℹ️ Procesador: ${formState.testeo_procesador}`);
-            if (formState.testeo_video_dedicado) summary.push(`ℹ️ Video Dedicado: ${formState.testeo_video_dedicado}`);
-            if (formState.testeo_memoria_ram) summary.push(`ℹ️ Memoria Ram: ${formState.testeo_memoria_ram}`);
-
-            testFields.forEach(key => {
-                const status = formState[`testeo_${key}`]; // SI/NO
-                const obs = formState[`testeo_${key}_obs`];
-                if (status) {
-                    const icon = status === 'SI' ? '✅' : '❌'; // SI = Funciona, NO = No funciona
-                    let line = `${icon} ${key.toUpperCase()}: ${status === 'SI' ? 'FUNCIONA' : 'NO FUNCIONA'}`;
-                    if (obs) line += ` (Obs: ${obs})`;
-                    summary.push(line);
-                } else if (obs) {
-                    summary.push(`${UNCHECKED_CONTENT} ${key.toUpperCase()}: (Estado no marcado) (Obs: ${obs})`);
-                }
-            });
-            if (formState.testeo_servicio_final) {
-                summary.push(`📝 Servicio Final: ${formState.testeo_servicio_final}`);
-            }
-
-        } else if (report.area === 'IMPRESORA') {
+        if (report.area === 'IMPRESORA') {
             // For Impresora, keep services + additional specific to printer
             if (formState.printer_services_realized && formState.printer_services_realized.length > 0) {
-                summary.push('Servicios Realizados (Iniciales):');
                 formState.printer_services_realized.forEach(s => {
                     summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
             if (formState.printer_services_additional && formState.printer_services_additional.length > 0) {
-                summary.push('Servicios Adicionales (Impresora):');
                 formState.printer_services_additional.forEach(s => {
                     summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
@@ -628,9 +584,7 @@ function DetalleDiagnostico() {
             const initialServices = report.servicesList || [];
             const additionalServices = formState.addedServices || [];
 
-            if (initialServices.length > 0) {
-                summary.push('');
-                summary.push('--- SERVICIOS INICIALES ---');
+            if (initialServices.length > 0) { 
                 initialServices.forEach(s => {
                     const spec = s.specification ? ` (${s.specification})` : '';
                     summary.push(`• ${s.service}${spec}`);
@@ -638,7 +592,6 @@ function DetalleDiagnostico() {
             }
 
             if (additionalServices.length > 0) {
-                summary.push('--- SERVICIOS ADICIONALES ---');
                 additionalServices.forEach(s => {
                     let displayDesc = s.description;
                     if (s.serviceKey && s.serviceLabel && SERVICE_FIELD_MAPPING[s.serviceKey]) {
@@ -649,17 +602,11 @@ function DetalleDiagnostico() {
                 });
             }
 
-        } else {
-            // FOR HARDWARE, SOFTWARE (and others)
-            // ONLY SHOW SERVICES (Initial + Additional)
-            // Only take NEW added services for this session to avoid duplication if we want strict separation, 
-            // but user said "Servicios Adicionales dependiendo del area".
-            // addedServices contains everything added in this context.
+        } else { 
             const initialServices = report.servicesList || [];
             const additionalServices = formState.addedServices || [];
 
-            if (initialServices.length > 0) {
-                summary.push('--- SERVICIOS INICIALES (SOLICITADOS) ---');
+            if (initialServices.length > 0) { 
                 initialServices.forEach(s => {
                     const spec = s.specification ? ` (${s.specification})` : '';
                     summary.push(`• ${s.service}${spec}`);
@@ -667,10 +614,7 @@ function DetalleDiagnostico() {
             }
 
             if (additionalServices.length > 0) {
-                if (initialServices.length > 0) summary.push('');
-                summary.push('--- SERVICIOS ADICIONALES (ÁREA) ---');
                 additionalServices.forEach(s => {
-                    // description already includes dynamic details from our previous change
                     summary.push(`• ${s.description} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
@@ -831,10 +775,8 @@ function DetalleDiagnostico() {
                 ubicacionFisica: ubicacionFisica,
 
                 aCuenta: currentACuenta,
-                total: total, // Use the memoized calculated total from the component logic which includes all history + current
-                saldo: saldo, // Use memoized saldo
-                // additionalServices: editableAdditionalServices, // We don't update global legacy array anymore
-                // hasAdditionalServices: editableAdditionalServices.length > 0,
+                total: total,
+                saldo: saldo,
             };
 
             if (isTransfer) {
@@ -868,20 +810,13 @@ function DetalleDiagnostico() {
 
     const nextAreaOptions = useMemo(() => {
         if (!report) return [];
-        let areaOptions = [];
-
-        // Filter Area Options: Exclude 'IMPORTANT' areas often not needed in next step or filter logical flows
-        // User request: "IMPRESORA debe aparecer solo si se trata de impresora"
-
+        let areaOptions = []; 
         if (report.tipoEquipo === 'Impresora') {
-            // For printers, usually goes to IMPRESORA or TERMINADO
-            // Request says: "debe aparecer ya marcado" - handled in useEffect or defaults, but here we list options.
             areaOptions = [
                 { value: 'IMPRESORA', label: 'IMPRESORA' },
                 { value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' }
             ];
         } else {
-            // For non-printers, exclude IMPRESORA from the list
             areaOptions = AREA_OPTIONS_CONSTANT
                 .filter(area => area !== 'IMPRESORA')
                 .map(area => ({ value: area, label: area }));
