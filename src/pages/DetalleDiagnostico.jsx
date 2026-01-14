@@ -624,30 +624,9 @@ function DetalleDiagnostico() {
             if (formState.printer_observaciones) summary.push(`Obs: ${formState.printer_observaciones}`);
 
         } else if (report.area === 'ELECTRONICA') {
-            // FOR ELECTRONICA: Mixed approach. Show checklist items (Video, Placa) AND Services list.
-            const CHECKED = '✅';
+            // FOR ELECTRONICA: ONLY SHOW SERVICES (Initial + Additional) as per user request
             const initialServices = report.servicesList || [];
             const additionalServices = formState.addedServices || [];
-
-            // Only show Reparable status if the component is explicitly checked
-            const videoRep = formState.elec_video ? `Reparable: ${formState.elec_video_reparable || 'SI'}` : '';
-            const videoSpec = formState.elec_video_spec ? `(${formState.elec_video_spec})` : '';
-            if (formState.elec_video) summary.push(`${CHECKED} TARJ. VIDEO ${videoRep} ${videoSpec}`.trim());
-
-            const placaRep = formState.elec_placa ? `Reparable: ${formState.elec_placa_reparable || 'SI'}` : '';
-            const placaSpec = formState.elec_placa_spec ? `(${formState.elec_placa_spec})` : '';
-            if (formState.elec_placa) summary.push(`${CHECKED} PLACA ${placaRep} ${placaSpec}`.trim());
-
-            const otroDetail = formState.elec_otro_especif || '';
-            const otroReparable = formState.elec_otro ? `(Reparable: ${formState.elec_otro_reparable || 'SI'})` : '';
-            const finalOtroDetail = [otroDetail, otroReparable].filter(Boolean).join(' ');
-            if (formState.elec_otro) summary.push(`${CHECKED} OTRO ${finalOtroDetail}`.trim());
-
-            if (formState.elec_codigo) summary.push(`ℹ️ Código: ${formState.elec_codigo}`);
-            if (formState.elec_etapa) summary.push(`ℹ️ Etapa: ${formState.elec_etapa}`);
-            if (formState.elec_obs) summary.push(`ℹ️ Observaciones: ${formState.elec_obs}`);
-
-            if (formState.elec_obs) summary.push(`ℹ️ Observaciones: ${formState.elec_obs}`);
 
             if (initialServices.length > 0) {
                 summary.push('');
@@ -675,7 +654,6 @@ function DetalleDiagnostico() {
             // ONLY SHOW SERVICES (Initial + Additional)
             // Only take NEW added services for this session to avoid duplication if we want strict separation, 
             // but user said "Servicios Adicionales dependiendo del area".
-            // addedServices contains everything added in this context.
             // addedServices contains everything added in this context.
             const initialServices = report.servicesList || [];
             const additionalServices = formState.addedServices || [];
