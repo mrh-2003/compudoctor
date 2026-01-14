@@ -13,6 +13,68 @@ import ReadOnlyReportHeader from '../components/common/ReadOnlyReportHeader';
 
 const AREA_OPTIONS_CONSTANT = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO', 'IMPRESORA'];
 
+const SERVICE_FIELD_MAPPING = {
+    // Hardware
+    'cambio_teclado': [{ name: 'cambio_teclado_codigo', label: 'Código', placeholder: 'Código del teclado' }],
+    'cambio_pantalla': [
+        { name: 'cambio_pantalla_codigo', label: 'Código', placeholder: 'Código' },
+        { name: 'cambio_pantalla_resolucion', label: 'Resolución', placeholder: 'ej. 1920x1080' },
+        { name: 'cambio_pantalla_hz', label: 'Hz', placeholder: 'ej. 60Hz' }
+    ],
+    'cambio_carcasa': [{ name: 'cambio_carcasa_obs', label: 'Observación', placeholder: 'Detalles de carcasa' }],
+    'cambio_placa': [
+        { name: 'cambio_placa_codigo', label: 'Código', placeholder: 'Código' },
+        { name: 'cambio_placa_especif', label: 'Especificación', placeholder: 'Detalle' }
+    ],
+    'cambio_fuente': [
+        { name: 'cambio_fuente_codigo', label: 'Código', placeholder: 'Código' },
+        { name: 'cambio_fuente_especif', label: 'Especificación', placeholder: 'Detalle' }
+    ],
+    'cambio_video': [
+        { name: 'cambio_video_codigo', label: 'Código', placeholder: 'Código' },
+        { name: 'cambio_video_especif', label: 'Especificación', placeholder: 'Detalle' }
+    ],
+    'otros': [{ name: 'otros_especif', label: 'Especifique', placeholder: 'Detalle del hardware' }],
+    'repoten_ssd': [
+        { name: 'repoten_ssd_gb', label: 'GB', placeholder: 'Capacidad' },
+        { name: 'repoten_ssd_serie', label: 'Serie', placeholder: 'Nro Serie' }
+    ],
+    'repoten_nvme': [
+        { name: 'repoten_nvme_gb', label: 'GB', placeholder: 'Capacidad' },
+        { name: 'repoten_nvme_serie', label: 'Serie', placeholder: 'Nro Serie' }
+    ],
+    'repoten_m2': [
+        { name: 'repoten_m2_gb', label: 'GB', placeholder: 'Capacidad' },
+        { name: 'repoten_m2_serie', label: 'Serie', placeholder: 'Nro Serie' }
+    ],
+    'repoten_hdd': [
+        { name: 'repoten_hdd_gb', label: 'GB', placeholder: 'Capacidad' },
+        { name: 'repoten_hdd_serie', label: 'Serie', placeholder: 'Nro Serie' },
+        { name: 'repoten_hdd_codigo', label: 'Código', placeholder: 'Código' }
+    ],
+    'repoten_ram': [
+        { name: 'repoten_ram_cap', label: 'Capacidad', placeholder: 'ej. 8GB' },
+        { name: 'repoten_ram_cod', label: 'Código', placeholder: 'Código' }
+    ],
+
+    // Software
+    'diseno': [{ name: 'diseno_spec', label: 'Especificar Programas', placeholder: 'Lista de programas' }],
+    'ingenieria': [{ name: 'ingenieria_spec', label: 'Especificar Programas', placeholder: 'Lista de programas' }],
+    'sw_otros': [{ name: 'sw_otros_spec', label: 'Especificar', placeholder: 'Detalle' }],
+
+    // Electronica
+    'elec_video': [
+        { name: 'elec_video_reparable', label: 'Reparable', type: 'radio', options: ['SI', 'NO'] }
+    ],
+    'elec_placa': [
+        { name: 'elec_placa_reparable', label: 'Reparable', type: 'radio', options: ['SI', 'NO'] }
+    ],
+    'elec_otro': [
+        { name: 'elec_otro_especif', label: 'Especifique', placeholder: 'Detalle' },
+        { name: 'elec_otro_reparable', label: 'Reparable', type: 'radio', options: ['SI', 'NO'] }
+    ]
+};
+
 const selectStyles = (theme) => ({
     control: (baseStyles) => ({
         ...baseStyles,
@@ -330,19 +392,38 @@ function DetalleDiagnostico() {
         let finalSpec = '';
         let isOther = false;
 
-        // Show spec input logic now covers Hardware and Software too as requested
-        const areasWithSpec = ['ELECTRONICA', 'HARDWARE', 'SOFTWARE'];
-        if (selectedServiceOption.value === 'Otros' || (areasWithSpec.includes(report.area) && report.area !== 'TESTEO')) {
-            if (!nuevoServicio.specification && selectedServiceOption.value === 'Otros') {
-                toast.error("Debe especificar el servicio.");
-                return;
+        // Dynamic Description Building based on Mapped Fields
+        const mapping = SERVICE_FIELD_MAPPING[selectedServiceOption.value];
+        if (mapping) {
+            const detailsParts = mapping.map(field => {
+                const val = formState[field.name];
+                if (val && val !== 'null' && val !== 'undefined') {
+                    if (field.type === 'radio') {
+                        return `${field.label}: ${val}`;
+                    }
+                    return `${field.label}: ${val}`;
+                }
+                return null;
+            }).filter(Boolean);
+
+            if (detailsParts.length > 0) {
+                finalDescription += ` (${detailsParts.join(', ')})`;
             }
-            if (nuevoServicio.specification) {
-                // 2.1 Append details
-                finalDescription = `${selectedServiceOption.label} (${nuevoServicio.specification})`;
+        } else {
+            // Fallback for manual spec input (e.g. 'Otros' generic or unmapped fields)
+            const areasWithSpec = ['ELECTRONICA', 'HARDWARE', 'SOFTWARE'];
+            if (selectedServiceOption.value === 'Otros' || (areasWithSpec.includes(report.area) && report.area !== 'TESTEO')) {
+                if (!nuevoServicio.specification && selectedServiceOption.value === 'Otros') {
+                    toast.error("Debe especificar el servicio.");
+                    return;
+                }
+                if (nuevoServicio.specification) {
+                    finalDescription = `${selectedServiceOption.label} (${nuevoServicio.specification})`;
+                }
+                if (selectedServiceOption.value === 'Otros') isOther = true;
             }
-            if (selectedServiceOption.value === 'Otros') isOther = true;
         }
+
 
         const serviceToAdd = {
             id: Date.now(),
@@ -357,8 +438,6 @@ function DetalleDiagnostico() {
             addedServices: [...(prev.addedServices || []), serviceToAdd]
         }));
 
-        // Reset inputs
-        setNuevoServicio({ description: '', amount: 0, specification: '' });
         // Reset inputs
         setNuevoServicio({ description: '', amount: 0, specification: '' });
         setSelectedServiceOption(null);
@@ -457,11 +536,11 @@ function DetalleDiagnostico() {
             summary.push(formatLine(formState.cambio_video, 'Cambio de Tarj. Video', `Cod: ${formState.cambio_video_codigo || '-'}, Esp: ${formState.cambio_video_especif || '-'}`));
             summary.push(formatLine(formState.otros, 'Otros Hardware', formState.otros_especif));
 
-            summary.push(formatLine(formState.repoten_ssd, 'Repotenciación SSD', `${formState.repoten_ssd_gb || '-'} GB (Serie: ${formState.repoten_ssd_serie || '-'})`));
-            summary.push(formatLine(formState.repoten_nvme, 'Repotenciación NVME', `${formState.repoten_nvme_gb || '-'} GB (Serie: ${formState.repoten_nvme_serie || '-'})`));
-            summary.push(formatLine(formState.repoten_m2, 'Repotenciación M.2 SATA', `${formState.repoten_m2_gb || '-'} GB (Serie: ${formState.repoten_m2_serie || '-'})`));
-            summary.push(formatLine(formState.repoten_hdd, 'Repotenciación HDD', `${formState.repoten_hdd_gb || '-'} GB (Serie: ${formState.repoten_hdd_serie || '-'}, Cod: ${formState.repoten_hdd_codigo || '-'})`));
-            summary.push(formatLine(formState.repoten_ram, 'Repotenciación RAM', `${formState.repoten_ram_cap || '-'} (Cod: ${formState.repoten_ram_cod || '-'})`));
+            summary.push(formatLine(formState.repoten_ssd, 'SSD', `${formState.repoten_ssd_gb || '-'} GB (Serie: ${formState.repoten_ssd_serie || '-'})`));
+            summary.push(formatLine(formState.repoten_nvme, 'NVME', `${formState.repoten_nvme_gb || '-'} GB (Serie: ${formState.repoten_nvme_serie || '-'})`));
+            summary.push(formatLine(formState.repoten_m2, 'M.2 SATA', `${formState.repoten_m2_gb || '-'} GB (Serie: ${formState.repoten_m2_serie || '-'})`));
+            summary.push(formatLine(formState.repoten_hdd, 'HDD', `${formState.repoten_hdd_gb || '-'} GB (Serie: ${formState.repoten_hdd_serie || '-'}, Cod: ${formState.repoten_hdd_codigo || '-'})`));
+            summary.push(formatLine(formState.repoten_ram, 'RAM', `${formState.repoten_ram_cap || '-'} (Cod: ${formState.repoten_ram_cod || '-'})`));
 
         } else if (report.area === 'SOFTWARE') {
             const swFields = [
@@ -1748,7 +1827,7 @@ function DetalleDiagnostico() {
                         {renderAreaForm()}
                         {report.tipoEquipo !== 'Impresora' && renderAdditionalServicesSection(
                             report, isAllowedToEdit, isReportFinalized,
-                            formState, nuevoServicio, setNuevoServicio,
+                            formState, setFormState, nuevoServicio, setNuevoServicio,
                             handleAddLocalService, handleRemoveLocalService,
                             selectStyles, theme, getConfigForArea,
                             setSelectedServiceOption, selectedServiceOption
@@ -1861,7 +1940,74 @@ function DetalleDiagnostico() {
     );
 }
 
-const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinalized, formState, nuevoServicio, setNuevoServicio, handleAddLocalService, handleRemoveLocalService, selectStyles, theme, getConfigForArea, setSelectedServiceOption, selectedServiceOption) => {
+const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinalized, formState, setFormState, nuevoServicio, setNuevoServicio, handleAddLocalService, handleRemoveLocalService, selectStyles, theme, getConfigForArea, setSelectedServiceOption, selectedServiceOption) => {
+
+    // Helper to render dynamic inputs based on selected service
+    const renderDynamicInputs = () => {
+        if (!selectedServiceOption || !selectedServiceOption.value) return null;
+
+        const mappedFields = SERVICE_FIELD_MAPPING[selectedServiceOption.value];
+
+        if (mappedFields) {
+            return (
+                <div className="w-full md:w-auto flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {mappedFields.map((field) => {
+                        if (field.type === 'radio') {
+                            return (
+                                <div key={field.name} className="flex flex-col">
+                                    <label className="text-xs font-bold text-gray-500 mb-1">{field.label}</label>
+                                    <div className="flex items-center gap-2">
+                                        {field.options.map(opt => (
+                                            <label key={opt} className="flex items-center text-xs gap-1 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name={field.name}
+                                                    value={opt}
+                                                    checked={formState[field.name] === opt || (opt === 'SI' && !formState[field.name])} // Default SI?
+                                                    onChange={(e) => setFormState(prev => ({ ...prev, [field.name]: e.target.value }))}
+                                                />
+                                                {opt}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        }
+                        return (
+                            <div key={field.name} className="flex flex-col min-w-[120px]">
+                                <label className="text-xs font-bold text-gray-500 mb-1">{field.label}</label>
+                                <input
+                                    type="text"
+                                    value={formState[field.name] || ''}
+                                    onChange={(e) => setFormState(prev => ({ ...prev, [field.name]: e.target.value }))}
+                                    placeholder={field.placeholder}
+                                    className="p-1 text-sm border rounded dark:bg-gray-600 dark:border-gray-500 w-full"
+                                />
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        // Fallback for 'Otros' or generic
+        if (selectedServiceOption.label === 'Otros' || (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area) && report.area !== 'TESTEO')) {
+            return (
+                <div className="w-full md:w-64">
+                    <label className="block text-sm font-medium mb-1">Especifique</label>
+                    <input
+                        type="text"
+                        value={nuevoServicio.specification || ''}
+                        onChange={(e) => setNuevoServicio(prev => ({ ...prev, specification: e.target.value }))}
+                        className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500 border-red-500 ring-1 ring-red-500"
+                        placeholder="Detalle del servicio..."
+                    />
+                </div>
+            );
+        }
+        return null;
+    };
+
     return (
         <div className="border p-4 rounded-md mt-6 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <h3 className="font-bold text-lg mb-4 text-gray-700 dark:text-gray-300 border-b pb-2">Servicios Adicionales de Área</h3>
@@ -1889,79 +2035,87 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                     <>
                         {/* Adder Section */}
                         {(isAllowedToEdit && !isReportFinalized) && (
-                            <div className="flex flex-col md:flex-row gap-4 items-end mb-6 p-4 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600">
-                                <div className="flex-grow w-full">
-                                    <label className="block text-sm font-medium mb-1">Servicio / Detalle</label>
-                                    {report.area === 'TESTEO' ? (
-                                        <input
-                                            type="text"
-                                            value={nuevoServicio.description || ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setNuevoServicio(prev => ({ ...prev, description: val }));
-                                                // Identify as "Others" logically for handleAddLocalService to work without a Select option
-                                                setSelectedServiceOption({ value: 'TesteoManual', label: val });
-                                            }}
-                                            className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
-                                            placeholder="Describa el servicio..."
-                                        />
-                                    ) : (
-                                        <Select
-                                            options={report.tipoEquipo === 'Impresora'
-                                                ? ['Limpieza de Cabezal Manual', 'Limpieza de Cabezal Software', 'Reseteo', 'Cambio de Placa', 'Cambio de Escaner', 'Mantenimiento de Hardware', 'Otros'].map(s => ({ value: s, label: s }))
-                                                : getConfigForArea(report.area)
-                                            }
-                                            value={selectedServiceOption}
-                                            onChange={(opt) => {
-                                                setSelectedServiceOption(opt);
-                                                // Reset description if switching back to select to avoid ghost text
-                                                if (opt) setNuevoServicio(prev => ({ ...prev, description: opt.label }));
-                                            }}
-                                            placeholder="Seleccione un servicio..."
-                                            styles={selectStyles(theme)}
-                                            menuPortalTarget={document.body}
-                                            menuPosition="fixed"
-                                        />
-                                    )}
-                                </div>
-                                <div className="w-full md:w-40">
-                                    <label className="block text-sm font-medium mb-1">Costo (S/)</label>
-                                    <input
-                                        type="number"
-                                        value={nuevoServicio.amount}
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            if (val < 0) return; // Prevent negative inputs
-                                            setNuevoServicio(prev => ({ ...prev, amount: e.target.value }))
-                                        }}
-                                        onClick={(e) => { if (parseFloat(e.target.value) === 0) setNuevoServicio(prev => ({ ...prev, amount: '' })) }}
-                                        onFocus={() => setNuevoServicio(prev => ({ ...prev, amount: '' }))}
-                                        onBlur={(e) => { if (e.target.value === '') setNuevoServicio(prev => ({ ...prev, amount: 0 })) }}
-                                        className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
-                                        min="0"
-                                    />
-                                </div>
+                            <div className="flex flex-col gap-4 mb-6 p-4 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600">
+                                <div className="flex flex-col md:flex-row gap-4 items-end">
+                                    <div className="w-full md:w-1/3 min-w-[200px]">
+                                        <label className="block text-sm font-medium mb-1">Servicio</label>
+                                        {report.area === 'TESTEO' ? (
+                                            <input
+                                                type="text"
+                                                value={nuevoServicio.description || ''}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setNuevoServicio(prev => ({ ...prev, description: val }));
+                                                    // Identify as "Others" logically for handleAddLocalService to work without a Select option
+                                                    setSelectedServiceOption({ value: 'TesteoManual', label: val });
+                                                }}
+                                                className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
+                                                placeholder="Describa el servicio..."
+                                            />
+                                        ) : (
+                                            <Select
+                                                options={report.tipoEquipo === 'Impresora'
+                                                    ? ['Limpieza de Cabezal Manual', 'Limpieza de Cabezal Software', 'Reseteo', 'Cambio de Placa', 'Cambio de Escaner', 'Mantenimiento de Hardware', 'Otros'].map(s => ({ value: s, label: s }))
+                                                    : getConfigForArea(report.area)
+                                                }
+                                                value={selectedServiceOption}
+                                                onChange={(opt) => {
+                                                    setSelectedServiceOption(opt);
+                                                    if (opt) {
+                                                        // Auto-check logic immediate feedback
+                                                        if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area)) {
+                                                            setFormState(prev => {
+                                                                const updates = { ...prev, [opt.value]: true };
+                                                                // Default reparables to SI
+                                                                if (report.area === 'ELECTRONICA' && ['elec_video', 'elec_placa', 'elec_otro'].includes(opt.value)) {
+                                                                    if (!prev[`${opt.value}_reparable`]) updates[`${opt.value}_reparable`] = 'SI';
+                                                                }
+                                                                return updates;
+                                                            });
+                                                        }
+                                                        setNuevoServicio(prev => ({ ...prev, description: opt.label }));
+                                                    }
+                                                }}
+                                                placeholder="Seleccione un servicio..."
+                                                styles={selectStyles(theme)}
+                                                menuPortalTarget={document.body}
+                                                menuPosition="fixed"
+                                            />
+                                        )}
+                                    </div>
 
-                                {selectedServiceOption && (selectedServiceOption.label === 'Otros' || (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area) && report.area !== 'TESTEO')) && (
-                                    <div className="w-full md:w-64">
-                                        <label className="block text-sm font-medium mb-1">Especifique</label>
+                                    {/* DYNAMIC INPUTS RENDER HERE */}
+                                    {renderDynamicInputs()}
+
+
+                                    <div className="w-full md:w-32 min-w-[100px]">
+                                        <label className="block text-sm font-medium mb-1">Costo (S/)</label>
                                         <input
-                                            type="text"
-                                            value={nuevoServicio.specification || ''}
-                                            onChange={(e) => setNuevoServicio(prev => ({ ...prev, specification: e.target.value }))}
-                                            className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500 border-red-500 ring-1 ring-red-500"
-                                            placeholder="Detalle del servicio..."
+                                            type="number"
+                                            value={nuevoServicio.amount}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                if (val < 0) return; // Prevent negative inputs
+                                                setNuevoServicio(prev => ({ ...prev, amount: e.target.value }))
+                                            }}
+                                            onClick={(e) => { if (parseFloat(e.target.value) === 0) setNuevoServicio(prev => ({ ...prev, amount: '' })) }}
+                                            onFocus={() => setNuevoServicio(prev => ({ ...prev, amount: '' }))}
+                                            onBlur={(e) => { if (e.target.value === '') setNuevoServicio(prev => ({ ...prev, amount: 0 })) }}
+                                            className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500 font-bold"
+                                            min="0"
                                         />
                                     </div>
-                                )}
 
-                                <button
-                                    onClick={handleAddLocalService}
-                                    disabled={!selectedServiceOption || nuevoServicio.amount === ''}
-                                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-6 rounded-lg h-[38px] flex items-center justify-center"
-                                >
-                                    <FaPlus className="mr-2" /> Agregar
-                                </button>
+                                    <div className="w-full md:w-auto">
+                                        <button
+                                            onClick={handleAddLocalService}
+                                            disabled={!selectedServiceOption || nuevoServicio.amount === ''}
+                                            className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-6 rounded-lg h-[38px] flex items-center justify-center"
+                                        >
+                                            <FaPlus className="mr-2" /> Agregar
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -1991,13 +2145,6 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                     {lockedServices.length > 0 && <h4 className="text-xs font-bold text-blue-500 uppercase mb-2">Nuevos (Esta Sesión)</h4>}
                                     <ul className="divide-y dark:divide-gray-700">
                                         {sessionServices.map((service, index) => {
-                                            // We need the ACTUAL index in the main array to delete correctly?
-                                            // Actually handleRemoveLocalService takes an index. 
-                                            // If we filter, the indices are wrong.
-                                            // We should pass the ID to remove, and findIndex in the handler.
-                                            // But handleRemoveLocalService uses index.
-                                            // Let's refactor handleRemoveLocalService to use ID is safer, but simpler:
-                                            // We can find the index in original array using the object reference or ID.
                                             const originalIndex = allServices.findIndex(s => s.id === service.id);
 
                                             return (
@@ -2057,11 +2204,11 @@ const getConfigForArea = (area) => {
                 { value: 'cambio_fuente', label: 'Cambio de Fuente' },
                 { value: 'cambio_video', label: 'Cambio de Tarj. Video' },
                 { value: 'otros', label: 'Otros Hardware' },
-                { value: 'repoten_ssd', label: 'Repotenciación SSD' },
-                { value: 'repoten_nvme', label: 'Repotenciación NVME' },
-                { value: 'repoten_m2', label: 'Repotenciación M.2 SATA' },
-                { value: 'repoten_hdd', label: 'Repotenciación HDD' },
-                { value: 'repoten_ram', label: 'Repotenciación RAM' },
+                { value: 'repoten_ssd', label: 'SSD' },
+                { value: 'repoten_nvme', label: 'NVME' },
+                { value: 'repoten_m2', label: 'M.2 SATA' },
+                { value: 'repoten_hdd', label: 'HDD' },
+                { value: 'repoten_ram', label: 'RAM' },
             ];
         case 'SOFTWARE':
             return [
