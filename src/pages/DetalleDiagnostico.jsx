@@ -58,20 +58,26 @@ const SERVICE_FIELD_MAPPING = {
     ],
 
     // Software
+    'backup': [{ name: 'backup_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'clonacion': [{ name: 'clonacion_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'formateo': [{ name: 'formateo_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'drivers': [{ name: 'drivers_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'act_win': [{ name: 'act_win_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'act_office': [{ name: 'act_office_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'optimizacion': [{ name: 'optimizacion_obs', label: 'Observación', placeholder: 'Detalles' }],
     'diseno': [{ name: 'diseno_spec', label: 'Especificar Programas', placeholder: 'Lista de programas' }],
     'ingenieria': [{ name: 'ingenieria_spec', label: 'Especificar Programas', placeholder: 'Lista de programas' }],
     'sw_otros': [{ name: 'sw_otros_spec', label: 'Especificar', placeholder: 'Detalle' }],
 
     // Electronica
     'elec_video': [
-        { name: 'elec_video_reparable', label: 'Reparable', type: 'radio', options: ['SI', 'NO'] }
+        { name: 'elec_video_spec', label: 'Especificación', placeholder: 'Detalle del cambio/reparación' }
     ],
     'elec_placa': [
-        { name: 'elec_placa_reparable', label: 'Reparable', type: 'radio', options: ['SI', 'NO'] }
+        { name: 'elec_placa_spec', label: 'Especificación', placeholder: 'Detalle del cambio/reparación' }
     ],
     'elec_otro': [
-        { name: 'elec_otro_especif', label: 'Especifique', placeholder: 'Detalle' },
-        { name: 'elec_otro_reparable', label: 'Reparable', type: 'radio', options: ['SI', 'NO'] }
+        { name: 'elec_otro_especif', label: 'Especifique', placeholder: 'Detalle' }
     ]
 };
 
@@ -374,17 +380,8 @@ function DetalleDiagnostico() {
                 return prev;
             });
 
-            // 1. AUTO-CHECK for ELECTRONICA, HARDWARE, SOFTWARE
-            if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area) && selectedServiceOption.value) {
-                setFormState(prev => {
-                    const updates = { ...prev, [selectedServiceOption.value]: true };
-                    // If electronics, set reparable default
-                    if (report.area === 'ELECTRONICA' && ['elec_video', 'elec_placa', 'elec_otro'].includes(selectedServiceOption.value)) {
-                        updates[`${selectedServiceOption.value}_reparable`] = 'SI';
-                    }
-                    return updates;
-                });
-            }
+            // Removed pre-check block here, moving it to post-commit inside logic below
+
         }
 
         const amountVal = parseFloat(nuevoServicio.amount);
@@ -392,11 +389,13 @@ function DetalleDiagnostico() {
         let finalSpec = '';
         let isOther = false;
 
-        // Dynamic Description Building based on Mapped Fields
+        // Dynamic Description Building based on Mapped Fields - USING TEMP VALUES
         const mapping = SERVICE_FIELD_MAPPING[selectedServiceOption.value];
+        const tempValues = nuevoServicio.dynamicValues || {};
+
         if (mapping) {
             const detailsParts = mapping.map(field => {
-                const val = formState[field.name];
+                const val = tempValues[field.name];
                 if (val && val !== 'null' && val !== 'undefined') {
                     if (field.type === 'radio') {
                         return `${field.label}: ${val}`;
@@ -409,6 +408,29 @@ function DetalleDiagnostico() {
             if (detailsParts.length > 0) {
                 finalDescription += ` (${detailsParts.join(', ')})`;
             }
+
+            // HERE is where we sync to formState (Summary)
+            setFormState(prev => {
+                const updates = { ...prev };
+                // 1. Commit the dynamic values (specs, obs, etc)
+                mapping.forEach(field => {
+                    if (tempValues[field.name]) {
+                        updates[field.name] = tempValues[field.name];
+                    }
+                });
+
+                // 2. Turn on the main checkbox if applicable (e.g. ELECTRONICA parts)
+                if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area)) {
+                    updates[selectedServiceOption.value] = true;
+                    // Ensure reparable defaults if needed when turning on
+                    if (report.area === 'ELECTRONICA' && ['elec_video', 'elec_placa', 'elec_otro'].includes(selectedServiceOption.value)) {
+                        if (!prev[`${selectedServiceOption.value}_reparable`]) {
+                            updates[`${selectedServiceOption.value}_reparable`] = 'SI';
+                        }
+                    }
+                }
+                return updates;
+            });
         } else {
             // Fallback for manual spec input (e.g. 'Otros' generic or unmapped fields)
             const areasWithSpec = ['ELECTRONICA', 'HARDWARE', 'SOFTWARE'];
@@ -514,74 +536,14 @@ function DetalleDiagnostico() {
         // Helper to formatted lines
         const formatLine = (checked, label, details) => {
             const hasDetails = details && details.trim() !== '' && details !== '-' && details !== '?' && details !== 'undefined';
-
             if (checked) {
                 return `${CHECKED} ${label}${hasDetails ? ` (${details})` : ''}`;
-            } else if (hasDetails) {
-                return `${UNCHECKED_CONTENT} ${label} (No marcado) (${details})`;
             }
             return null;
         };
 
-        if (report.area === 'HARDWARE') {
-            if (formState.mant_hardware) summary.push(`${CHECKED} Mantenimiento de Hardware`);
-            if (formState.reconstruccion) summary.push(`${CHECKED} Reconstrucción`);
-            if (formState.adapt_parlantes) summary.push(`${CHECKED} Adaptación de Parlantes`);
-
-            summary.push(formatLine(formState.cambio_teclado, 'Cambio de Teclado', `Cod: ${formState.cambio_teclado_codigo || '-'}`));
-            summary.push(formatLine(formState.cambio_pantalla, 'Cambio de Pantalla', `Cod: ${formState.cambio_pantalla_codigo || '-'}, Res: ${formState.cambio_pantalla_resolucion || '-'}, Hz: ${formState.cambio_pantalla_hz || '-'}`));
-            summary.push(formatLine(formState.cambio_carcasa, 'Cambio de Carcasa', `Obs: ${formState.cambio_carcasa_obs || '-'}`));
-            summary.push(formatLine(formState.cambio_placa, 'Cambio de Placa', `Cod: ${formState.cambio_placa_codigo || '-'}, Esp: ${formState.cambio_placa_especif || '-'}`));
-            summary.push(formatLine(formState.cambio_fuente, 'Cambio de Fuente', `Cod: ${formState.cambio_fuente_codigo || '-'}, Esp: ${formState.cambio_fuente_especif || '-'}`));
-            summary.push(formatLine(formState.cambio_video, 'Cambio de Tarj. Video', `Cod: ${formState.cambio_video_codigo || '-'}, Esp: ${formState.cambio_video_especif || '-'}`));
-            summary.push(formatLine(formState.otros, 'Otros Hardware', formState.otros_especif));
-
-            summary.push(formatLine(formState.repoten_ssd, 'SSD', `${formState.repoten_ssd_gb || '-'} GB (Serie: ${formState.repoten_ssd_serie || '-'})`));
-            summary.push(formatLine(formState.repoten_nvme, 'NVME', `${formState.repoten_nvme_gb || '-'} GB (Serie: ${formState.repoten_nvme_serie || '-'})`));
-            summary.push(formatLine(formState.repoten_m2, 'M.2 SATA', `${formState.repoten_m2_gb || '-'} GB (Serie: ${formState.repoten_m2_serie || '-'})`));
-            summary.push(formatLine(formState.repoten_hdd, 'HDD', `${formState.repoten_hdd_gb || '-'} GB (Serie: ${formState.repoten_hdd_serie || '-'}, Cod: ${formState.repoten_hdd_codigo || '-'})`));
-            summary.push(formatLine(formState.repoten_ram, 'RAM', `${formState.repoten_ram_cap || '-'} (Cod: ${formState.repoten_ram_cod || '-'})`));
-
-        } else if (report.area === 'SOFTWARE') {
-            const swFields = [
-                { key: 'backup', label: 'Backup de Información' },
-                { key: 'clonacion', label: 'Clonación de Disco' },
-                { key: 'formateo', label: 'Formateo + Programas' },
-                { key: 'drivers', label: 'Instalación de Drivers' },
-                { key: 'act_win', label: 'Activación de Windows' },
-                { key: 'act_office', label: 'Activación de Office' },
-                { key: 'optimizacion', label: 'Optimización de sistema' },
-                { key: 'diseno', label: 'Inst. de Prog. de Diseño', spec: 'diseno_spec' },
-                { key: 'ingenieria', label: 'Inst. de Prog. de Ing.', spec: 'ingenieria_spec' },
-                { key: 'sw_otros', label: 'Otros Software', spec: 'sw_otros_spec' }
-            ];
-
-            swFields.forEach(field => {
-                const obsKey = field.spec || `${field.key}_obs`;
-                const obsValue = formState[obsKey];
-                const line = formatLine(formState[field.key], field.label, obsValue);
-                if (line) summary.push(line);
-            });
-
-        } else if (report.area === 'ELECTRONICA') {
-            // Only show Reparable status if the component is explicitly checked
-            summary.push(formatLine(formState.elec_video, 'TARJ. VIDEO', formState.elec_video ? `Reparable: ${formState.elec_video_reparable || 'SI'}` : ''));
-
-            summary.push(formatLine(formState.elec_placa, 'PLACA', formState.elec_placa ? `Reparable: ${formState.elec_placa_reparable || 'SI'}` : ''));
-
-            // For Otro, we might want to show the specifics even if unchecked (as a 'No marcado' note), 
-            // but we hide the Reparable status if unchecked.
-            const otroDetail = formState.elec_otro_especif || '';
-            const otroReparable = formState.elec_otro ? `(Reparable: ${formState.elec_otro_reparable || 'SI'})` : '';
-            const finalOtroDetail = [otroDetail, otroReparable].filter(Boolean).join(' ');
-
-            summary.push(formatLine(formState.elec_otro, 'OTRO', finalOtroDetail));
-
-            if (formState.elec_codigo) summary.push(`ℹ️ Código: ${formState.elec_codigo}`);
-            if (formState.elec_etapa) summary.push(`ℹ️ Etapa: ${formState.elec_etapa}`);
-            if (formState.elec_obs) summary.push(`ℹ️ Observaciones: ${formState.elec_obs}`);
-
-        } else if (report.area === 'TESTEO') {
+        // For TESTEO, we keep the checklist summary because it's a diagnostic checklist
+        if (report.area === 'TESTEO') {
             const testFields = [
                 'disco', 'pantalla', 'bateria', 'cargador', 'camara',
                 'microfono', 'auricular', 'parlantes', 'teclado', 'lectora',
@@ -595,7 +557,6 @@ function DetalleDiagnostico() {
             testFields.forEach(key => {
                 const status = formState[`testeo_${key}`]; // SI/NO
                 const obs = formState[`testeo_${key}_obs`];
-
                 if (status) {
                     const icon = status === 'SI' ? '✅' : '❌'; // SI = Funciona, NO = No funciona
                     let line = `${icon} ${key.toUpperCase()}: ${status === 'SI' ? 'FUNCIONA' : 'NO FUNCIONA'}`;
@@ -608,65 +569,101 @@ function DetalleDiagnostico() {
             if (formState.testeo_servicio_final) {
                 summary.push(`📝 Servicio Final: ${formState.testeo_servicio_final}`);
             }
-        }
 
-        if (report.area === 'IMPRESORA') {
-            if (formState.printer_imprime === 'SI') summary.push(`${CHECKED} Imprime: SI`);
-            if (formState.printer_imprime === 'NO') summary.push(`${UNCHECKED_CONTENT} Imprime: NO`);
-
+        } else if (report.area === 'IMPRESORA') {
+            // For Impresora, keep services + additional specific to printer
             if (formState.printer_services_realized && formState.printer_services_realized.length > 0) {
-                summary.push('Servicios Realizados:');
+                summary.push('Servicios Realizados (Iniciales):');
                 formState.printer_services_realized.forEach(s => {
-                    const spec = s.specification ? ` (${s.specification})` : '';
-                    const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
-                    summary.push(`- ${s.description}${spec} - ${amount}`);
+                    summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
             if (formState.printer_services_additional && formState.printer_services_additional.length > 0) {
-                summary.push('Servicios Adicionales:');
+                summary.push('Servicios Adicionales (Impresora):');
                 formState.printer_services_additional.forEach(s => {
-                    const spec = s.specification ? ` (${s.specification})` : '';
-                    const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
-                    summary.push(`- ${s.description}${spec} - ${amount}`);
+                    summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
             if (formState.printer_observaciones) summary.push(`Obs: ${formState.printer_observaciones}`);
-        }
 
-
-        // --- NEW LOGIC: Include Services (Initial + Additional) for NON-TESTEO/NON-IMPRESORA ---
-        // The user wants to see "Servicios Realizados" (from Diagnostico) and "Servicios Adicionales" (from this area)
-        // with Name, Spec/Code, and Amount.
-        if (report.area !== 'TESTEO' && report.area !== 'IMPRESORA') {
+        } else if (report.area === 'ELECTRONICA') {
+            // FOR ELECTRONICA: Mixed approach. Show checklist items (Video, Placa) AND Services list.
+            const CHECKED = '✅';
             const initialServices = report.servicesList || [];
             const additionalServices = formState.addedServices || [];
 
-            if (initialServices.length > 0 || additionalServices.length > 0) {
-                summary.push(''); // Empty line for separation
-                summary.push('--- SERVICIOS ---');
+            // Only show Reparable status if the component is explicitly checked
+            const videoRep = formState.elec_video ? `Reparable: ${formState.elec_video_reparable || 'SI'}` : '';
+            const videoSpec = formState.elec_video_spec ? `(${formState.elec_video_spec})` : '';
+            if (formState.elec_video) summary.push(`${CHECKED} TARJ. VIDEO ${videoRep} ${videoSpec}`.trim());
 
-                if (initialServices.length > 0) {
-                    initialServices.forEach(s => {
-                        const spec = s.specification ? ` (${s.specification})` : '';
-                        const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
-                        summary.push(`• [Inicial] ${s.service}${spec} - ${amount}`);
-                    });
-                }
+            const placaRep = formState.elec_placa ? `Reparable: ${formState.elec_placa_reparable || 'SI'}` : '';
+            const placaSpec = formState.elec_placa_spec ? `(${formState.elec_placa_spec})` : '';
+            if (formState.elec_placa) summary.push(`${CHECKED} PLACA ${placaRep} ${placaSpec}`.trim());
 
-                if (additionalServices.length > 0) {
-                    additionalServices.forEach(s => {
-                        const spec = s.specification ? ` (${s.specification})` : '';
-                        const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
-                        summary.push(`• [Adicional] ${s.description}${spec} - ${amount}`);
-                    });
-                }
+            const otroDetail = formState.elec_otro_especif || '';
+            const otroReparable = formState.elec_otro ? `(Reparable: ${formState.elec_otro_reparable || 'SI'})` : '';
+            const finalOtroDetail = [otroDetail, otroReparable].filter(Boolean).join(' ');
+            if (formState.elec_otro) summary.push(`${CHECKED} OTRO ${finalOtroDetail}`.trim());
+
+            if (formState.elec_codigo) summary.push(`ℹ️ Código: ${formState.elec_codigo}`);
+            if (formState.elec_etapa) summary.push(`ℹ️ Etapa: ${formState.elec_etapa}`);
+            if (formState.elec_obs) summary.push(`ℹ️ Observaciones: ${formState.elec_obs}`);
+
+            if (formState.elec_obs) summary.push(`ℹ️ Observaciones: ${formState.elec_obs}`);
+
+            if (initialServices.length > 0) {
+                summary.push('');
+                summary.push('--- SERVICIOS INICIALES ---');
+                initialServices.forEach(s => {
+                    const spec = s.specification ? ` (${s.specification})` : '';
+                    summary.push(`• ${s.service}${spec}`);
+                });
+            }
+
+            if (additionalServices.length > 0) {
+                summary.push('--- SERVICIOS ADICIONALES ---');
+                additionalServices.forEach(s => {
+                    let displayDesc = s.description;
+                    if (s.serviceKey && s.serviceLabel && SERVICE_FIELD_MAPPING[s.serviceKey]) {
+                        const dyn = buildServiceDescription(s.serviceKey, s.serviceLabel, formState);
+                        if (dyn) displayDesc = dyn;
+                    }
+                    summary.push(`• ${displayDesc} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                });
+            }
+
+        } else {
+            // FOR HARDWARE, SOFTWARE (and others)
+            // ONLY SHOW SERVICES (Initial + Additional)
+            // Only take NEW added services for this session to avoid duplication if we want strict separation, 
+            // but user said "Servicios Adicionales dependiendo del area".
+            // addedServices contains everything added in this context.
+            // addedServices contains everything added in this context.
+            const initialServices = report.servicesList || [];
+            const additionalServices = formState.addedServices || [];
+
+            if (initialServices.length > 0) {
+                summary.push('--- SERVICIOS INICIALES (SOLICITADOS) ---');
+                initialServices.forEach(s => {
+                    const spec = s.specification ? ` (${s.specification})` : '';
+                    summary.push(`• ${s.service}${spec}`);
+                });
+            }
+
+            if (additionalServices.length > 0) {
+                if (initialServices.length > 0) summary.push('');
+                summary.push('--- SERVICIOS ADICIONALES (ÁREA) ---');
+                additionalServices.forEach(s => {
+                    // description already includes dynamic details from our previous change
+                    summary.push(`• ${s.description} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                });
             }
         }
 
-        summary = summary.filter(line => line !== null);
-
-        return summary.length > 0 ? summary.join('\n') : 'No se registraron detalles específicos.';
+        return summary.length > 0 ? summary.join('\n') : 'No se registraron servicios.';
     };
+
 
     // Auto-select IMPRESORA if it's a printer and first time opening modal? 
     // Usually handled in handleOpenCompletionModal
@@ -1854,13 +1851,24 @@ function DetalleDiagnostico() {
                 <Modal onClose={handleCloseCompletionModal}>
                     <form onSubmit={handleCompleteTask} className="space-y-4 p-4">
                         <h2 className="text-xl font-bold">Completar Tarea en Área de {report.area}</h2>
+
+                        {/* GLOBAL DATE/TIME DISPLAY - NOW VISIBLE FOR ALL AREAS */}
+                        <div className="flex flex-col md:flex-row gap-4 mb-2 text-sm justify-center bg-gray-50 dark:bg-gray-700/50 p-2 rounded border dark:border-gray-600">
+                            <div>
+                                <span className="font-bold text-gray-600 dark:text-gray-400">Fecha/Hora Inicio:</span> <span className="font-mono">{formState.fecha_inicio} {formState.hora_inicio || '--:--'}</span>
+                            </div>
+                            <div>
+                                <span className="font-bold text-gray-600 dark:text-gray-400">Fecha/Hora Fin:</span> <span className="font-mono">{new Date().toLocaleDateString()} {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                        </div>
+
                         {report.area !== 'TESTEO' && (
                             <div>
                                 <label className="block text-sm font-medium mb-1">Diagnostico y Servicios Realizados</label>
                                 <textarea
                                     value={motivoText}
                                     rows="4"
-                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 font-mono text-sm"
                                     placeholder="Motivo de la tarea."
                                     readOnly
                                 ></textarea>
@@ -1879,14 +1887,6 @@ function DetalleDiagnostico() {
                         {!(report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') && (
                             <>
                                 <div>
-                                    <div className="flex gap-4 mb-2 text-sm justify-center">
-                                        <div>
-                                            <span className="font-bold">Hora Inicio:</span> {formState.hora_inicio || '--:--'}
-                                        </div>
-                                        <div>
-                                            <span className="font-bold">Hora Finalización:</span> {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                    </div>
                                     <label className="block text-sm font-medium mb-1">Ubicación Física</label>
                                     <input
                                         type="text"
@@ -1952,6 +1952,7 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
             return (
                 <div className="w-full md:w-auto flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {mappedFields.map((field) => {
+                        const currentVal = nuevoServicio.dynamicValues?.[field.name] || '';
                         if (field.type === 'radio') {
                             return (
                                 <div key={field.name} className="flex flex-col">
@@ -1963,8 +1964,11 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                                     type="radio"
                                                     name={field.name}
                                                     value={opt}
-                                                    checked={formState[field.name] === opt || (opt === 'SI' && !formState[field.name])} // Default SI?
-                                                    onChange={(e) => setFormState(prev => ({ ...prev, [field.name]: e.target.value }))}
+                                                    checked={currentVal === opt || (opt === 'SI' && !currentVal)}
+                                                    onChange={(e) => setNuevoServicio(prev => ({
+                                                        ...prev,
+                                                        dynamicValues: { ...(prev.dynamicValues || {}), [field.name]: e.target.value }
+                                                    }))}
                                                 />
                                                 {opt}
                                             </label>
@@ -1978,8 +1982,11 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                 <label className="text-xs font-bold text-gray-500 mb-1">{field.label}</label>
                                 <input
                                     type="text"
-                                    value={formState[field.name] || ''}
-                                    onChange={(e) => setFormState(prev => ({ ...prev, [field.name]: e.target.value }))}
+                                    value={currentVal}
+                                    onChange={(e) => setNuevoServicio(prev => ({
+                                        ...prev,
+                                        dynamicValues: { ...(prev.dynamicValues || {}), [field.name]: e.target.value }
+                                    }))}
                                     placeholder={field.placeholder}
                                     className="p-1 text-sm border rounded dark:bg-gray-600 dark:border-gray-500 w-full"
                                 />
@@ -2062,18 +2069,8 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                                 onChange={(opt) => {
                                                     setSelectedServiceOption(opt);
                                                     if (opt) {
-                                                        // Auto-check logic immediate feedback
-                                                        if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area)) {
-                                                            setFormState(prev => {
-                                                                const updates = { ...prev, [opt.value]: true };
-                                                                // Default reparables to SI
-                                                                if (report.area === 'ELECTRONICA' && ['elec_video', 'elec_placa', 'elec_otro'].includes(opt.value)) {
-                                                                    if (!prev[`${opt.value}_reparable`]) updates[`${opt.value}_reparable`] = 'SI';
-                                                                }
-                                                                return updates;
-                                                            });
-                                                        }
-                                                        setNuevoServicio(prev => ({ ...prev, description: opt.label }));
+                                                        // REMOVED AUTO-CHECK of formState here as per user request to sync only on add.
+                                                        setNuevoServicio(prev => ({ ...prev, description: opt.label, dynamicValues: {} }));
                                                     }
                                                 }}
                                                 placeholder="Seleccione un servicio..."
@@ -2147,10 +2144,17 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                         {sessionServices.map((service, index) => {
                                             const originalIndex = allServices.findIndex(s => s.id === service.id);
 
+                                            // Dynamic Description for List
+                                            let displayDesc = service.description;
+                                            if (service.serviceKey && service.serviceLabel && SERVICE_FIELD_MAPPING[service.serviceKey]) {
+                                                const dyn = buildServiceDescription(service.serviceKey, service.serviceLabel, formState);
+                                                if (dyn) displayDesc = dyn;
+                                            }
+
                                             return (
                                                 <li key={service.id || index} className="flex justify-between items-center py-2 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
                                                     <span className="font-medium text-gray-800 dark:text-gray-200">
-                                                        {service.description}
+                                                        {displayDesc}
                                                     </span>
                                                     <div className="flex items-center gap-4">
                                                         <span className="font-bold text-gray-900 dark:text-white bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">
