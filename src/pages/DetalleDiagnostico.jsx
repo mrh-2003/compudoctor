@@ -278,7 +278,44 @@ function DetalleDiagnostico() {
                         if (!initialFormState.testeo_procesador) initialFormState.testeo_procesador = getDetail('procesador');
                         if (!initialFormState.testeo_video_dedicado) initialFormState.testeo_video_dedicado = getDetail('tarjetaVideo');
                         if (!initialFormState.testeo_memoria_ram) initialFormState.testeo_memoria_ram = getDetail('memoriaRam');
-                        if (!initialFormState.testeo_memoria_ram) initialFormState.testeo_memoria_ram = getDetail('memoriaRam');
+                    }
+
+                    // --- AUTO-FILL TESTEO FINAL SERVICE SUMMARY ---
+                    // Aggregate all services (Initial + Additional from history)
+                    if (!initialFormState.testeo_servicio_final) {
+                        let finalSummary = [];
+
+                        // 1. Initial Services
+                        if (fetchedReport.servicesList && fetchedReport.servicesList.length > 0) {
+                            finalSummary.push("SERVICIOS INICIALES SOLICITADOS:");
+                            fetchedReport.servicesList.forEach(s => {
+                                finalSummary.push(`- ${s.service}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
+                            });
+                        }
+
+                        // 2. Additional Services from Areas
+                        if (fetchedReport.diagnosticoPorArea) {
+                            Object.entries(fetchedReport.diagnosticoPorArea).forEach(([area, entries]) => {
+                                if (area === 'TESTEO') return; // Skip current
+
+                                const areaAddedServices = [];
+                                entries.forEach(entry => {
+                                    if (entry.addedServices && entry.addedServices.length > 0) {
+                                        entry.addedServices.forEach(s => areaAddedServices.push(s));
+                                    }
+                                });
+
+                                if (areaAddedServices.length > 0) {
+                                    if (finalSummary.length > 0) finalSummary.push("");
+                                    finalSummary.push(`ÁREA ${area}:`);
+                                    areaAddedServices.forEach(s => {
+                                        finalSummary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
+                                    });
+                                }
+                            });
+                        }
+
+                        initialFormState.testeo_servicio_final = finalSummary.join('\n');
                     }
                 }
 
@@ -1852,13 +1889,41 @@ function DetalleDiagnostico() {
                     <form onSubmit={handleCompleteTask} className="space-y-4 p-4">
                         <h2 className="text-xl font-bold">Completar Tarea en Área de {report.area}</h2>
 
-                        {/* GLOBAL DATE/TIME DISPLAY - NOW VISIBLE FOR ALL AREAS */}
+                        {/* GLOBAL DATE/TIME DISPLAY - FORMATTED DD-MM-YYYY */}
                         <div className="flex flex-col md:flex-row gap-4 mb-2 text-sm justify-center bg-gray-50 dark:bg-gray-700/50 p-2 rounded border dark:border-gray-600">
                             <div>
-                                <span className="font-bold text-gray-600 dark:text-gray-400">Fecha/Hora Inicio:</span> <span className="font-mono">{formState.fecha_inicio} {formState.hora_inicio || '--:--'}</span>
+                                <span className="font-bold text-gray-600 dark:text-gray-400">Fecha/Hora Inicio:</span>
+                                <span className="font-mono">
+                                    {/* Format existing start date or current if missing to DD-MM-YYYY */}
+                                    {(() => {
+                                        // formState.fecha_inicio usually YYYY-MM-DD from HTML input date value or DD/MM/YYYY from saved.
+                                        // We try to normalize to DD-MM-YYYY
+                                        let dateStr = formState.fecha_inicio || new Date().toLocaleDateString('es-PE');
+                                        // If it is YYYY-MM-DD
+                                        if (dateStr && dateStr.includes('-') && dateStr.split('-')[0].length === 4) {
+                                            const parts = dateStr.split('-');
+                                            dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                                        }
+                                        // If it is D/M/YYYY or DD/MM/YYYY (saved typically)
+                                        if (dateStr && dateStr.includes('/')) {
+                                            dateStr = dateStr.replace(/\//g, '-');
+                                        }
+                                        return `${dateStr} ${formState.hora_inicio || '--:--'}`;
+                                    })()}
+                                </span>
                             </div>
                             <div>
-                                <span className="font-bold text-gray-600 dark:text-gray-400">Fecha/Hora Fin:</span> <span className="font-mono">{new Date().toLocaleDateString()} {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="font-bold text-gray-600 dark:text-gray-400">Fecha/Hora Fin:</span>
+                                <span className="font-mono">
+                                    {(() => {
+                                        const now = new Date();
+                                        const day = String(now.getDate()).padStart(2, '0');
+                                        const month = String(now.getMonth() + 1).padStart(2, '0'); // Jan is 0
+                                        const year = now.getFullYear();
+                                        const time = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                                        return `${day}-${month}-${year} ${time}`;
+                                    })()}
+                                </span>
                             </div>
                         </div>
 
