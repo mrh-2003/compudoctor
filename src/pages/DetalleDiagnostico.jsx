@@ -563,7 +563,7 @@ function DetalleDiagnostico() {
 
     const generateTaskSummary = () => {
         if (!formState) return '';
-        let summary = []; 
+        let summary = [];
         // For TESTEO, we keep the checklist summary because it's a diagnostic checklist
         if (report.area === 'IMPRESORA') {
             // For Impresora, keep services + additional specific to printer
@@ -584,7 +584,7 @@ function DetalleDiagnostico() {
             const initialServices = report.servicesList || [];
             const additionalServices = formState.addedServices || [];
 
-            if (initialServices.length > 0) { 
+            if (initialServices.length > 0) {
                 initialServices.forEach(s => {
                     const spec = s.specification ? ` (${s.specification})` : '';
                     summary.push(`• ${s.service}${spec}`);
@@ -602,11 +602,11 @@ function DetalleDiagnostico() {
                 });
             }
 
-        } else { 
+        } else {
             const initialServices = report.servicesList || [];
             const additionalServices = formState.addedServices || [];
 
-            if (initialServices.length > 0) { 
+            if (initialServices.length > 0) {
                 initialServices.forEach(s => {
                     const spec = s.specification ? ` (${s.specification})` : '';
                     summary.push(`• ${s.service}${spec}`);
@@ -810,7 +810,7 @@ function DetalleDiagnostico() {
 
     const nextAreaOptions = useMemo(() => {
         if (!report) return [];
-        let areaOptions = []; 
+        let areaOptions = [];
         if (report.tipoEquipo === 'Impresora') {
             areaOptions = [
                 { value: 'IMPRESORA', label: 'IMPRESORA' },
@@ -1839,6 +1839,26 @@ function DetalleDiagnostico() {
                                 </span>
                             </div>
                         </div>
+
+                        {/* Display Support Technician if selected */}
+                        {(() => {
+                            let techSupportName = null;
+                            if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
+                                techSupportName = formState.printer_tech2;
+                            } else {
+                                techSupportName = tecnicoApoyo?.label;
+                            }
+
+                            if (techSupportName) {
+                                return (
+                                    <div className="text-center mb-2 bg-blue-50 dark:bg-blue-900/30 p-2 rounded border border-blue-100 dark:border-blue-800">
+                                        <span className="font-bold text-gray-600 dark:text-gray-300 text-sm">Técnico de Apoyo: </span>
+                                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400 ml-2">{techSupportName.toUpperCase()}</span>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
 
                         {report.area !== 'TESTEO' && (
                             <div>
