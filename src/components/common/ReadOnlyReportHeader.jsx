@@ -129,9 +129,13 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                         <label className="block text-sm font-medium mb-1">Sistema Operativo:</label>
                         <input type="text" value={report.sistemaOperativo || 'N/A'} {...readOnlyInputProps} />
                     </div>
-                    <div className="col-span-1 md:col-span-2">
+                    <div>
                         <label className="block text-sm font-medium mb-1">Clave Bitlocker:</label>
                         <input type="text" value={report.bitlockerKey ? 'Sí' : 'No'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Ubicación Física:</label>
+                        <input type="text" value={report.ubicacionFisica || 'N/A'} {...readOnlyInputProps} />
                     </div>
                 </div>
             </div>
@@ -162,7 +166,7 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                                     value={detailText || ''}
                                     {...readOnlyInputProps}
                                     className={`${readOnlyInputProps.className} flex-1 truncate text-xs py-1 ${!detailText ? 'text-gray-400 italic' : ''}`}
-                                    placeholder="No marcado"
+                                    placeholder=""
                                 />
                             </div>
                         );

@@ -36,20 +36,40 @@ const OTHER_EQUIPMENT_OPTIONS = [
 
 const SERVICE_OPTIONS = [
   "Revisión",
-  "Mantenimiento de Software",
-  "Mantenimiento de Hardware",
   "Reparación",
-  "Cambio de Teclado",
-  "Cambio de Pantalla",
-  "Disco",
+
+  "Mantenimiento De Hardware Con Reconstrucción",
+  "Mantenimiento De Hardware Con Cambio De Teclado",
+
+  "Mantenimiento De Hardware",
+  "Reconstrucción",
+  "Adaptación De Parlantes",
+  "Cambio De Teclado",
+  "Cambio De Pantalla",
+  "Cambio De Carcasa",
+  "Cambio De Placa",
+  "Cambio De Fuente",
+  "Cambio De Tarjeta De Video",
+  "SSD",
+  "NVME",
+  "M2 SATA",
+  "HDD",
   "Memoria RAM",
-  "Mantenimiento de Hardware con Reconstrucción",
-  "Mantenimiento de Hardware con Teclado",
-  "Solo Reconstrucción",
-  "Limpieza de Cabezal de Impresora",
-  "Cambio de Placa",
+  "Formateo",
+  "Activación De Windows",
+  "Activación De Office",
+  "Backup De Información",
+  "Optimización De Sistema",
+  "Instalación De Programas De Diseño",
+  "Instalación De Programas De Ingeniería",
+  "Clonación De Disco",
+  "Instalación De Driver",
+
+  "Limpieza De Cabezal Manual De Impresora",
+  "Limpieza De Cabezal Software De Impresora",
+  "Reseteo De Impresora",
   "Otros"
-];
+]; 
 
 const MAX_SERVICES = 6;
 
@@ -1518,23 +1538,11 @@ function Diagnostico() {
       setIsSaving(false);
     }
   };
-
-  /* 
-   * Logic Adjustment:
-   * We want the time to ideally be the time when the form was opened (intialized).
-   * For new reports, we set formData.fecha/hora in the useEffect.
-   * So we should prioritize formData values if they exist.
-   */
   const displayDate = formData.fecha ? formData.fecha.replace(/-/g, '/') : currentFormatted.fullDateSlash;
   const displayTime = formData.hora || currentFormatted.time;
 
   const hasSoftwareOrOtherService = servicesList.some(s => s.service === 'Mantenimiento de Software' || s.service === 'Otros' || (s.isOther === true));
-  // Note: Since 'Otros' services rename themselves, we need a robust way to identify them. 
-  // However, the requirement says "AL agregar MANTENIMIENTO DE SOFTWARE O OTROS".
-  // If we change 'Otros' name, we might lose track. But checking if service is NOT in the default list could work, or adding a flag.
-  // Let's check for 'Mantenimiento de Software' OR if the service name is not in the predefined non-Otros list?
-  // Actually, simpler: if I add "Otros", I am replacing "Otros" with the text. 
-  // Let's add a property `isOther` to the service item for sure tracking.
+
 
   const isTecnicoInicialRequired = !hasSoftwareOrOtherService && (
     (formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) ||
@@ -2095,7 +2103,7 @@ function Diagnostico() {
                     };
 
                     if (serviceDesc === 'Reparación') {
-                      setFormData(p => ({ ...p, diagnostico: amount }));
+                      setFormData(p => ({ ...p, diagnostico: 30 }));
                       return [newEntry];
                     } else {
                       return [...prev.filter(s => s.service !== 'Reparación'), newEntry];

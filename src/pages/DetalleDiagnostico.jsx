@@ -535,16 +535,14 @@ function DetalleDiagnostico() {
             if (formState.printer_imprime === 'SI') summary.push(`${CHECKED} Imprime: SI`);
             if (formState.printer_imprime === 'NO') summary.push(`${UNCHECKED_CONTENT} Imprime: NO`);
 
-            if (formState.printer_services_realized && formState.printer_services_realized.length > 0) {
-                summary.push('Servicios Realizados:');
+            if (formState.printer_services_realized && formState.printer_services_realized.length > 0) { 
                 formState.printer_services_realized.forEach(s => {
                     const spec = s.specification ? ` (${s.specification})` : '';
                     const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
                     summary.push(`- ${s.description}${spec} - ${amount}`);
                 });
             }
-            if (formState.printer_services_additional && formState.printer_services_additional.length > 0) {
-                summary.push('Servicios Adicionales:');
+            if (formState.printer_services_additional && formState.printer_services_additional.length > 0) { 
                 formState.printer_services_additional.forEach(s => {
                     const spec = s.specification ? ` (${s.specification})` : '';
                     const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
@@ -562,9 +560,7 @@ function DetalleDiagnostico() {
             const initialServices = report.servicesList || [];
             const additionalServices = formState.addedServices || [];
 
-            if (initialServices.length > 0 || additionalServices.length > 0) {
-                summary.push(''); // Empty line for separation
-                summary.push('--- SERVICIOS ---');
+            if (initialServices.length > 0 || additionalServices.length > 0) { 
 
                 if (initialServices.length > 0) {
                     initialServices.forEach(s => {
