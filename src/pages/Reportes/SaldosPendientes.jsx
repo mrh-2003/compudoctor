@@ -1,26 +1,46 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getAllDiagnosticReports } from '../../services/diagnosticService';
 import * as XLSX from 'xlsx';
-import { FaFileExcel, FaPhone, FaArrowLeft } from 'react-icons/fa';
+import { FaFileExcel, FaPhone, FaArrowLeft, FaMoneyBillWave } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
+import CostosModal from '../../components/diagnostico/CostosModal';
 
 function SaldosPendientes() {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isCostosModalOpen, setIsCostosModalOpen] = useState(false);
+    const [selectedReport, setSelectedReport] = useState(null);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const data = await getAllDiagnosticReports();
+            setReports(data);
+        } catch (error) {
+            console.error("Error fetching reports:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const data = await getAllDiagnosticReports();
-                setReports(data);
-            } catch (error) {
-                console.error("Error fetching reports:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchData();
     }, []);
+
+    const handleUpdateReport = () => {
+        // Refresh data after payment
+        fetchData();
+    };
+
+    const handleOpenCosts = (report) => {
+        setSelectedReport(report);
+        setIsCostosModalOpen(true);
+    };
+
+    const handleCloseCosts = () => {
+        setSelectedReport(null);
+        setIsCostosModalOpen(false);
+    };
 
     const pendingReports = useMemo(() => {
         return reports.filter(r => r.saldo > 0);
@@ -44,7 +64,7 @@ function SaldosPendientes() {
         XLSX.writeFile(wb, "Reporte_Saldos_Pendientes.xlsx");
     };
 
-    if (loading) return <div className="p-8 text-center">Cargando datos...</div>;
+    if (loading && reports.length === 0) return <div className="p-8 text-center">Cargando datos...</div>;
 
     return (
         <div className="p-6">
@@ -87,11 +107,20 @@ function SaldosPendientes() {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{report.reportNumber}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600 dark:text-red-400">S/ {parseFloat(report.saldo).toFixed(2)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                    {report.telefono && (
-                                        <a href={`tel:${report.telefono}`} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1">
-                                            <FaPhone className="text-xs" /> Llamar
-                                        </a>
-                                    )}
+                                    <div className="flex items-center justify-center space-x-4">
+                                        <button
+                                            onClick={() => handleOpenCosts(report)}
+                                            className="text-green-500 hover:text-green-700"
+                                            title="Realizar Pago"
+                                        >
+                                            <FaMoneyBillWave size={18} />
+                                        </button>
+                                        {report.telefono && (
+                                            <a href={`tel:${report.telefono}`} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1">
+                                                <FaPhone className="text-xs" />
+                                            </a>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -103,6 +132,14 @@ function SaldosPendientes() {
                     </tbody>
                 </table>
             </div>
+
+            {isCostosModalOpen && selectedReport && (
+                <CostosModal
+                    report={selectedReport}
+                    onClose={handleCloseCosts}
+                    onUpdate={handleUpdateReport}
+                />
+            )}
         </div>
     );
 }
