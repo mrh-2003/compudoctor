@@ -609,9 +609,9 @@ function DetalleHistorial() {
                                         
                                         <div class="repoten-box">
                                             <div class="repoten-title">Repotenciación / Upgrade</div>
-                                            ${formatItem(hw.repoten_ssd, 'SSD', 'GB/Serie', `${txt(hw.repoten_ssd_gb)} ${txt(hw.repoten_ssd_serie)}`)}
-                                            ${formatItem(hw.repoten_nvme, 'NVME', 'GB/Serie', `${txt(hw.repoten_nvme_gb)} ${txt(hw.repoten_nvme_serie)}`)}
-                                            ${formatItem(hw.repoten_m2, 'M2 SATA', 'GB/Serie', `${txt(hw.repoten_m2_gb)} ${txt(hw.repoten_m2_serie)}`)}
+                                            ${formatItem(hw.repoten_ssd, 'SSD', 'GB/Ser/Cod', `${txt(hw.repoten_ssd_gb)} ${txt(hw.repoten_ssd_serie)} ${txt(hw.repoten_ssd_codigo)}`)}
+                                            ${formatItem(hw.repoten_nvme, 'NVME', 'GB/Ser/Cod', `${txt(hw.repoten_nvme_gb)} ${txt(hw.repoten_nvme_serie)} ${txt(hw.repoten_nvme_codigo)}`)}
+                                            ${formatItem(hw.repoten_m2, 'M2 SATA', 'GB/Ser/Cod', `${txt(hw.repoten_m2_gb)} ${txt(hw.repoten_m2_serie)} ${txt(hw.repoten_m2_codigo)}`)}
                                             ${formatItem(hw.repoten_ram, 'RAM', 'Cap/Cod', `${txt(hw.repoten_ram_cap)} ${txt(hw.repoten_ram_cod)}`)}
                                         </div>
                                     </div>

@@ -37,15 +37,18 @@ const SERVICE_FIELD_MAPPING = {
     'otros': [{ name: 'otros_especif', label: 'Especifique', placeholder: 'Detalle del hardware' }],
     'repoten_ssd': [
         { name: 'repoten_ssd_gb', label: 'GB', placeholder: 'Capacidad' },
-        { name: 'repoten_ssd_serie', label: 'Serie', placeholder: 'Nro Serie' }
+        { name: 'repoten_ssd_serie', label: 'Serie', placeholder: 'Nro Serie' },
+        { name: 'repoten_ssd_codigo', label: 'Código', placeholder: 'Código' }
     ],
     'repoten_nvme': [
         { name: 'repoten_nvme_gb', label: 'GB', placeholder: 'Capacidad' },
-        { name: 'repoten_nvme_serie', label: 'Serie', placeholder: 'Nro Serie' }
+        { name: 'repoten_nvme_serie', label: 'Serie', placeholder: 'Nro Serie' },
+        { name: 'repoten_nvme_codigo', label: 'Código', placeholder: 'Código' }
     ],
     'repoten_m2': [
         { name: 'repoten_m2_gb', label: 'GB', placeholder: 'Capacidad' },
-        { name: 'repoten_m2_serie', label: 'Serie', placeholder: 'Nro Serie' }
+        { name: 'repoten_m2_serie', label: 'Serie', placeholder: 'Nro Serie' },
+        { name: 'repoten_m2_codigo', label: 'Código', placeholder: 'Código' }
     ],
     'repoten_hdd': [
         { name: 'repoten_hdd_gb', label: 'GB', placeholder: 'Capacidad' },
@@ -282,36 +285,36 @@ function DetalleDiagnostico() {
 
                     // --- AUTO-FILL TESTEO FINAL SERVICE SUMMARY ---
                     // Aggregate all services (Initial + Additional from history) 
-                        let finalSummary = [];
+                    let finalSummary = [];
 
-                        // 1. Initial Services
-                        if (fetchedReport.servicesList && fetchedReport.servicesList.length > 0) {
-                            fetchedReport.servicesList.forEach(s => {
-                                finalSummary.push(`- ${s.service}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
-                            });
-                        }
+                    // 1. Initial Services
+                    if (fetchedReport.servicesList && fetchedReport.servicesList.length > 0) {
+                        fetchedReport.servicesList.forEach(s => {
+                            finalSummary.push(`- ${s.service}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
+                        });
+                    }
 
-                        // 2. Additional Services from Areas
-                        if (fetchedReport.diagnosticoPorArea) {
-                            Object.entries(fetchedReport.diagnosticoPorArea).forEach(([area, entries]) => {
-                                if (area === 'TESTEO') return; // Skip current
+                    // 2. Additional Services from Areas
+                    if (fetchedReport.diagnosticoPorArea) {
+                        Object.entries(fetchedReport.diagnosticoPorArea).forEach(([area, entries]) => {
+                            if (area === 'TESTEO') return; // Skip current
 
-                                const areaAddedServices = [];
-                                entries.forEach(entry => {
-                                    if (entry.addedServices && entry.addedServices.length > 0) {
-                                        entry.addedServices.forEach(s => areaAddedServices.push(s));
-                                    }
-                                });
-
-                                if (areaAddedServices.length > 0) {
-                                    areaAddedServices.forEach(s => {
-                                        finalSummary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
-                                    });
+                            const areaAddedServices = [];
+                            entries.forEach(entry => {
+                                if (entry.addedServices && entry.addedServices.length > 0) {
+                                    entry.addedServices.forEach(s => areaAddedServices.push(s));
                                 }
                             });
-                        }
 
-                        initialFormState.testeo_servicio_final = finalSummary.join('\n').trim() + '\n' + fetchedReport.tipoEquipo + ' ' + fetchedReport.marca + ' ' + fetchedReport.modelo + ' - ' + fetchedReport.serie; 
+                            if (areaAddedServices.length > 0) {
+                                areaAddedServices.forEach(s => {
+                                    finalSummary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
+                                });
+                            }
+                        });
+                    }
+
+                    initialFormState.testeo_servicio_final = finalSummary.join('\n').trim() + '\n' + fetchedReport.tipoEquipo + ' ' + fetchedReport.marca + ' ' + fetchedReport.modelo + ' - ' + fetchedReport.serie;
                 }
 
                 // AUTO-FILL PRINTER SERVICES REALIZED (FIRST TIME)
@@ -1246,6 +1249,7 @@ function DetalleDiagnostico() {
                                 <label className="flex items-center w-36"><input type="checkbox" name="repoten_ssd" checked={formState.repoten_ssd || false} {...c('repoten_ssd')} />SSD</label>
                                 <input type="text" name="repoten_ssd_gb" value={formState.repoten_ssd_gb || ''} {...p('repoten_ssd')} placeholder="GB" className={`${inputProps.className} w-24`} />
                                 <input type="text" name="repoten_ssd_serie" value={formState.repoten_ssd_serie || ''} {...p('repoten_ssd')} placeholder="Serie" className={`${inputProps.className} flex-1`} />
+                                <input type="text" name="repoten_ssd_codigo" value={formState.repoten_ssd_codigo || ''} {...p('repoten_ssd')} placeholder="Código" className={`${inputProps.className} w-24`} />
                             </div>
 
                             {/* NVME */}
@@ -1253,6 +1257,7 @@ function DetalleDiagnostico() {
                                 <label className="flex items-center w-36"><input type="checkbox" name="repoten_nvme" checked={formState.repoten_nvme || false} {...c('repoten_nvme')} />NVME</label>
                                 <input type="text" name="repoten_nvme_gb" value={formState.repoten_nvme_gb || ''} {...p('repoten_nvme')} placeholder="GB" className={`${inputProps.className} w-24`} />
                                 <input type="text" name="repoten_nvme_serie" value={formState.repoten_nvme_serie || ''} {...p('repoten_nvme')} placeholder="Serie" className={`${inputProps.className} flex-1`} />
+                                <input type="text" name="repoten_nvme_codigo" value={formState.repoten_nvme_codigo || ''} {...p('repoten_nvme')} placeholder="Código" className={`${inputProps.className} w-24`} />
                             </div>
 
                             {/* M2 SATA */}
@@ -1260,6 +1265,7 @@ function DetalleDiagnostico() {
                                 <label className="flex items-center w-36"><input type="checkbox" name="repoten_m2" checked={formState.repoten_m2 || false} {...c('repoten_m2')} />M2 SATA</label>
                                 <input type="text" name="repoten_m2_gb" value={formState.repoten_m2_gb || ''} {...p('repoten_m2')} placeholder="GB" className={`${inputProps.className} w-24`} />
                                 <input type="text" name="repoten_m2_serie" value={formState.repoten_m2_serie || ''} {...p('repoten_m2')} placeholder="Serie" className={`${inputProps.className} flex-1`} />
+                                <input type="text" name="repoten_m2_codigo" value={formState.repoten_m2_codigo || ''} {...p('repoten_m2')} placeholder="Código" className={`${inputProps.className} w-24`} />
                             </div>
 
                             {/* HDD (Keeping GB, Serie, Código) */}

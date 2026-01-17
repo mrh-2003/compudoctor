@@ -111,7 +111,7 @@ const ReadOnlyAreaHistory = ({ entry, areaName, report }) => {
                                     </ul>
                                 ) : <span className="text-sm italic text-gray-500">Ninguno</span>}
                             </div>
-                        </div> 
+                        </div>
                         <div>
                             <label className="block text-sm font-medium mb-1">¿Se cobra revisión?</label>
                             <div className="flex gap-4">
@@ -176,16 +176,19 @@ const ReadOnlyAreaHistory = ({ entry, areaName, report }) => {
                                 <label className="flex items-center w-36"><input type="checkbox" checked={entry.repoten_ssd || false} {...readOnlyCheckboxProps} />SSD</label>
                                 <input type="text" value={entry.repoten_ssd_gb || ''} {...readOnlyInputProps} placeholder="GB" className={`${readOnlyInputProps.className} w-24`} />
                                 <input type="text" value={entry.repoten_ssd_serie || ''} {...readOnlyInputProps} placeholder="Serie" className={`${readOnlyInputProps.className} flex-1`} />
+                                <input type="text" value={entry.repoten_ssd_codigo || ''} {...readOnlyInputProps} placeholder="Código" className={`${readOnlyInputProps.className} w-24`} />
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <label className="flex items-center w-36"><input type="checkbox" checked={entry.repoten_nvme || false} {...readOnlyCheckboxProps} />NVME</label>
                                 <input type="text" value={entry.repoten_nvme_gb || ''} {...readOnlyInputProps} placeholder="GB" className={`${readOnlyInputProps.className} w-24`} />
                                 <input type="text" value={entry.repoten_nvme_serie || ''} {...readOnlyInputProps} placeholder="Serie" className={`${readOnlyInputProps.className} flex-1`} />
+                                <input type="text" value={entry.repoten_nvme_codigo || ''} {...readOnlyInputProps} placeholder="Código" className={`${readOnlyInputProps.className} w-24`} />
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <label className="flex items-center w-36"><input type="checkbox" checked={entry.repoten_m2 || false} {...readOnlyCheckboxProps} />M2 SATA</label>
                                 <input type="text" value={entry.repoten_m2_gb || ''} {...readOnlyInputProps} placeholder="GB" className={`${readOnlyInputProps.className} w-24`} />
                                 <input type="text" value={entry.repoten_m2_serie || ''} {...readOnlyInputProps} placeholder="Serie" className={`${readOnlyInputProps.className} flex-1`} />
+                                <input type="text" value={entry.repoten_m2_codigo || ''} {...readOnlyInputProps} placeholder="Código" className={`${readOnlyInputProps.className} w-24`} />
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <label className="flex items-center w-36"><input type="checkbox" checked={entry.repoten_hdd || false} {...readOnlyCheckboxProps} />HDD</label>
