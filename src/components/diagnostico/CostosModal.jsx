@@ -27,7 +27,10 @@ function CostosModal({ report, onClose, onUpdate }) {
         const items = [];
 
         // Check if Revision Check is strictly 'NO' in ANY area history
+        // Check if Revision Check is strictly 'NO' in ANY area history
         let shouldChargeRevision = true;
+        let shouldChargeReparacion = true; // Default is YES, charge repair
+
         if (report.diagnosticoPorArea) {
             const areasToCheck = ['IMPRESORA', 'HARDWARE', 'SOFTWARE', 'ELECTRONICA', 'TESTEO'];
 
@@ -41,19 +44,40 @@ function CostosModal({ report, onClose, onUpdate }) {
                         const decision = entryWithDecision.printer_cobra_revision || entryWithDecision.cobra_revision;
                         if (decision === 'NO') {
                             shouldChargeRevision = false;
-                            break; // If any area says NO, we don't charge (Customer Service waiver)
                         }
                     }
                 }
             }
+
+            // Check specifically for Reparacion logic in TESTEO
+            if (report.diagnosticoPorArea['TESTEO']) {
+                const testeoHistory = report.diagnosticoPorArea['TESTEO'];
+                const repairEntry = [...testeoHistory].reverse().find(h => h.cobra_reparacion);
+                if (repairEntry && repairEntry.cobra_reparacion === 'NO') {
+                    shouldChargeReparacion = false;
+                }
+            }
+        }
+
+        // LOGIC MATRIX for CostosModal:
+        // By default: Charge Repair (if present) + Diagnostic is 0.
+        // If Cobrar Reparacion = NO -> Charge Diagnostic, Reparaction = 0.
+
+        const hasReparacionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+
+        let initialDiagnosticCost = parseFloat(report.diagnostico);
+
+        // If we have a repair service and we ARE charging for it, Diagnostic becomes 0 (it's included or waived)
+        if (hasReparacionServiceInList && shouldChargeReparacion) {
+            initialDiagnosticCost = 0;
         }
 
         // 1. Diagnostic
-        if (shouldChargeRevision && parseFloat(report.diagnostico) > 0) {
+        if (shouldChargeRevision && initialDiagnosticCost > 0) {
             items.push({
                 id: 'diag-1',
                 label: 'Diagnóstico',
-                amount: parseFloat(report.diagnostico),
+                amount: initialDiagnosticCost,
                 type: 'Diagnóstico'
             });
         }
@@ -63,8 +87,17 @@ function CostosModal({ report, onClose, onUpdate }) {
             report.servicesList.forEach((s, idx) => {
                 let amount = parseFloat(s.amount) || 0;
 
+                // Flags
+                const isRevision = s.service && s.service.toUpperCase().includes('REVISIÓN');
+                const isReparacion = s.service && s.service.toUpperCase().includes('REPARACIÓN');
+
                 // If Revision is disabled and service name contains "Revisión", set amount to 0
-                if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
+                if (!shouldChargeRevision && isRevision) {
+                    amount = 0;
+                }
+
+                // If Reparacion is disabled (User said NO to charging repair), set amount to 0
+                if (!shouldChargeReparacion && isReparacion) {
                     amount = 0;
                 }
 
@@ -76,6 +109,8 @@ function CostosModal({ report, onClose, onUpdate }) {
                 });
             });
         }
+
+
 
         // 3. Legacy Additional Services (Global)
         if (report.additionalServices) {
@@ -579,14 +614,14 @@ function CostosModal({ report, onClose, onUpdate }) {
                             </p>
                         )}
 
-                        {!report.isPaid && diagnosticoCost > 0 && (
+                        {!report.isPaid && costItems.find(i => i.type === 'Diagnóstico')?.amount > 0 && (
                             <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
                                 <p className="text-sm text-center mb-2 font-medium">¿Servicio no realizado?</p>
                                 <button
                                     onClick={handlePayDiagnostic}
                                     className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2"
                                 >
-                                    <FaMoneyBillWave /> Pagar Solo Diagnóstico (S/ {diagnosticoCost.toFixed(2)})
+                                    <FaMoneyBillWave /> Pagar Solo Diagnóstico (S/ {costItems.find(i => i.type === 'Diagnóstico')?.amount.toFixed(2)})
                                 </button>
                             </div>
                         )}

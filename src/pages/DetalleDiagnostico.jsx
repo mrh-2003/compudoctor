@@ -900,7 +900,7 @@ function DetalleDiagnostico() {
 
     const isFieldReadOnly = (fieldKey) => {
         // Exemptions: Billing flags should always be editable if the form is generally editable
-        if (fieldKey === 'cobra_revision' || fieldKey === 'printer_cobra_revision') return false;
+        if (fieldKey === 'cobra_revision' || fieldKey === 'printer_cobra_revision' || fieldKey === 'cobra_reparacion') return false;
 
         // Not read only if: First time in area OR field is specifically enabled
         if (isFirstTimeInArea) return false;
@@ -928,6 +928,7 @@ function DetalleDiagnostico() {
     const renderAreaForm = () => {
         const techniciansForSupport = users.filter(u => u.value !== currentUser.uid);
         const hasRevisionService = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REVISIÓN'));
+        const hasReparacionService = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
 
         // PRINTER SPECIAL VIEW OVERRIDE or if Area is IMPRESORA
         if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
@@ -1734,6 +1735,20 @@ function DetalleDiagnostico() {
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
                                     <input type="radio" name="cobra_revision" value="NO" checked={formState.cobra_revision === 'NO'} {...r('cobra_revision')} className="w-4 h-4 accent-black" />
+                                    <span className="font-bold text-sm">NO</span>
+                                </label>
+                            </div>
+                        )}
+                        {/* Cobro Reparacion - TESTEO Only if reparacion service exists */}
+                        {hasReparacionService && (
+                            <div className="flex justify-end items-center gap-4 mt-4 pt-4 border-t dark:border-gray-700">
+                                <span className="font-bold text-sm">¿SE COBRA REPARACIÓN?</span>
+                                <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                                    <input type="radio" name="cobra_reparacion" value="SI" checked={formState.cobra_reparacion === 'SI' || !formState.cobra_reparacion} {...r('cobra_reparacion')} className="w-4 h-4 accent-black" />
+                                    <span className="font-bold text-sm">SI</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-gray-700 px-3 py-1 rounded border dark:border-gray-600">
+                                    <input type="radio" name="cobra_reparacion" value="NO" checked={formState.cobra_reparacion === 'NO'} {...r('cobra_reparacion')} className="w-4 h-4 accent-black" />
                                     <span className="font-bold text-sm">NO</span>
                                 </label>
                             </div>
