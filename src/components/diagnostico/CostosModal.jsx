@@ -29,7 +29,7 @@ function CostosModal({ report, onClose, onUpdate }) {
         // Check if Revision Check is strictly 'NO' in ANY area history
         let shouldChargeRevision = true;
         if (report.diagnosticoPorArea) {
-            const areasToCheck = ['IMPRESORA', 'HARDWARE', 'SOFTWARE', 'ELECTRONICA'];
+            const areasToCheck = ['IMPRESORA', 'HARDWARE', 'SOFTWARE', 'ELECTRONICA', 'TESTEO'];
 
             for (const area of areasToCheck) {
                 if (report.diagnosticoPorArea[area]) {
