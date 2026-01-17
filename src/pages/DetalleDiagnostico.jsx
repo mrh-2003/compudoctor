@@ -13,6 +13,74 @@ import ReadOnlyReportHeader from '../components/common/ReadOnlyReportHeader';
 
 const AREA_OPTIONS_CONSTANT = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO', 'IMPRESORA'];
 
+const SERVICE_FIELD_MAPPING = {
+    // Hardware
+    'cambio_teclado': [{ name: 'cambio_teclado_codigo', label: 'Código', placeholder: 'Código del teclado' }],
+    'cambio_pantalla': [
+        { name: 'cambio_pantalla_codigo', label: 'Código', placeholder: 'Código' },
+        { name: 'cambio_pantalla_resolucion', label: 'Resolución', placeholder: 'ej. 1920x1080' },
+        { name: 'cambio_pantalla_hz', label: 'Hz', placeholder: 'ej. 60Hz' }
+    ],
+    'cambio_carcasa': [{ name: 'cambio_carcasa_obs', label: 'Observación', placeholder: 'Detalles de carcasa' }],
+    'cambio_placa': [
+        { name: 'cambio_placa_codigo', label: 'Código', placeholder: 'Código' },
+        { name: 'cambio_placa_especif', label: 'Especificación', placeholder: 'Detalle' }
+    ],
+    'cambio_fuente': [
+        { name: 'cambio_fuente_codigo', label: 'Código', placeholder: 'Código' },
+        { name: 'cambio_fuente_especif', label: 'Especificación', placeholder: 'Detalle' }
+    ],
+    'cambio_video': [
+        { name: 'cambio_video_codigo', label: 'Código', placeholder: 'Código' },
+        { name: 'cambio_video_especif', label: 'Especificación', placeholder: 'Detalle' }
+    ],
+    'otros': [{ name: 'otros_especif', label: 'Especifique', placeholder: 'Detalle del hardware' }],
+    'repoten_ssd': [
+        { name: 'repoten_ssd_gb', label: 'GB', placeholder: 'Capacidad' },
+        { name: 'repoten_ssd_serie', label: 'Serie', placeholder: 'Nro Serie' }
+    ],
+    'repoten_nvme': [
+        { name: 'repoten_nvme_gb', label: 'GB', placeholder: 'Capacidad' },
+        { name: 'repoten_nvme_serie', label: 'Serie', placeholder: 'Nro Serie' }
+    ],
+    'repoten_m2': [
+        { name: 'repoten_m2_gb', label: 'GB', placeholder: 'Capacidad' },
+        { name: 'repoten_m2_serie', label: 'Serie', placeholder: 'Nro Serie' }
+    ],
+    'repoten_hdd': [
+        { name: 'repoten_hdd_gb', label: 'GB', placeholder: 'Capacidad' },
+        { name: 'repoten_hdd_serie', label: 'Serie', placeholder: 'Nro Serie' },
+        { name: 'repoten_hdd_codigo', label: 'Código', placeholder: 'Código' }
+    ],
+    'repoten_ram': [
+        { name: 'repoten_ram_cap', label: 'Capacidad', placeholder: 'ej. 8GB' },
+        { name: 'repoten_ram_cod', label: 'Código', placeholder: 'Código' }
+    ],
+
+    // Software
+    'backup': [{ name: 'backup_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'clonacion': [{ name: 'clonacion_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'formateo': [{ name: 'formateo_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'drivers': [{ name: 'drivers_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'act_win': [{ name: 'act_win_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'act_office': [{ name: 'act_office_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'optimizacion': [{ name: 'optimizacion_obs', label: 'Observación', placeholder: 'Detalles' }],
+    'diseno': [{ name: 'diseno_spec', label: 'Especificar Programas', placeholder: 'Lista de programas' }],
+    'ingenieria': [{ name: 'ingenieria_spec', label: 'Especificar Programas', placeholder: 'Lista de programas' }],
+    'sw_otros': [{ name: 'sw_otros_spec', label: 'Especificar', placeholder: 'Detalle' }],
+
+    // Electronica
+    'elec_video': [
+        { name: 'elec_video_spec', label: 'Especificación', placeholder: 'Detalle del cambio/reparación' }
+    ],
+    'elec_placa': [
+        { name: 'elec_placa_spec', label: 'Especificación', placeholder: 'Detalle del cambio/reparación' }
+    ],
+    'elec_otro': [
+        { name: 'elec_otro_especif', label: 'Especifique', placeholder: 'Detalle' }
+    ]
+};
+
 const selectStyles = (theme) => ({
     control: (baseStyles) => ({
         ...baseStyles,
@@ -210,7 +278,41 @@ function DetalleDiagnostico() {
                         if (!initialFormState.testeo_procesador) initialFormState.testeo_procesador = getDetail('procesador');
                         if (!initialFormState.testeo_video_dedicado) initialFormState.testeo_video_dedicado = getDetail('tarjetaVideo');
                         if (!initialFormState.testeo_memoria_ram) initialFormState.testeo_memoria_ram = getDetail('memoriaRam');
-                        if (!initialFormState.testeo_memoria_ram) initialFormState.testeo_memoria_ram = getDetail('memoriaRam');
+                    }
+
+                    // --- AUTO-FILL TESTEO FINAL SERVICE SUMMARY ---
+                    // Aggregate all services (Initial + Additional from history)
+                    if (!initialFormState.testeo_servicio_final) {
+                        let finalSummary = [];
+
+                        // 1. Initial Services
+                        if (fetchedReport.servicesList && fetchedReport.servicesList.length > 0) {
+                            fetchedReport.servicesList.forEach(s => {
+                                finalSummary.push(`- ${s.service}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
+                            });
+                        }
+
+                        // 2. Additional Services from Areas
+                        if (fetchedReport.diagnosticoPorArea) {
+                            Object.entries(fetchedReport.diagnosticoPorArea).forEach(([area, entries]) => {
+                                if (area === 'TESTEO') return; // Skip current
+
+                                const areaAddedServices = [];
+                                entries.forEach(entry => {
+                                    if (entry.addedServices && entry.addedServices.length > 0) {
+                                        entry.addedServices.forEach(s => areaAddedServices.push(s));
+                                    }
+                                });
+
+                                if (areaAddedServices.length > 0) {
+                                    areaAddedServices.forEach(s => {
+                                        finalSummary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
+                                    });
+                                }
+                            });
+                        }
+
+                        initialFormState.testeo_servicio_final = finalSummary.join('\n').trim();
                     }
                 }
 
@@ -312,17 +414,8 @@ function DetalleDiagnostico() {
                 return prev;
             });
 
-            // 1. AUTO-CHECK for ELECTRONICA, HARDWARE, SOFTWARE
-            if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area) && selectedServiceOption.value) {
-                setFormState(prev => {
-                    const updates = { ...prev, [selectedServiceOption.value]: true };
-                    // If electronics, set reparable default
-                    if (report.area === 'ELECTRONICA' && ['elec_video', 'elec_placa', 'elec_otro'].includes(selectedServiceOption.value)) {
-                        updates[`${selectedServiceOption.value}_reparable`] = 'SI';
-                    }
-                    return updates;
-                });
-            }
+            // Removed pre-check block here, moving it to post-commit inside logic below
+
         }
 
         const amountVal = parseFloat(nuevoServicio.amount);
@@ -330,19 +423,63 @@ function DetalleDiagnostico() {
         let finalSpec = '';
         let isOther = false;
 
-        // Show spec input logic now covers Hardware and Software too as requested
-        const areasWithSpec = ['ELECTRONICA', 'HARDWARE', 'SOFTWARE'];
-        if (selectedServiceOption.value === 'Otros' || (areasWithSpec.includes(report.area) && report.area !== 'TESTEO')) {
-            if (!nuevoServicio.specification && selectedServiceOption.value === 'Otros') {
-                toast.error("Debe especificar el servicio.");
-                return;
+        // Dynamic Description Building based on Mapped Fields - USING TEMP VALUES
+        const mapping = SERVICE_FIELD_MAPPING[selectedServiceOption.value];
+        const tempValues = nuevoServicio.dynamicValues || {};
+
+        if (mapping) {
+            const detailsParts = mapping.map(field => {
+                const val = tempValues[field.name];
+                if (val && val !== 'null' && val !== 'undefined') {
+                    if (field.type === 'radio') {
+                        return `${field.label}: ${val}`;
+                    }
+                    return `${field.label}: ${val}`;
+                }
+                return null;
+            }).filter(Boolean);
+
+            if (detailsParts.length > 0) {
+                finalDescription += ` (${detailsParts.join(', ')})`;
             }
-            if (nuevoServicio.specification) {
-                // 2.1 Append details
-                finalDescription = `${selectedServiceOption.label} (${nuevoServicio.specification})`;
+
+            // HERE is where we sync to formState (Summary)
+            setFormState(prev => {
+                const updates = { ...prev };
+                // 1. Commit the dynamic values (specs, obs, etc)
+                mapping.forEach(field => {
+                    if (tempValues[field.name]) {
+                        updates[field.name] = tempValues[field.name];
+                    }
+                });
+
+                // 2. Turn on the main checkbox if applicable (e.g. ELECTRONICA parts)
+                if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area)) {
+                    updates[selectedServiceOption.value] = true;
+                    // Ensure reparable defaults if needed when turning on
+                    if (report.area === 'ELECTRONICA' && ['elec_video', 'elec_placa', 'elec_otro'].includes(selectedServiceOption.value)) {
+                        if (!prev[`${selectedServiceOption.value}_reparable`]) {
+                            updates[`${selectedServiceOption.value}_reparable`] = 'SI';
+                        }
+                    }
+                }
+                return updates;
+            });
+        } else {
+            // Fallback for manual spec input (e.g. 'Otros' generic or unmapped fields)
+            const areasWithSpec = ['ELECTRONICA', 'HARDWARE', 'SOFTWARE'];
+            if (selectedServiceOption.value === 'Otros' || (areasWithSpec.includes(report.area) && report.area !== 'TESTEO')) {
+                if (!nuevoServicio.specification && selectedServiceOption.value === 'Otros') {
+                    toast.error("Debe especificar el servicio.");
+                    return;
+                }
+                if (nuevoServicio.specification) {
+                    finalDescription = `${selectedServiceOption.label} (${nuevoServicio.specification})`;
+                }
+                if (selectedServiceOption.value === 'Otros') isOther = true;
             }
-            if (selectedServiceOption.value === 'Otros') isOther = true;
         }
+
 
         const serviceToAdd = {
             id: Date.now(),
@@ -357,8 +494,6 @@ function DetalleDiagnostico() {
             addedServices: [...(prev.addedServices || []), serviceToAdd]
         }));
 
-        // Reset inputs
-        setNuevoServicio({ description: '', amount: 0, specification: '' });
         // Reset inputs
         setNuevoServicio({ description: '', amount: 0, specification: '' });
         setSelectedServiceOption(null);
@@ -429,161 +564,65 @@ function DetalleDiagnostico() {
     const generateTaskSummary = () => {
         if (!formState) return '';
         let summary = [];
-        const CHECKED = '✅';
-        const UNCHECKED_CONTENT = '🟫';
-
-        // Helper to formatted lines
-        const formatLine = (checked, label, details) => {
-            const hasDetails = details && details.trim() !== '' && details !== '-' && details !== '?' && details !== 'undefined';
-
-            if (checked) {
-                return `${CHECKED} ${label}${hasDetails ? ` (${details})` : ''}`;
-            } else if (hasDetails) {
-                return `${UNCHECKED_CONTENT} ${label} (No marcado) (${details})`;
-            }
-            return null;
-        };
-
-        if (report.area === 'HARDWARE') {
-            if (formState.mant_hardware) summary.push(`${CHECKED} Mantenimiento de Hardware`);
-            if (formState.reconstruccion) summary.push(`${CHECKED} Reconstrucción`);
-            if (formState.adapt_parlantes) summary.push(`${CHECKED} Adaptación de Parlantes`);
-
-            summary.push(formatLine(formState.cambio_teclado, 'Cambio de Teclado', `Cod: ${formState.cambio_teclado_codigo || '-'}`));
-            summary.push(formatLine(formState.cambio_pantalla, 'Cambio de Pantalla', `Cod: ${formState.cambio_pantalla_codigo || '-'}, Res: ${formState.cambio_pantalla_resolucion || '-'}, Hz: ${formState.cambio_pantalla_hz || '-'}`));
-            summary.push(formatLine(formState.cambio_carcasa, 'Cambio de Carcasa', `Obs: ${formState.cambio_carcasa_obs || '-'}`));
-            summary.push(formatLine(formState.cambio_placa, 'Cambio de Placa', `Cod: ${formState.cambio_placa_codigo || '-'}, Esp: ${formState.cambio_placa_especif || '-'}`));
-            summary.push(formatLine(formState.cambio_fuente, 'Cambio de Fuente', `Cod: ${formState.cambio_fuente_codigo || '-'}, Esp: ${formState.cambio_fuente_especif || '-'}`));
-            summary.push(formatLine(formState.cambio_video, 'Cambio de Tarj. Video', `Cod: ${formState.cambio_video_codigo || '-'}, Esp: ${formState.cambio_video_especif || '-'}`));
-            summary.push(formatLine(formState.otros, 'Otros Hardware', formState.otros_especif));
-
-            summary.push(formatLine(formState.repoten_ssd, 'Repotenciación SSD', `${formState.repoten_ssd_gb || '-'} GB (Serie: ${formState.repoten_ssd_serie || '-'})`));
-            summary.push(formatLine(formState.repoten_nvme, 'Repotenciación NVME', `${formState.repoten_nvme_gb || '-'} GB (Serie: ${formState.repoten_nvme_serie || '-'})`));
-            summary.push(formatLine(formState.repoten_m2, 'Repotenciación M.2 SATA', `${formState.repoten_m2_gb || '-'} GB (Serie: ${formState.repoten_m2_serie || '-'})`));
-            summary.push(formatLine(formState.repoten_hdd, 'Repotenciación HDD', `${formState.repoten_hdd_gb || '-'} GB (Serie: ${formState.repoten_hdd_serie || '-'}, Cod: ${formState.repoten_hdd_codigo || '-'})`));
-            summary.push(formatLine(formState.repoten_ram, 'Repotenciación RAM', `${formState.repoten_ram_cap || '-'} (Cod: ${formState.repoten_ram_cod || '-'})`));
-
-        } else if (report.area === 'SOFTWARE') {
-            const swFields = [
-                { key: 'backup', label: 'Backup de Información' },
-                { key: 'clonacion', label: 'Clonación de Disco' },
-                { key: 'formateo', label: 'Formateo + Programas' },
-                { key: 'drivers', label: 'Instalación de Drivers' },
-                { key: 'act_win', label: 'Activación de Windows' },
-                { key: 'act_office', label: 'Activación de Office' },
-                { key: 'optimizacion', label: 'Optimización de sistema' },
-                { key: 'diseno', label: 'Inst. de Prog. de Diseño', spec: 'diseno_spec' },
-                { key: 'ingenieria', label: 'Inst. de Prog. de Ing.', spec: 'ingenieria_spec' },
-                { key: 'sw_otros', label: 'Otros Software', spec: 'sw_otros_spec' }
-            ];
-
-            swFields.forEach(field => {
-                const obsKey = field.spec || `${field.key}_obs`;
-                const obsValue = formState[obsKey];
-                const line = formatLine(formState[field.key], field.label, obsValue);
-                if (line) summary.push(line);
-            });
-
-        } else if (report.area === 'ELECTRONICA') {
-            // Only show Reparable status if the component is explicitly checked
-            summary.push(formatLine(formState.elec_video, 'TARJ. VIDEO', formState.elec_video ? `Reparable: ${formState.elec_video_reparable || 'SI'}` : ''));
-
-            summary.push(formatLine(formState.elec_placa, 'PLACA', formState.elec_placa ? `Reparable: ${formState.elec_placa_reparable || 'SI'}` : ''));
-
-            // For Otro, we might want to show the specifics even if unchecked (as a 'No marcado' note), 
-            // but we hide the Reparable status if unchecked.
-            const otroDetail = formState.elec_otro_especif || '';
-            const otroReparable = formState.elec_otro ? `(Reparable: ${formState.elec_otro_reparable || 'SI'})` : '';
-            const finalOtroDetail = [otroDetail, otroReparable].filter(Boolean).join(' ');
-
-            summary.push(formatLine(formState.elec_otro, 'OTRO', finalOtroDetail));
-
-            if (formState.elec_codigo) summary.push(`ℹ️ Código: ${formState.elec_codigo}`);
-            if (formState.elec_etapa) summary.push(`ℹ️ Etapa: ${formState.elec_etapa}`);
-            if (formState.elec_obs) summary.push(`ℹ️ Observaciones: ${formState.elec_obs}`);
-
-        } else if (report.area === 'TESTEO') {
-            const testFields = [
-                'disco', 'pantalla', 'bateria', 'cargador', 'camara',
-                'microfono', 'auricular', 'parlantes', 'teclado', 'lectora',
-                'touchpad', 'wifi', 'rj45', 'usb', 'tipo_c', 'hdmi', 'vga', 'otros'
-            ];
-
-            if (formState.testeo_procesador) summary.push(`ℹ️ Procesador: ${formState.testeo_procesador}`);
-            if (formState.testeo_video_dedicado) summary.push(`ℹ️ Video Dedicado: ${formState.testeo_video_dedicado}`);
-            if (formState.testeo_memoria_ram) summary.push(`ℹ️ Memoria Ram: ${formState.testeo_memoria_ram}`);
-
-            testFields.forEach(key => {
-                const status = formState[`testeo_${key}`]; // SI/NO
-                const obs = formState[`testeo_${key}_obs`];
-
-                if (status) {
-                    const icon = status === 'SI' ? '✅' : '❌'; // SI = Funciona, NO = No funciona
-                    let line = `${icon} ${key.toUpperCase()}: ${status === 'SI' ? 'FUNCIONA' : 'NO FUNCIONA'}`;
-                    if (obs) line += ` (Obs: ${obs})`;
-                    summary.push(line);
-                } else if (obs) {
-                    summary.push(`${UNCHECKED_CONTENT} ${key.toUpperCase()}: (Estado no marcado) (Obs: ${obs})`);
-                }
-            });
-            if (formState.testeo_servicio_final) {
-                summary.push(`📝 Servicio Final: ${formState.testeo_servicio_final}`);
-            }
-        }
-
+        // For TESTEO, we keep the checklist summary because it's a diagnostic checklist
         if (report.area === 'IMPRESORA') {
-            if (formState.printer_imprime === 'SI') summary.push(`${CHECKED} Imprime: SI`);
-            if (formState.printer_imprime === 'NO') summary.push(`${UNCHECKED_CONTENT} Imprime: NO`);
-
-            if (formState.printer_services_realized && formState.printer_services_realized.length > 0) { 
+            // For Impresora, keep services + additional specific to printer
+            if (formState.printer_services_realized && formState.printer_services_realized.length > 0) {
                 formState.printer_services_realized.forEach(s => {
-                    const spec = s.specification ? ` (${s.specification})` : '';
-                    const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
-                    summary.push(`- ${s.description}${spec} - ${amount}`);
+                    summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
-            if (formState.printer_services_additional && formState.printer_services_additional.length > 0) { 
+            if (formState.printer_services_additional && formState.printer_services_additional.length > 0) {
                 formState.printer_services_additional.forEach(s => {
-                    const spec = s.specification ? ` (${s.specification})` : '';
-                    const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
-                    summary.push(`- ${s.description}${spec} - ${amount}`);
+                    summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
             if (formState.printer_observaciones) summary.push(`Obs: ${formState.printer_observaciones}`);
-        }
 
-
-        // --- NEW LOGIC: Include Services (Initial + Additional) for NON-TESTEO/NON-IMPRESORA ---
-        // The user wants to see "Servicios Realizados" (from Diagnostico) and "Servicios Adicionales" (from this area)
-        // with Name, Spec/Code, and Amount.
-        if (report.area !== 'TESTEO' && report.area !== 'IMPRESORA') {
+        } else if (report.area === 'ELECTRONICA') {
+            // FOR ELECTRONICA: ONLY SHOW SERVICES (Initial + Additional) as per user request
             const initialServices = report.servicesList || [];
             const additionalServices = formState.addedServices || [];
 
-            if (initialServices.length > 0 || additionalServices.length > 0) { 
+            if (initialServices.length > 0) {
+                initialServices.forEach(s => {
+                    const spec = s.specification ? ` (${s.specification})` : '';
+                    summary.push(`• ${s.service}${spec}`);
+                });
+            }
 
-                if (initialServices.length > 0) {
-                    initialServices.forEach(s => {
-                        const spec = s.specification ? ` (${s.specification})` : '';
-                        const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
-                        summary.push(`• [Inicial] ${s.service}${spec} - ${amount}`);
-                    });
-                }
+            if (additionalServices.length > 0) {
+                additionalServices.forEach(s => {
+                    let displayDesc = s.description;
+                    if (s.serviceKey && s.serviceLabel && SERVICE_FIELD_MAPPING[s.serviceKey]) {
+                        const dyn = buildServiceDescription(s.serviceKey, s.serviceLabel, formState);
+                        if (dyn) displayDesc = dyn;
+                    }
+                    summary.push(`• ${displayDesc} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                });
+            }
 
-                if (additionalServices.length > 0) {
-                    additionalServices.forEach(s => {
-                        const spec = s.specification ? ` (${s.specification})` : '';
-                        const amount = s.amount ? `S/ ${parseFloat(s.amount).toFixed(2)}` : 'S/ 0.00';
-                        summary.push(`• [Adicional] ${s.description}${spec} - ${amount}`);
-                    });
-                }
+        } else {
+            const initialServices = report.servicesList || [];
+            const additionalServices = formState.addedServices || [];
+
+            if (initialServices.length > 0) {
+                initialServices.forEach(s => {
+                    const spec = s.specification ? ` (${s.specification})` : '';
+                    summary.push(`• ${s.service}${spec}`);
+                });
+            }
+
+            if (additionalServices.length > 0) {
+                additionalServices.forEach(s => {
+                    summary.push(`• ${s.description} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                });
             }
         }
 
-        summary = summary.filter(line => line !== null);
-
-        return summary.length > 0 ? summary.join('\n') : 'No se registraron detalles específicos.';
+        return summary.length > 0 ? summary.join('\n') : 'No se registraron servicios.';
     };
+
 
     // Auto-select IMPRESORA if it's a printer and first time opening modal? 
     // Usually handled in handleOpenCompletionModal
@@ -736,10 +775,8 @@ function DetalleDiagnostico() {
                 ubicacionFisica: ubicacionFisica,
 
                 aCuenta: currentACuenta,
-                total: total, // Use the memoized calculated total from the component logic which includes all history + current
-                saldo: saldo, // Use memoized saldo
-                // additionalServices: editableAdditionalServices, // We don't update global legacy array anymore
-                // hasAdditionalServices: editableAdditionalServices.length > 0,
+                total: total,
+                saldo: saldo,
             };
 
             if (isTransfer) {
@@ -774,19 +811,12 @@ function DetalleDiagnostico() {
     const nextAreaOptions = useMemo(() => {
         if (!report) return [];
         let areaOptions = [];
-
-        // Filter Area Options: Exclude 'IMPORTANT' areas often not needed in next step or filter logical flows
-        // User request: "IMPRESORA debe aparecer solo si se trata de impresora"
-
         if (report.tipoEquipo === 'Impresora') {
-            // For printers, usually goes to IMPRESORA or TERMINADO
-            // Request says: "debe aparecer ya marcado" - handled in useEffect or defaults, but here we list options.
             areaOptions = [
                 { value: 'IMPRESORA', label: 'IMPRESORA' },
                 { value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' }
             ];
         } else {
-            // For non-printers, exclude IMPRESORA from the list
             areaOptions = AREA_OPTIONS_CONSTANT
                 .filter(area => area !== 'IMPRESORA')
                 .map(area => ({ value: area, label: area }));
@@ -1744,7 +1774,7 @@ function DetalleDiagnostico() {
                         {renderAreaForm()}
                         {report.tipoEquipo !== 'Impresora' && renderAdditionalServicesSection(
                             report, isAllowedToEdit, isReportFinalized,
-                            formState, nuevoServicio, setNuevoServicio,
+                            formState, setFormState, nuevoServicio, setNuevoServicio,
                             handleAddLocalService, handleRemoveLocalService,
                             selectStyles, theme, getConfigForArea,
                             setSelectedServiceOption, selectedServiceOption
@@ -1771,13 +1801,72 @@ function DetalleDiagnostico() {
                 <Modal onClose={handleCloseCompletionModal}>
                     <form onSubmit={handleCompleteTask} className="space-y-4 p-4">
                         <h2 className="text-xl font-bold">Completar Tarea en Área de {report.area}</h2>
+
+                        {/* GLOBAL DATE/TIME DISPLAY - FORMATTED DD-MM-YYYY */}
+                        <div className="flex flex-col md:flex-row gap-4 mb-2 text-sm justify-center bg-gray-50 dark:bg-gray-700/50 p-2 rounded border dark:border-gray-600">
+                            <div>
+                                <span className="font-bold text-gray-600 dark:text-gray-400">Fecha/Hora Inicio:</span>
+                                <span className="font-mono">
+                                    {/* Format existing start date or current if missing to DD-MM-YYYY */}
+                                    {(() => {
+                                        // formState.fecha_inicio usually YYYY-MM-DD from HTML input date value or DD/MM/YYYY from saved.
+                                        // We try to normalize to DD-MM-YYYY
+                                        let dateStr = formState.fecha_inicio || new Date().toLocaleDateString('es-PE');
+                                        // If it is YYYY-MM-DD
+                                        if (dateStr && dateStr.includes('-') && dateStr.split('-')[0].length === 4) {
+                                            const parts = dateStr.split('-');
+                                            dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                                        }
+                                        // If it is D/M/YYYY or DD/MM/YYYY (saved typically)
+                                        if (dateStr && dateStr.includes('/')) {
+                                            dateStr = dateStr.replace(/\//g, '-');
+                                        }
+                                        return `${dateStr} ${formState.hora_inicio || '--:--'}`;
+                                    })()}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="font-bold text-gray-600 dark:text-gray-400">Fecha/Hora Fin:</span>
+                                <span className="font-mono">
+                                    {(() => {
+                                        const now = new Date();
+                                        const day = String(now.getDate()).padStart(2, '0');
+                                        const month = String(now.getMonth() + 1).padStart(2, '0'); // Jan is 0
+                                        const year = now.getFullYear();
+                                        const time = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                                        return `${day}-${month}-${year} ${time}`;
+                                    })()}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Display Support Technician if selected */}
+                        {(() => {
+                            let techSupportName = null;
+                            if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
+                                techSupportName = formState.printer_tech2;
+                            } else {
+                                techSupportName = tecnicoApoyo?.label;
+                            }
+
+                            if (techSupportName) {
+                                return (
+                                    <div className="text-center mb-2 bg-blue-50 dark:bg-blue-900/30 p-2 rounded border border-blue-100 dark:border-blue-800">
+                                        <span className="font-bold text-gray-600 dark:text-gray-300 text-sm">Técnico de Apoyo: </span>
+                                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400 ml-2">{techSupportName.toUpperCase()}</span>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
+
                         {report.area !== 'TESTEO' && (
                             <div>
                                 <label className="block text-sm font-medium mb-1">Diagnostico y Servicios Realizados</label>
                                 <textarea
                                     value={motivoText}
                                     rows="4"
-                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 font-mono text-sm"
                                     placeholder="Motivo de la tarea."
                                     readOnly
                                 ></textarea>
@@ -1796,14 +1885,6 @@ function DetalleDiagnostico() {
                         {!(report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') && (
                             <>
                                 <div>
-                                    <div className="flex gap-4 mb-2 text-sm justify-center">
-                                        <div>
-                                            <span className="font-bold">Hora Inicio:</span> {formState.hora_inicio || '--:--'}
-                                        </div>
-                                        <div>
-                                            <span className="font-bold">Hora Finalización:</span> {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                    </div>
                                     <label className="block text-sm font-medium mb-1">Ubicación Física</label>
                                     <input
                                         type="text"
@@ -1857,7 +1938,81 @@ function DetalleDiagnostico() {
     );
 }
 
-const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinalized, formState, nuevoServicio, setNuevoServicio, handleAddLocalService, handleRemoveLocalService, selectStyles, theme, getConfigForArea, setSelectedServiceOption, selectedServiceOption) => {
+const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinalized, formState, setFormState, nuevoServicio, setNuevoServicio, handleAddLocalService, handleRemoveLocalService, selectStyles, theme, getConfigForArea, setSelectedServiceOption, selectedServiceOption) => {
+
+    // Helper to render dynamic inputs based on selected service
+    const renderDynamicInputs = () => {
+        if (!selectedServiceOption || !selectedServiceOption.value) return null;
+
+        const mappedFields = SERVICE_FIELD_MAPPING[selectedServiceOption.value];
+
+        if (mappedFields) {
+            return (
+                <div className="w-full md:w-auto flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {mappedFields.map((field) => {
+                        const currentVal = nuevoServicio.dynamicValues?.[field.name] || '';
+                        if (field.type === 'radio') {
+                            return (
+                                <div key={field.name} className="flex flex-col">
+                                    <label className="text-xs font-bold text-gray-500 mb-1">{field.label}</label>
+                                    <div className="flex items-center gap-2">
+                                        {field.options.map(opt => (
+                                            <label key={opt} className="flex items-center text-xs gap-1 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name={field.name}
+                                                    value={opt}
+                                                    checked={currentVal === opt || (opt === 'SI' && !currentVal)}
+                                                    onChange={(e) => setNuevoServicio(prev => ({
+                                                        ...prev,
+                                                        dynamicValues: { ...(prev.dynamicValues || {}), [field.name]: e.target.value }
+                                                    }))}
+                                                />
+                                                {opt}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        }
+                        return (
+                            <div key={field.name} className="flex flex-col min-w-[120px]">
+                                <label className="text-xs font-bold text-gray-500 mb-1">{field.label}</label>
+                                <input
+                                    type="text"
+                                    value={currentVal}
+                                    onChange={(e) => setNuevoServicio(prev => ({
+                                        ...prev,
+                                        dynamicValues: { ...(prev.dynamicValues || {}), [field.name]: e.target.value }
+                                    }))}
+                                    placeholder={field.placeholder}
+                                    className="p-1 text-sm border rounded dark:bg-gray-600 dark:border-gray-500 w-full"
+                                />
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        // Fallback for 'Otros' or generic
+        if (selectedServiceOption.label === 'Otros' || (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area) && report.area !== 'TESTEO')) {
+            return (
+                <div className="w-full md:w-64">
+                    <label className="block text-sm font-medium mb-1">Especifique</label>
+                    <input
+                        type="text"
+                        value={nuevoServicio.specification || ''}
+                        onChange={(e) => setNuevoServicio(prev => ({ ...prev, specification: e.target.value }))}
+                        className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500 border-red-500 ring-1 ring-red-500"
+                        placeholder="Detalle del servicio..."
+                    />
+                </div>
+            );
+        }
+        return null;
+    };
+
     return (
         <div className="border p-4 rounded-md mt-6 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <h3 className="font-bold text-lg mb-4 text-gray-700 dark:text-gray-300 border-b pb-2">Servicios Adicionales de Área</h3>
@@ -1885,79 +2040,77 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                     <>
                         {/* Adder Section */}
                         {(isAllowedToEdit && !isReportFinalized) && (
-                            <div className="flex flex-col md:flex-row gap-4 items-end mb-6 p-4 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600">
-                                <div className="flex-grow w-full">
-                                    <label className="block text-sm font-medium mb-1">Servicio / Detalle</label>
-                                    {report.area === 'TESTEO' ? (
-                                        <input
-                                            type="text"
-                                            value={nuevoServicio.description || ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setNuevoServicio(prev => ({ ...prev, description: val }));
-                                                // Identify as "Others" logically for handleAddLocalService to work without a Select option
-                                                setSelectedServiceOption({ value: 'TesteoManual', label: val });
-                                            }}
-                                            className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
-                                            placeholder="Describa el servicio..."
-                                        />
-                                    ) : (
-                                        <Select
-                                            options={report.tipoEquipo === 'Impresora'
-                                                ? ['Limpieza de Cabezal Manual', 'Limpieza de Cabezal Software', 'Reseteo', 'Cambio de Placa', 'Cambio de Escaner', 'Mantenimiento de Hardware', 'Otros'].map(s => ({ value: s, label: s }))
-                                                : getConfigForArea(report.area)
-                                            }
-                                            value={selectedServiceOption}
-                                            onChange={(opt) => {
-                                                setSelectedServiceOption(opt);
-                                                // Reset description if switching back to select to avoid ghost text
-                                                if (opt) setNuevoServicio(prev => ({ ...prev, description: opt.label }));
-                                            }}
-                                            placeholder="Seleccione un servicio..."
-                                            styles={selectStyles(theme)}
-                                            menuPortalTarget={document.body}
-                                            menuPosition="fixed"
-                                        />
-                                    )}
-                                </div>
-                                <div className="w-full md:w-40">
-                                    <label className="block text-sm font-medium mb-1">Costo (S/)</label>
-                                    <input
-                                        type="number"
-                                        value={nuevoServicio.amount}
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            if (val < 0) return; // Prevent negative inputs
-                                            setNuevoServicio(prev => ({ ...prev, amount: e.target.value }))
-                                        }}
-                                        onClick={(e) => { if (parseFloat(e.target.value) === 0) setNuevoServicio(prev => ({ ...prev, amount: '' })) }}
-                                        onFocus={() => setNuevoServicio(prev => ({ ...prev, amount: '' }))}
-                                        onBlur={(e) => { if (e.target.value === '') setNuevoServicio(prev => ({ ...prev, amount: 0 })) }}
-                                        className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
-                                        min="0"
-                                    />
-                                </div>
+                            <div className="flex flex-col gap-4 mb-6 p-4 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600">
+                                <div className="flex flex-col md:flex-row gap-4 items-end">
+                                    <div className="w-full md:w-1/3 min-w-[200px]">
+                                        <label className="block text-sm font-medium mb-1">Servicio</label>
+                                        {report.area === 'TESTEO' ? (
+                                            <input
+                                                type="text"
+                                                value={nuevoServicio.description || ''}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setNuevoServicio(prev => ({ ...prev, description: val }));
+                                                    // Identify as "Others" logically for handleAddLocalService to work without a Select option
+                                                    setSelectedServiceOption({ value: 'TesteoManual', label: val });
+                                                }}
+                                                className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
+                                                placeholder="Describa el servicio..."
+                                            />
+                                        ) : (
+                                            <Select
+                                                options={report.tipoEquipo === 'Impresora'
+                                                    ? ['Limpieza de Cabezal Manual', 'Limpieza de Cabezal Software', 'Reseteo', 'Cambio de Placa', 'Cambio de Escaner', 'Mantenimiento de Hardware', 'Otros'].map(s => ({ value: s, label: s }))
+                                                    : getConfigForArea(report.area)
+                                                }
+                                                value={selectedServiceOption}
+                                                onChange={(opt) => {
+                                                    setSelectedServiceOption(opt);
+                                                    if (opt) {
+                                                        // REMOVED AUTO-CHECK of formState here as per user request to sync only on add.
+                                                        setNuevoServicio(prev => ({ ...prev, description: opt.label, dynamicValues: {} }));
+                                                    }
+                                                }}
+                                                placeholder="Seleccione un servicio..."
+                                                styles={selectStyles(theme)}
+                                                menuPortalTarget={document.body}
+                                                menuPosition="fixed"
+                                            />
+                                        )}
+                                    </div>
 
-                                {selectedServiceOption && (selectedServiceOption.label === 'Otros' || (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area) && report.area !== 'TESTEO')) && (
-                                    <div className="w-full md:w-64">
-                                        <label className="block text-sm font-medium mb-1">Especifique</label>
+                                    {/* DYNAMIC INPUTS RENDER HERE */}
+                                    {renderDynamicInputs()}
+
+
+                                    <div className="w-full md:w-32 min-w-[100px]">
+                                        <label className="block text-sm font-medium mb-1">Costo (S/)</label>
                                         <input
-                                            type="text"
-                                            value={nuevoServicio.specification || ''}
-                                            onChange={(e) => setNuevoServicio(prev => ({ ...prev, specification: e.target.value }))}
-                                            className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500 border-red-500 ring-1 ring-red-500"
-                                            placeholder="Detalle del servicio..."
+                                            type="number"
+                                            value={nuevoServicio.amount}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                if (val < 0) return; // Prevent negative inputs
+                                                setNuevoServicio(prev => ({ ...prev, amount: e.target.value }))
+                                            }}
+                                            onClick={(e) => { if (parseFloat(e.target.value) === 0) setNuevoServicio(prev => ({ ...prev, amount: '' })) }}
+                                            onFocus={() => setNuevoServicio(prev => ({ ...prev, amount: '' }))}
+                                            onBlur={(e) => { if (e.target.value === '') setNuevoServicio(prev => ({ ...prev, amount: 0 })) }}
+                                            className="w-full p-2 border rounded-md dark:bg-gray-600 dark:border-gray-500 font-bold"
+                                            min="0"
                                         />
                                     </div>
-                                )}
 
-                                <button
-                                    onClick={handleAddLocalService}
-                                    disabled={!selectedServiceOption || nuevoServicio.amount === ''}
-                                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-6 rounded-lg h-[38px] flex items-center justify-center"
-                                >
-                                    <FaPlus className="mr-2" /> Agregar
-                                </button>
+                                    <div className="w-full md:w-auto">
+                                        <button
+                                            onClick={handleAddLocalService}
+                                            disabled={!selectedServiceOption || nuevoServicio.amount === ''}
+                                            className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-6 rounded-lg h-[38px] flex items-center justify-center"
+                                        >
+                                            <FaPlus className="mr-2" /> Agregar
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -1987,19 +2140,19 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                     {lockedServices.length > 0 && <h4 className="text-xs font-bold text-blue-500 uppercase mb-2">Nuevos (Esta Sesión)</h4>}
                                     <ul className="divide-y dark:divide-gray-700">
                                         {sessionServices.map((service, index) => {
-                                            // We need the ACTUAL index in the main array to delete correctly?
-                                            // Actually handleRemoveLocalService takes an index. 
-                                            // If we filter, the indices are wrong.
-                                            // We should pass the ID to remove, and findIndex in the handler.
-                                            // But handleRemoveLocalService uses index.
-                                            // Let's refactor handleRemoveLocalService to use ID is safer, but simpler:
-                                            // We can find the index in original array using the object reference or ID.
                                             const originalIndex = allServices.findIndex(s => s.id === service.id);
+
+                                            // Dynamic Description for List
+                                            let displayDesc = service.description;
+                                            if (service.serviceKey && service.serviceLabel && SERVICE_FIELD_MAPPING[service.serviceKey]) {
+                                                const dyn = buildServiceDescription(service.serviceKey, service.serviceLabel, formState);
+                                                if (dyn) displayDesc = dyn;
+                                            }
 
                                             return (
                                                 <li key={service.id || index} className="flex justify-between items-center py-2 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
                                                     <span className="font-medium text-gray-800 dark:text-gray-200">
-                                                        {service.description}
+                                                        {displayDesc}
                                                     </span>
                                                     <div className="flex items-center gap-4">
                                                         <span className="font-bold text-gray-900 dark:text-white bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">
@@ -2053,11 +2206,11 @@ const getConfigForArea = (area) => {
                 { value: 'cambio_fuente', label: 'Cambio de Fuente' },
                 { value: 'cambio_video', label: 'Cambio de Tarj. Video' },
                 { value: 'otros', label: 'Otros Hardware' },
-                { value: 'repoten_ssd', label: 'Repotenciación SSD' },
-                { value: 'repoten_nvme', label: 'Repotenciación NVME' },
-                { value: 'repoten_m2', label: 'Repotenciación M.2 SATA' },
-                { value: 'repoten_hdd', label: 'Repotenciación HDD' },
-                { value: 'repoten_ram', label: 'Repotenciación RAM' },
+                { value: 'repoten_ssd', label: 'SSD' },
+                { value: 'repoten_nvme', label: 'NVME' },
+                { value: 'repoten_m2', label: 'M.2 SATA' },
+                { value: 'repoten_hdd', label: 'HDD' },
+                { value: 'repoten_ram', label: 'RAM' },
             ];
         case 'SOFTWARE':
             return [
