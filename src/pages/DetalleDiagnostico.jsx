@@ -281,8 +281,7 @@ function DetalleDiagnostico() {
                     }
 
                     // --- AUTO-FILL TESTEO FINAL SERVICE SUMMARY ---
-                    // Aggregate all services (Initial + Additional from history)
-                    if (!initialFormState.testeo_servicio_final) {
+                    // Aggregate all services (Initial + Additional from history) 
                         let finalSummary = [];
 
                         // 1. Initial Services
@@ -312,8 +311,7 @@ function DetalleDiagnostico() {
                             });
                         }
 
-                        initialFormState.testeo_servicio_final = finalSummary.join('\n').trim();
-                    }
+                        initialFormState.testeo_servicio_final = finalSummary.join('\n').trim() + '\n' + fetchedReport.tipoEquipo + ' ' + fetchedReport.marca + ' ' + fetchedReport.modelo + ' - ' + fetchedReport.serie; 
                 }
 
                 // AUTO-FILL PRINTER SERVICES REALIZED (FIRST TIME)
