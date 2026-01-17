@@ -577,7 +577,6 @@ function DetalleDiagnostico() {
                     summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
-            if (formState.printer_observaciones) summary.push(`Obs: ${formState.printer_observaciones}`);
 
         } else if (report.area === 'ELECTRONICA') {
             // FOR ELECTRONICA: ONLY SHOW SERVICES (Initial + Additional) as per user request

@@ -682,20 +682,18 @@ function DetalleHistorial() {
                                 ${formatTestRow('Cargador', testeo.testeo_cargador, testeo.testeo_cargador_obs)}
                                 ${formatTestRow('Camara', testeo.testeo_camara, testeo.testeo_camara_obs)}
                                 ${formatTestRow('Microfono', testeo.testeo_microfono, testeo.testeo_microfono_obs)}
-                            </div>
-                            <div>
                                 ${formatTestRow('Auricular', testeo.testeo_auricular, testeo.testeo_auricular_obs)}
                                 ${formatTestRow('Parlantes', testeo.testeo_parlantes, testeo.testeo_parlantes_obs)}
+                            </div>
+                            <div>
                                 ${formatTestRow('Teclado', testeo.testeo_teclado, testeo.testeo_teclado_obs)}
                                 ${formatTestRow('Lectora', testeo.testeo_lectora, testeo.testeo_lectora_obs)}
                                 ${formatTestRow('Touchpad', testeo.testeo_touchpad, testeo.testeo_touchpad_obs)}
+                                ${formatTestRow('WIFI', testeo.testeo_wifi, testeo.testeo_wifi_obs)}
+                                ${formatTestRow('USB', testeo.testeo_usb, testeo.testeo_usb_obs)}
+                                ${formatTestRow('HDMI', testeo.testeo_hdmi, testeo.testeo_hdmi_obs)}
+                                ${formatTestRow('OTRO', testeo.testeo_otros, testeo.testeo_otros_obs)}
                             </div>
-                        </div>
-                        <div class="bottom-grid">
-                            <div class="bottom-sub-row"><strong>WIFI: </strong> ${formatTestRow('', testeo.testeo_wifi, testeo.testeo_wifi_obs)}</div>
-                            <div class="bottom-sub-row"><strong>USB: </strong> ${formatTestRow('', testeo.testeo_usb, testeo.testeo_usb_obs)}</div>
-                            <div class="bottom-sub-row"><strong>HDMI: </strong> ${formatTestRow('', testeo.testeo_hdmi, testeo.testeo_hdmi_obs)}</div>
-                             <div class="bottom-sub-row"><strong>OTRO: </strong> ${formatTestRow('', testeo.testeo_otros, testeo.testeo_otros_obs)}</div>
                         </div>
                         <div style="padding:4px; border-top:1px solid #000; display:flex; justify-content:space-between; align-items:center; font-size:8pt; background:#f0f0f0;">
                             <div><strong>TECNICO TESTEO:</strong> ${txt(testeo.tecnico)}</div>
