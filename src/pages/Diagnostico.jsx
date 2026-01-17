@@ -69,7 +69,7 @@ const SERVICE_OPTIONS = [
   "Limpieza De Cabezal Software De Impresora",
   "Reseteo De Impresora",
   "Otros"
-]; 
+];
 
 const MAX_SERVICES = 6;
 
@@ -367,10 +367,19 @@ function Diagnostico() {
   const OS_OPTIONS = [
     "Windows 11", "Windows 10", "Windows 8", "Windows 7", "macOS", "Linux", "Otro",
   ];
-  const AREA_OPTIONS = ["SOFTWARE", "HARDWARE", "ELECTRONICA", "IMPRESORA"];
-  if (isAdminOrSuperadmin) {
-    AREA_OPTIONS.push("TESTEO");
-  }
+  const areaOptions = useMemo(() => {
+    let options = ["SOFTWARE", "HARDWARE", "ELECTRONICA"];
+
+    // Regla: En el area IMPRESORA debe mostrarse solo si el equipo es una impresora
+    if (formData.tipoEquipo === 'Impresora') {
+      options.push("IMPRESORA");
+    }
+
+    if (isAdminOrSuperadmin) {
+      options.push("TESTEO");
+    }
+    return options;
+  }, [formData.tipoEquipo, isAdminOrSuperadmin]);
 
   const handlePrint = () => {
     if (isEditMode && !formData.reportNumber) {
@@ -2432,7 +2441,7 @@ function Diagnostico() {
                 disabled={isFormLocked || formData.tipoEquipo === 'Impresora'}
               >
                 <option value="">Selecciona un área</option>
-                {AREA_OPTIONS.map((area) => (
+                {areaOptions.map((area) => (
                   <option key={area} value={area}>
                     {area}
                   </option>

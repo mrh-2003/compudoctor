@@ -11,7 +11,7 @@ import { getAllUsersDetailed } from '../services/userService';
 import ReadOnlyAreaHistory from '../components/common/ReadOnlyAreaHistory';
 import ReadOnlyReportHeader from '../components/common/ReadOnlyReportHeader';
 
-const AREA_OPTIONS_CONSTANT = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO', 'IMPRESORA'];
+
 
 const SERVICE_FIELD_MAPPING = {
     // Hardware
@@ -810,21 +810,24 @@ function DetalleDiagnostico() {
 
     const nextAreaOptions = useMemo(() => {
         if (!report) return [];
-        let areaOptions = [];
-        if (report.tipoEquipo === 'Impresora') {
-            areaOptions = [
-                { value: 'IMPRESORA', label: 'IMPRESORA' },
-                { value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' }
-            ];
-        } else {
-            areaOptions = AREA_OPTIONS_CONSTANT
-                .filter(area => area !== 'IMPRESORA')
-                .map(area => ({ value: area, label: area }));
 
-            areaOptions.push({ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' });
+        // Opciones base disponibles para todos
+        const generalOptions = ['SOFTWARE', 'HARDWARE', 'ELECTRONICA', 'TESTEO'];
+
+        // Regla: En el area IMPRESORA debe mostrarse solo si el equipo es una impresora
+        if (report.tipoEquipo === 'Impresora') {
+            generalOptions.push('IMPRESORA');
         }
 
-        return areaOptions;
+        const options = generalOptions.map(area => ({ value: area, label: area }));
+
+        const isPrinterCompletionArea = report.tipoEquipo === 'Impresora' && report.area === 'IMPRESORA';
+
+        if (report.area === 'TESTEO' || isPrinterCompletionArea) {
+            options.push({ value: 'TERMINADO', label: 'TERMINADO (Listo para entregar)' });
+        }
+
+        return options;
     }, [report]);
 
     const techniciansForNextArea = useMemo(() => {
