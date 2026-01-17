@@ -476,6 +476,19 @@ function DetalleHistorial() {
              `;
         };
 
+        // Helper for Tech Dates Footer
+        const formatTechFooter = (entry) => {
+            if (!entry) return '';
+            return `
+                <div class="tech-dates">
+                    <div><strong>Inic:</strong> ${txt(entry.fecha_inicio)} ${txt(entry.hora_inicio)}</div>
+                    <div><strong>Fin:</strong> ${txt(entry.fecha_fin)} ${txt(entry.hora_fin)}</div>
+                    <div><strong>Tec:</strong> ${txt(entry.tecnico)}</div>
+                    ${entry.tec_apoyo ? `<div><strong>Apoyo:</strong> ${txt(entry.tec_apoyo)}</div>` : ''}
+                </div>
+            `;
+        };
+
         const clientDisplay = report.clientName || "Cliente no registrado";
         const modelDisplay = `${report.tipoEquipo || ''} ${report.marca || ''} ${report.modelo || ''}`;
 
@@ -502,7 +515,7 @@ function DetalleHistorial() {
                     .area-box-fixed { border: 2px solid #000; }
                     
                     .area-header { text-align: center; font-weight: bold; font-size: 9pt; background: #eee; border-bottom: 1px solid #000; padding: 2px; text-transform: uppercase; }
-                    .area-content { padding: 4px; flex-grow: 1; }
+                    .area-content { padding: 4px; flex-grow: 1; display:flex; flex-direction:column; justify-content:space-between; }
                     .area-sub { text-align: center; font-size: 7.5pt; font-weight: bold; margin-bottom: 3px; color: #444; }
                     
                     .item-row { display: flex; align-items: center; margin-bottom: 1px; font-size: 8pt; line-height: 1.1; }
@@ -548,6 +561,12 @@ function DetalleHistorial() {
                     /* Repotenciacion box inside hardware */
                     .repoten-box { margin-top:5px; background: #f9f9f9; border: 1px solid #ccc; padding: 3px; border-radius: 4px; }
                     .repoten-title { font-weight:bold; font-size:7.5pt; margin-bottom: 2px; text-decoration: underline; }
+
+                    /* New Bottom Lists */
+                    .bottom-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+                    .list-box { border: 1px solid #000; padding: 5px; border-radius: 4px; }
+                    .list-title { font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 3px; font-size: 8pt; text-align:center; background:#eee; }
+                    .list-item { font-size: 7.5pt; display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; padding: 1px 0; }
                 </style>
             </head>
             <body>
@@ -570,35 +589,34 @@ function DetalleHistorial() {
                             
                             <div class="area-content">
                                 ${hw ? `
-                                    <div class="equip-check">
-                                        <span>PC ${checkbox(report.tipoEquipo === 'PC')}</span>
-                                        <span>LAPTOP ${checkbox(report.tipoEquipo === 'Laptop')}</span>
-                                        <span>OTRO ${checkbox(!['PC', 'Laptop'].includes(report.tipoEquipo))}</span>
-                                    </div>
+                                    <div>
+                                        <div class="equip-check">
+                                            <span>PC ${checkbox(report.tipoEquipo === 'PC')}</span>
+                                            <span>LAPTOP ${checkbox(report.tipoEquipo === 'Laptop')}</span>
+                                            <span>OTRO ${checkbox(!['PC', 'Laptop'].includes(report.tipoEquipo))}</span>
+                                        </div>
 
-                                    ${formatItem(hw.mant_hardware, 'Mant. Hardware')}
-                                    ${formatItem(hw.reconstruccion, 'Reconstrucción')}
-                                    ${formatItem(hw.adapt_parlantes, 'Adapt. Parlantes')}
-                                    ${formatItem(hw.cambio_teclado, 'Cambio Teclado', 'Cód', hw.cambio_teclado_codigo)}
-                                    ${formatItem(hw.cambio_pantalla, 'Cambio Pantalla', 'Det', `${txt(hw.cambio_pantalla_codigo)} ${txt(hw.cambio_pantalla_resolucion)}`)}
-                                    ${formatItem(hw.cambio_carcasa, 'Cambio Carcasa', 'Obs', hw.cambio_carcasa_obs)}
-                                    ${formatItem(hw.cambio_placa, 'Cambio Placa', 'Det', `${txt(hw.cambio_placa_codigo)} ${txt(hw.cambio_placa_especif)}`)}
-                                    ${formatItem(hw.cambio_fuente, 'Cambio Fuente', 'Det', `${txt(hw.cambio_fuente_codigo)} ${txt(hw.cambio_fuente_especif)}`)}
-                                    ${formatItem(hw.cambio_video, 'Cambio T. Video', 'Det', `${txt(hw.cambio_video_codigo)} ${txt(hw.cambio_video_especif)}`)}
-                                    ${formatItem(hw.otros, 'Otros', 'Esp', hw.otros_especif)}
-                                    
-                                    <div class="repoten-box">
-                                        <div class="repoten-title">Repotenciación / Upgrade</div>
-                                        ${formatItem(hw.repoten_ssd, 'SSD', 'GB/Serie', `${txt(hw.repoten_ssd_gb)} ${txt(hw.repoten_ssd_serie)}`)}
-                                        ${formatItem(hw.repoten_nvme, 'NVME', 'GB/Serie', `${txt(hw.repoten_nvme_gb)} ${txt(hw.repoten_nvme_serie)}`)}
-                                        ${formatItem(hw.repoten_m2, 'M2 SATA', 'GB/Serie', `${txt(hw.repoten_m2_gb)} ${txt(hw.repoten_m2_serie)}`)}
-                                        ${formatItem(hw.repoten_ram, 'RAM', 'Cap/Cod', `${txt(hw.repoten_ram_cap)} ${txt(hw.repoten_ram_cod)}`)}
+                                        ${formatItem(hw.mant_hardware, 'Mant. Hardware')}
+                                        ${formatItem(hw.reconstruccion, 'Reconstrucción')}
+                                        ${formatItem(hw.adapt_parlantes, 'Adapt. Parlantes')}
+                                        ${formatItem(hw.cambio_teclado, 'Cambio Teclado', 'Cód', hw.cambio_teclado_codigo)}
+                                        ${formatItem(hw.cambio_pantalla, 'Cambio Pantalla', 'Det', `${txt(hw.cambio_pantalla_codigo)} ${txt(hw.cambio_pantalla_resolucion)}`)}
+                                        ${formatItem(hw.cambio_carcasa, 'Cambio Carcasa', 'Obs', hw.cambio_carcasa_obs)}
+                                        ${formatItem(hw.cambio_placa, 'Cambio Placa', 'Det', `${txt(hw.cambio_placa_codigo)} ${txt(hw.cambio_placa_especif)}`)}
+                                        ${formatItem(hw.cambio_fuente, 'Cambio Fuente', 'Det', `${txt(hw.cambio_fuente_codigo)} ${txt(hw.cambio_fuente_especif)}`)}
+                                        ${formatItem(hw.cambio_video, 'Cambio T. Video', 'Det', `${txt(hw.cambio_video_codigo)} ${txt(hw.cambio_video_especif)}`)}
+                                        ${formatItem(hw.otros, 'Otros', 'Esp', hw.otros_especif)}
+                                        
+                                        <div class="repoten-box">
+                                            <div class="repoten-title">Repotenciación / Upgrade</div>
+                                            ${formatItem(hw.repoten_ssd, 'SSD', 'GB/Serie', `${txt(hw.repoten_ssd_gb)} ${txt(hw.repoten_ssd_serie)}`)}
+                                            ${formatItem(hw.repoten_nvme, 'NVME', 'GB/Serie', `${txt(hw.repoten_nvme_gb)} ${txt(hw.repoten_nvme_serie)}`)}
+                                            ${formatItem(hw.repoten_m2, 'M2 SATA', 'GB/Serie', `${txt(hw.repoten_m2_gb)} ${txt(hw.repoten_m2_serie)}`)}
+                                            ${formatItem(hw.repoten_ram, 'RAM', 'Cap/Cod', `${txt(hw.repoten_ram_cap)} ${txt(hw.repoten_ram_cod)}`)}
+                                        </div>
                                     </div>
                                     
-                                    <div class="tech-dates">
-                                        <div><strong>Tec:</strong> ${txt(hw.tecnico)}</div>
-                                        <div><strong>Fin:</strong> ${txt(hw.fecha_fin)}</div>
-                                    </div>
+                                    ${formatTechFooter(hw)}
                                 ` : '<div style="text-align:center; padding:20px; color:#777;">Sin intervención registrada</div>'}
                             </div>
                         </div>
@@ -611,24 +629,23 @@ function DetalleHistorial() {
                             <div class="area-header">SOFTWARE</div>
                             <div class="area-content">
                                 ${sw ? `
-                                    <div class="equip-check">
-                                        <span style="font-weight:normal">Sistema Operativo: <strong>${report.sistemaOperativo || 'N/A'}</strong></span>
+                                    <div>
+                                        <div class="equip-check">
+                                            <span style="font-weight:normal">OS: <strong>${report.sistemaOperativo || 'N/A'}</strong></span>
+                                        </div>
+                                        ${formatItem(sw.backup, 'Backup Info', 'Obs', sw.backup_obs)}
+                                        ${formatItem(sw.clonacion, 'Clonación Disco', 'Obs', sw.clonacion_obs)}
+                                        ${formatItem(sw.formateo, 'Formateo + Progs', 'Obs', sw.formateo_obs)}
+                                        ${formatItem(sw.drivers, 'Inst. Drivers', 'Obs', sw.drivers_obs)}
+                                        ${formatItem(sw.diseno, 'Progs. Diseño', 'Esp', sw.diseno_spec)}
+                                        ${formatItem(sw.ingenieria, 'Progs. Ingeniería', 'Esp', sw.ingenieria_spec)}
+                                        ${formatItem(sw.act_win, 'Act. Windows', 'Obs', sw.act_win_obs)}
+                                        ${formatItem(sw.act_office, 'Act. Office', 'Obs', sw.act_office_obs)}
+                                        ${formatItem(sw.optimizacion, 'Optimización', 'Obs', sw.optimizacion_obs)}
+                                        ${formatItem(sw.sw_otros, 'Otros', 'Esp', sw.sw_otros_spec)}
                                     </div>
-                                    ${formatItem(sw.backup, 'Backup Info', 'Obs', sw.backup_obs)}
-                                    ${formatItem(sw.clonacion, 'Clonación Disco', 'Obs', sw.clonacion_obs)}
-                                    ${formatItem(sw.formateo, 'Formateo + Progs', 'Obs', sw.formateo_obs)}
-                                    ${formatItem(sw.drivers, 'Inst. Drivers', 'Obs', sw.drivers_obs)}
-                                    ${formatItem(sw.diseno, 'Progs. Diseño', 'Esp', sw.diseno_spec)}
-                                    ${formatItem(sw.ingenieria, 'Progs. Ingeniería', 'Esp', sw.ingenieria_spec)}
-                                    ${formatItem(sw.act_win, 'Act. Windows', 'Obs', sw.act_win_obs)}
-                                    ${formatItem(sw.act_office, 'Act. Office', 'Obs', sw.act_office_obs)}
-                                    ${formatItem(sw.optimizacion, 'Optimización', 'Obs', sw.optimizacion_obs)}
-                                    ${formatItem(sw.sw_otros, 'Otros', 'Esp', sw.sw_otros_spec)}
 
-                                    <div class="tech-dates">
-                                        <div><strong>Tec:</strong> ${txt(sw.tecnico)}</div>
-                                        <div><strong>Fin:</strong> ${txt(sw.fecha_fin)}</div>
-                                    </div>
+                                    ${formatTechFooter(sw)}
                                 ` : '<div style="text-align:center; padding:20px; color:#777;">Sin intervención registrada</div>'}
                             </div>
                         </div>
@@ -638,21 +655,20 @@ function DetalleHistorial() {
                             <div class="area-header">ELECTRÓNICA</div>
                             <div class="area-content">
                                 ${elec ? `
-                                    ${formatItem(elec.elec_video, 'TARJETA VIDEO', 'Reparable', elec.elec_video_reparable)}
-                                    ${formatItem(elec.elec_placa, 'PLACA MADRE', 'Reparable', elec.elec_placa_reparable)}
-                                    ${formatItem(elec.elec_otro, 'OTRO COMPONENTE', 'Esp', `${txt(elec.elec_otro_especif || '-')}`)}
-                                    
-                                    <div style="margin-top:8px; font-size:8pt; border:1px solid #ddd; padding:3px; background:#fcfcfc;">
-                                         <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-                                            <span><strong>Reparable:</strong> ${elec.elec_otro_reparable || '-'}</span>
-                                            <span><strong>Etapa:</strong> ${txt(elec.elec_etapa)}</span>
-                                         </div>
-                                         <div style="border-top:1px solid #eee; padding-top:2px;"><strong>Obs:</strong> ${txt(elec.elec_obs)}</div>
+                                    <div>
+                                        ${formatItem(elec.elec_video, 'TARJETA VIDEO', 'Reparable', elec.elec_video_reparable)}
+                                        ${formatItem(elec.elec_placa, 'PLACA MADRE', 'Reparable', elec.elec_placa_reparable)}
+                                        ${formatItem(elec.elec_otro, 'OTRO COMPONENTE', 'Esp', `${txt(elec.elec_otro_especif || '-')}`)}
+                                        
+                                        <div style="margin-top:8px; font-size:8pt; border:1px solid #ddd; padding:3px; background:#fcfcfc;">
+                                             <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                                                <span><strong>Reparable:</strong> ${elec.elec_otro_reparable || '-'}</span>
+                                                <span><strong>Etapa:</strong> ${txt(elec.elec_etapa)}</span>
+                                             </div>
+                                             <div style="border-top:1px solid #eee; padding-top:2px;"><strong>Obs:</strong> ${txt(elec.elec_obs)}</div>
+                                        </div>
                                     </div>
-                                    <div class="tech-dates">
-                                        <div><strong>Tec:</strong> ${txt(elec.tecnico)}</div>
-                                        <div><strong>Fin:</strong> ${txt(elec.fecha_fin)}</div>
-                                    </div>
+                                    ${formatTechFooter(elec)}
                                 ` : '<div style="text-align:center; padding:15px; color:#777; font-size:8pt;">Sin intervención registrada</div>'}
                             </div>
                         </div>
@@ -695,8 +711,8 @@ function DetalleHistorial() {
                                 ${formatTestRow('OTRO', testeo.testeo_otros, testeo.testeo_otros_obs)}
                             </div>
                         </div>
-                        <div style="padding:4px; border-top:1px solid #000; display:flex; justify-content:space-between; align-items:center; font-size:8pt; background:#f0f0f0;">
-                            <div><strong>TECNICO TESTEO:</strong> ${txt(testeo.tecnico)}</div>
+                        ${formatTechFooter(testeo)}
+                        <div style="padding:4px; border-top:1px solid #000; font-size:8pt; background:#f0f0f0;">
                             <div><strong>TRABAJO FINAL:</strong> ${txt(testeo.testeo_servicio_final)}</div>
                         </div>
                     ` : '<div style="padding:10px; text-align:center;">No realizado</div>'}
@@ -743,36 +759,65 @@ function DetalleHistorial() {
                         <div style="border-top:1px solid #eee; padding-top:4px; font-size:8pt;">
                             <strong>Observaciones:</strong> ${txt(impresora.reparacion || impresora.printer_observaciones)}
                         </div>
-                        <div style="text-align:right; font-size:7pt; color:#555; margin-top:4px;">
-                            <div>Ingreso: ${txt(report.fecha)} ${txt(report.hora)}</div>
-                            <div>Finalizado: ${txt(impresora.fecha_fin)} ${txt(impresora.hora_fin)}</div>
-                        </div>
+                        ${formatTechFooter(impresora)}
                     </div>
                 </div>
                 ` : ''}
                 
-                <div style="display: flex; gap: 20px; align-items: flex-start;">
-                    <div style="flex-grow: 1;">
-                        <div class="payment-box">
-                            <div class="payment-title">MÉTODOS DE PAGO / NOTAS</div>
-                            <div class="payment-method">
-                                ${report.detallesPago || 'No especificado'}
-                            </div>
+                <div style="margin-top: 5px;">
+                    <div class="payment-box">
+                        <div class="payment-title">OBSERVACIONES</div>
+                        <div class="payment-method">
+                            ${report.observaciones || 'Ninguna'}
                         </div>
                     </div>
-                    <div class="totals-row">
+                </div>
+
+                <div class="bottom-lists" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="list-box">
+                        <div class="list-title">HISTORIAL DE PAGOS</div>
+                        ${(report.pagosRealizado || []).map(p => `
+                            <div class="list-item">
+                                <span>${p.fecha ? p.fecha.substring(0, 10) : ''}</span>
+                                <span>${p.formaPago || '-'}</span>
+                                <strong>S/ ${(parseFloat(p.monto) || 0).toFixed(2)}</strong>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="list-box">
+                        <div class="list-title">COMPROBANTES EMITIDOS</div>
+                        ${(report.comprobantesPago || []).map(d => `
+                            <div class="list-item">
+                                <span>${d.tipo} - ${d.numero}</span>
+                                <strong>S/ ${(parseFloat(d.monto) || 0).toFixed(2)}</strong>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="list-box">
+                        <div class="list-title">DOCUMENTOS ADJUNTOS</div>
+                        ${(report.documentosVentaCompra || []).map(d => `
+                            <div class="list-item">
+                                <span>${d.type} - ${d.number}</span>
+                                <strong>S/ ${(parseFloat(d.amount) || 0).toFixed(2)}</strong>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="totals-row">
+                    <div class="total-bubble">
+                        <span>TOTAL</span>
+                        <span>S/ ${(parseFloat(report.total) || 0).toFixed(2)}</span>
+                    </div>
                         <div class="total-bubble">
-                            <span>TOTAL</span>
-                            <span>S/ ${(parseFloat(report.total) || 0).toFixed(2)}</span>
-                        </div>
-                         <div class="total-bubble">
-                            <span>A CUENTA</span>
-                            <span>S/ ${(parseFloat(report.aCuenta) || 0).toFixed(2)}</span>
-                        </div>
-                        <div class="total-bubble" style="border-color: #ec008c; color: #ec008c;">
-                            <span>SALDO</span>
-                            <span>S/ ${(parseFloat(report.saldo) || 0).toFixed(2)}</span>
-                        </div>
+                        <span>A CUENTA</span>
+                        <span>S/ ${(parseFloat(report.aCuenta) || 0).toFixed(2)}</span>
+                    </div>
+                    <div class="total-bubble" style="border-color: #ec008c; color: #ec008c;">
+                        <span>SALDO</span>
+                        <span>S/ ${(parseFloat(report.saldo) || 0).toFixed(2)}</span>
                     </div>
                 </div>
 
