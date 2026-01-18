@@ -625,7 +625,13 @@ function DetalleDiagnostico() {
 
     const handleOpenCompletionModal = () => {
         if (!isAllowedToEdit || isReportFinalized) return;
-        setMotivoText('');
+
+        // Restore Task Summary for "Diagnostico y Servicios Realizados"
+        const summary = generateTaskSummary();
+        setMotivoText(summary);
+
+        // Ensure "Observaciones" starts blank every time
+        setReparacionFinal('');
 
         if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
             if (report.area !== 'IMPRESORA') {
@@ -634,11 +640,6 @@ function DetalleDiagnostico() {
                 setNextArea('TERMINADO');
             }
             setUbicacionFisica(report.ubicacionFisica || 'TALLER');
-
-            // Copy observations from the Printer form to the Modal's observation field
-            if (formState.printer_observaciones) {
-                setReparacionFinal(formState.printer_observaciones);
-            }
         } else {
             // Reset or keep default
             setNextArea('');
