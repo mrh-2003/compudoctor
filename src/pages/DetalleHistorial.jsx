@@ -492,6 +492,41 @@ function DetalleHistorial() {
         const clientDisplay = report.clientName || "Cliente no registrado";
         const modelDisplay = `${report.tipoEquipo || ''} ${report.marca || ''} ${report.modelo || ''}`;
 
+        // Calculate combined observations (Intake + History)
+        const finalObsHtml = (() => {
+            const allObs = [];
+
+            // 1. Initial Intake Observation
+            if (report.observaciones && report.observaciones.trim()) {
+                allObs.push(report.observaciones);
+            }
+
+            // 2. History Observations
+            if (report.diagnosticoPorArea) {
+                Object.values(report.diagnosticoPorArea).flat()
+                    .filter(e => e.estado === 'TERMINADO')
+                    .sort((a, b) => {
+                        // Parse DD-MM-YYYY HH:mm
+                        const parse = (d, t) => {
+                            if (!d || !t) return 0;
+                            const [day, mon, yr] = d.split('-');
+                            const [hr, min] = t.split(':');
+                            return new Date(yr, mon - 1, day, hr, min).getTime();
+                        };
+                        return parse(a.fecha_fin, a.hora_fin) - parse(b.fecha_fin, b.hora_fin);
+                    })
+                    .forEach(e => {
+                        if (e.reparacion && e.reparacion.trim() && e.reparacion !== 'No se registraron servicios.') {
+                            allObs.push(e.reparacion);
+                        }
+                    });
+            }
+
+            return allObs.length > 0
+                ? allObs.map(o => `<div>- ${o}</div>`).join('')
+                : 'Ninguna';
+        })();
+
         const printContent = `
             <html>
             <head>
@@ -768,7 +803,7 @@ function DetalleHistorial() {
                     <div class="payment-box">
                         <div class="payment-title">OBSERVACIONES</div>
                         <div class="payment-method">
-                            ${report.observaciones || 'Ninguna'}
+                            ${finalObsHtml}
                         </div>
                     </div>
                 </div>
@@ -805,6 +840,8 @@ function DetalleHistorial() {
                         `).join('')}
                     </div>
                 </div>
+
+
 
                 <div class="totals-row">
                     <div class="total-bubble">

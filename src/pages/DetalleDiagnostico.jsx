@@ -623,18 +623,11 @@ function DetalleDiagnostico() {
         return summary.length > 0 ? summary.join('\n') : 'No se registraron servicios.';
     };
 
-
-    // Auto-select IMPRESORA if it's a printer and first time opening modal? 
-    // Usually handled in handleOpenCompletionModal
     const handleOpenCompletionModal = () => {
         if (!isAllowedToEdit || isReportFinalized) return;
-        const summary = generateTaskSummary();
-        setMotivoText(summary);
+        setMotivoText('');
 
         if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
-            // "debe aparecer ya marcado"
-            // If the next logical step is IMPRESORA area, set it.
-            // If current area is already IMPRESORA, then TERMINADO.
             if (report.area !== 'IMPRESORA') {
                 setNextArea('IMPRESORA');
             } else {
@@ -859,6 +852,17 @@ function DetalleDiagnostico() {
 
     // OPTIMIZACIÓN CLAVE: Memoizamos el Header para que NO dependa del estado del formulario (formState)
     // Solo se re-renderizará si cambian estos valores específicos.
+    const accumulatedObservations = useMemo(() => {
+        if (!flatHistory) return '';
+        // flatHistory is DESCending (Newest first). We want ASCending (Oldest first) for accumulation log.
+        const chronological = [...flatHistory].reverse();
+        return chronological
+            .map(h => h.reparacion)
+            .filter(obs => obs && obs.trim() !== '' && obs !== 'No se registraron servicios.')
+            .map(obs => `- ${obs}`) // Add bullet point per entry
+            .join('\n');
+    }, [flatHistory]);
+
     const memoizedReportHeader = useMemo(() => (
         <ReadOnlyReportHeader
             report={report}
@@ -867,8 +871,9 @@ function DetalleDiagnostico() {
             total={total}
             saldo={saldo}
             componentItems={componentItems}
+            observations={accumulatedObservations}
         />
-    ), [report, diagnostico, montoServicio, total, saldo, componentItems]);
+    ), [report, diagnostico, montoServicio, total, saldo, componentItems, accumulatedObservations]);
 
     // OPTIMIZACIÓN CLAVE: Memoizamos el historial para que tampoco se renderice al teclear
     const memoizedHistorySection = useMemo(() => (

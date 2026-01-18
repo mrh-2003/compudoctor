@@ -32,7 +32,7 @@ const PRINT_ORDER_MAP = [
     { num: 29, id: "otros", label: "Otros" },
 ];
 
-const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, total, saldo, componentItems }) => {
+const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, total, saldo, componentItems, observations }) => {
     const readOnlyInputProps = {
         readOnly: true,
         className: "w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none",
@@ -218,6 +218,13 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                     </div>
                 </div>
             </div>
+
+            {observations && (
+                <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                    <p className="font-bold text-lg text-gray-700 dark:text-gray-300 uppercase">OBSERVACIONES</p>
+                    <textarea value={observations} {...readOnlyInputProps} rows="5" className={`${readOnlyInputProps.className} font-mono text-sm`}></textarea>
+                </div>
+            )}
 
 
         </div>
