@@ -686,7 +686,7 @@ function Diagnostico() {
         break;
       case 'PLACA_MADRE_LAPTOP':
       case 'PLACA_MADRE_PC':
-        if (['procesador', 'tarjetaVideo', 'memoriaRam', 'otros'].includes(itemId)) {
+        if (['procesador', 'tarjetaVideo', 'memoriaRam', 'otros', 'hdd', 'ssd', 'm2Nvme', 'auriculares', 'usb'].includes(itemId)) {
           isAvailable = true;
           isCheckDisabled = !isCheckOptional;
           isDetailRequired = isCheckOptional;
@@ -737,6 +737,7 @@ function Diagnostico() {
     let isDetailRequired = false;
     let isCheckRequired = false;
     let isSelectorMode = false; // "SI DEJA" / "NO DEJA" dropdown
+    let selectorType = 'DEJA'; // 'DEJA' (SI/NO DEJA) or 'TIENE' (SI/NO TIENE)
 
     // --- Dynamic "SI DEJA" / "NO DEJA" Configuration ---
     let siNoDejaItems = [...(SI_NO_DEJA_CONFIG[tipoEquipo] || [])];
@@ -852,7 +853,15 @@ function Diagnostico() {
           isCheckRequired = true;
           isCheckDisabled = isFormLocked;
         }
-        if (itemId === 'memoriaRam') {
+
+        // Configuración específica de selectores para OTROS - PLACA
+        if (['memoriaRam', 'hdd', 'ssd', 'm2Nvme'].includes(itemId)) {
+          isSelectorMode = true;
+          isDetailRequired = true;
+        }
+        if (['auriculares', 'usb'].includes(itemId)) {
+          isSelectorMode = true;
+          selectorType = 'TIENE';
           isDetailRequired = true;
         }
       }
@@ -868,7 +877,8 @@ function Diagnostico() {
       isDetailDisabled,
       isDetailRequired,
       isCheckRequired,
-      isSelectorMode
+      isSelectorMode,
+      selectorType
     };
   };
 
@@ -1271,9 +1281,9 @@ function Diagnostico() {
       items: prev.items.map((item) => {
         if (item.id === name) {
           const updates = { detalles: value };
-          if (value === "SI DEJA") {
+          if (value === "SI DEJA" || value === "SI TIENE") {
             updates.checked = true;
-          } else if (value === "NO DEJA") {
+          } else if (value === "NO DEJA" || value === "NO TIENE") {
             updates.checked = false;
           }
           return { ...item, ...updates };
@@ -1346,7 +1356,7 @@ function Diagnostico() {
         if (!item.service) {
           newErrors[`service-${index}`] = "Debe seleccionar un servicio.";
         }
-        if (item.service !== 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
+        if (item.service !== 'Reparación' && item.service !== 'Garantía' && (!item.amount || parseFloat(item.amount) <= 0)) {
           newErrors[`amount-${index}`] = "El monto es obligatorio y debe ser mayor a 0.";
         }
         if (item.service === 'Otros' && !item.description) {
@@ -1420,7 +1430,9 @@ function Diagnostico() {
       }
     }
 
-    if (formData.montoServicio <= 0 && !hasRepairService) {
+    const hasWarrantyService = servicesList.some(s => s.service === 'Garantía');
+
+    if (formData.montoServicio <= 0 && !hasRepairService && !hasWarrantyService) {
       newErrors.montoServicio = "Monto inválido.";
     }
 
@@ -1877,7 +1889,7 @@ function Diagnostico() {
                 return true;
               }).map((item, index) => {
 
-                const { isAvailable, isCheckDisabled, isDetailDisabled, isCheckRequired, isDetailRequired, isSelectorMode } = getComponentStatus(item.id);
+                const { isAvailable, isCheckDisabled, isDetailDisabled, isCheckRequired, isDetailRequired, isSelectorMode, selectorType } = getComponentStatus(item.id);
 
                 const showDetailError = errors[item.id];
                 const showCheckError = errors[item.id + '_check'];
@@ -1913,8 +1925,17 @@ function Diagnostico() {
                           disabled={isDetailDisabled}
                         >
                           <option value="">Seleccionar...</option>
-                          <option value="SI DEJA">SI DEJA</option>
-                          <option value="NO DEJA">NO DEJA</option>
+                          {selectorType === 'TIENE' ? (
+                            <>
+                              <option value="SI TIENE">SI TIENE</option>
+                              <option value="NO TIENE">NO TIENE</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="SI DEJA">SI DEJA</option>
+                              <option value="NO DEJA">NO DEJA</option>
+                            </>
+                          )}
                         </select>
                       ) : (
                         <input
