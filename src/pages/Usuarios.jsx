@@ -10,6 +10,7 @@ const ALL_MODULES = [
     { id: 'ver-estado', name: 'Ver Estado' },
     { id: 'inventario', name: 'Inventario' },
     { id: 'reportes', name: 'Reportes' },
+    { id: 'historial', name: 'Historial' },
 ];
 
 function Usuarios() {
@@ -20,7 +21,7 @@ function Usuarios() {
     const [editingUser, setEditingUser] = useState(null);
     const [notification, setNotification] = useState({ message: '', type: '' });
     const [confirmation, setConfirmation] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
-    
+
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
@@ -30,7 +31,7 @@ function Usuarios() {
             fetchUsers();
         }
     }, [loading, currentUser]);
-    
+
     if (loading) {
         return <div className="text-center p-8">Cargando autenticación...</div>;
     }
@@ -38,7 +39,7 @@ function Usuarios() {
     if (!currentUser || (currentUser.rol !== 'SUPERADMIN' && currentUser.rol !== 'ADMIN')) {
         return <div className="text-center p-8 text-red-500">No tienes permiso para acceder a este módulo.</div>;
     }
-    
+
     const canCreate = currentUser.rol === 'SUPERADMIN';
     const canEdit = currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN';
     const canDelete = currentUser.rol === 'SUPERADMIN';
@@ -76,7 +77,7 @@ function Usuarios() {
     const handleSaveUser = (userData) => {
         const userToUpdate = { ...editingUser };
         handleCloseModal();
-    
+
         const performSave = async () => {
             try {
                 if (userToUpdate && userToUpdate.id) {
@@ -91,7 +92,7 @@ function Usuarios() {
                 showNotification(error.message, 'error');
             }
         };
-    
+
         performSave();
     };
 
@@ -136,28 +137,28 @@ function Usuarios() {
 
     const filteredUsers = useMemo(() => {
         if (!searchTerm) {
-          return allUsers;
+            return allUsers;
         }
         return allUsers.filter(user =>
-          user.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase())
+            user.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.email.toLowerCase().includes(searchTerm.toLowerCase())
         );
-      }, [allUsers, searchTerm]);
-    
-      const paginatedUsers = useMemo(() => {
+    }, [allUsers, searchTerm]);
+
+    const paginatedUsers = useMemo(() => {
         const startIndex = (currentPage - 1) * pageSize;
         return filteredUsers.slice(startIndex, startIndex + pageSize);
-      }, [filteredUsers, currentPage, pageSize]);
-    
-      const totalPages = Math.ceil(filteredUsers.length / pageSize);
-    
-      const handlePreviousPage = () => {
+    }, [filteredUsers, currentPage, pageSize]);
+
+    const totalPages = Math.ceil(filteredUsers.length / pageSize);
+
+    const handlePreviousPage = () => {
         setCurrentPage(prev => Math.max(prev - 1, 1));
-      };
-    
-      const handleNextPage = () => {
+    };
+
+    const handleNextPage = () => {
         setCurrentPage(prev => Math.min(prev + 1, totalPages));
-      };
+    };
 
     if (isLoading) return <div className="text-center p-8">Cargando usuarios...</div>;
 
@@ -178,14 +179,14 @@ function Usuarios() {
 
             <div className="mb-4">
                 <input
-                type="text"
-                placeholder="Buscar por nombre o email..."
-                value={searchTerm}
-                onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setCurrentPage(1);
-                }}
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    type="text"
+                    placeholder="Buscar por nombre o email..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1);
+                    }}
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                 />
             </div>
 
@@ -219,26 +220,26 @@ function Usuarios() {
                     </tbody>
                 </table>
             </div>
-            
+
             <div className="flex justify-between items-center mt-4">
                 <span className="text-sm text-gray-700 dark:text-gray-400">
-                Página {currentPage} de {totalPages} ({filteredUsers.length} resultados)
+                    Página {currentPage} de {totalPages} ({filteredUsers.length} resultados)
                 </span>
                 <div className="flex items-center space-x-2">
-                <button
-                    onClick={handlePreviousPage}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                    <FaChevronLeft />
-                </button>
-                <button
-                    onClick={handleNextPage}
-                    disabled={currentPage === totalPages || totalPages === 0}
-                    className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                    <FaChevronRight />
-                </button>
+                    <button
+                        onClick={handlePreviousPage}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                        <FaChevronLeft />
+                    </button>
+                    <button
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                        <FaChevronRight />
+                    </button>
                 </div>
             </div>
 
@@ -306,7 +307,7 @@ function UserForm({ currentUser, onSave, onCancel, canEditFully }) {
                     <label className="block text-sm font-medium mb-1">Especialidad</label>
                     <input type="text" name="especialidad" value={formData.especialidad} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" />
                 </div>
-                
+
                 {canEditFully ? (
                     <>
                         <div>

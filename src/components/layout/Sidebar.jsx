@@ -11,7 +11,8 @@ import {
     FaSignOutAlt,
     FaAngleLeft,
     FaAngleRight,
-    FaInbox
+    FaInbox,
+    FaHistory
 } from 'react-icons/fa';
 import logo from '../../assets/images/compudoctor-logo.png';
 import { signOut } from 'firebase/auth';
@@ -43,6 +44,7 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
         { name: 'Informe Técnico', icon: <FaLaptopMedical />, path: '/diagnostico', id: 'diagnostico' },
         { name: 'Bandeja', icon: <FaInbox />, path: '/bandeja-tecnico', id: 'bandeja' },
         { name: 'Ver Estado', icon: <FaCogs />, path: '/ver-estado', id: 'ver-estado' },
+        { name: 'Historial', icon: <FaHistory />, path: '/historial', id: 'historial' },
         {
             name: 'Inventario',
             icon: <FaBox />,
@@ -78,6 +80,10 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
 
         if (item.id === 'usuarios') {
             return currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN';
+        }
+
+        if (item.id === 'historial') {
+            return currentUser.permissions.includes('historial');
         }
 
         if (item.id === 'bandeja') {

@@ -35,6 +35,16 @@ function Login() {
         setError('');
         try {
             await signInWithEmailAndPassword(auth, email, password);
+            // Log the login action
+            // Note: currentUser might not be updated immediately in context, but auth.currentUser should be available
+            // However, inside this try block, auth.currentUser is populated after await.
+            const user = auth.currentUser;
+            // Delay slightly or use user object directly?
+            // logAction gets user from auth.currentUser internally.
+            await import('../../services/logService').then(mod =>
+                mod.logAction('LOGIN', 'Usuario', { email: email, uid: user?.uid }, 'Inicio de sesión exitoso')
+            );
+
             setLoginRequested(true);
         } catch (err) {
             setError('Correo o contraseña incorrectos.');
@@ -45,14 +55,14 @@ function Login() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
             <div className="absolute top-4 right-4">
-                            <button
-                                onClick={toggleTheme}
-                                className="p-2 rounded-full text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700"
-                                title="Cambiar tema"
-                            >
-                                {theme === 'light' ? <FiMoon size={20} /> : <FiSun size={20} />}
-                            </button>
-                        </div>
+                <button
+                    onClick={toggleTheme}
+                    className="p-2 rounded-full text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    title="Cambiar tema"
+                >
+                    {theme === 'light' ? <FiMoon size={20} /> : <FiSun size={20} />}
+                </button>
+            </div>
             <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md border dark:border-gray-700">
                 <div className="flex flex-col items-center mb-6">
                     <img src={logo} alt="CompuDoctor Logo" className="h-24 w-auto mb-2" />

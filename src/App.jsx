@@ -23,6 +23,7 @@ import InventarioEntrada from './pages/Reportes/InventarioEntrada';
 import Categorias from './pages/Inventario/Categorias';
 import EstadosFuncionales from './pages/Inventario/EstadosFuncionales';
 import UnidadesMedida from './pages/Inventario/UnidadesMedida';
+import Historial from './pages/Historial';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -130,6 +131,15 @@ function App() {
                             <InventarioEntrada />
                         </ProtectedRoute>
                     } />
+
+                    <Route
+                        path="historial"
+                        element={
+                            <ProtectedRoute permissionId="historial">
+                                <Historial />
+                            </ProtectedRoute>
+                        }
+                    />
 
                     <Route
                         path="usuarios"

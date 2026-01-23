@@ -1,5 +1,6 @@
 import { collection, getDocs, addDoc, query, orderBy, limit, doc, getDoc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from './firebase';
+import { logAction } from './logService';
 
 const DIAGNOSTICO_COLLECTION = 'diagnosticos';
 
@@ -49,6 +50,7 @@ export const createDiagnosticReport = async (reportData) => {
     }
 
     await addDoc(collection(db, DIAGNOSTICO_COLLECTION), fullReport);
+    await logAction('CREATE', 'Informe Técnico', fullReport, `Creación de informe N° ${reportNumber}`, null); // We don't have the ID here unless we capture the ref
     return reportNumber;
 };
 
@@ -74,11 +76,13 @@ export const getDiagnosticReportById = async (reportId) => {
 export const updateDiagnosticReport = async (reportId, data) => {
     const reportDoc = doc(db, DIAGNOSTICO_COLLECTION, reportId);
     await updateDoc(reportDoc, data);
+    await logAction('UPDATE', 'Informe Técnico', data, `Actualización de informe`, reportId);
 };
 
 export const deleteDiagnosticReport = async (reportId) => {
     const reportDoc = doc(db, DIAGNOSTICO_COLLECTION, reportId);
     await deleteDoc(reportDoc);
+    await logAction('DELETE', 'Informe Técnico', { id: reportId }, `Eliminación de informe`, reportId);
 };
 
 export const getAllClientsForSelection = async () => {
@@ -222,6 +226,8 @@ export const addPayment = async (reportId, paymentData) => {
             saldo: nuevoSaldo,
             total: totalGeneral // Ensure total is also updated if needed, though usually fixed.
         });
+
+        await logAction('UPDATE', 'Informe Técnico - Pago', paymentData, `Pago registrado (S/ ${paymentData.monto})`, reportId);
         return true;
     }
     return false;
@@ -256,6 +262,7 @@ export const markReportAsPaid = async (reportId, additionalPayment = null, refun
         }
 
         await updateDoc(reportDocRef, updates);
+        await logAction('UPDATE', 'Informe Técnico - Pagado', updates, `Informe marcado como pagado`, reportId);
         return true;
     }
     return false;
