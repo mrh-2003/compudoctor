@@ -172,7 +172,7 @@ function TopServicios() {
     };
 
     const axisTextColor = isExportingProcess ? '#000000' : (theme === 'dark' ? '#E5E7EB' : '#374151');
-    const labelTextColor = isExportingProcess ? '#000000' : (theme === 'dark' ? '#000000' : '#374151');
+    const labelTextColor = isExportingProcess ? '#000000' : (theme === 'dark' ? '#FFFFFF' : '#374151');
 
     if (loading) return <div className="p-8 text-center dark:text-gray-200">Cargando datos...</div>;
 
