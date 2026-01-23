@@ -150,7 +150,7 @@ function BandejaTecnico() {
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Ingreso</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cliente</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Equipo</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Marca / Modelo</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Marca - Modelo</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Tecnico Asignado</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Área</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Estado Tarea</th>
@@ -164,7 +164,7 @@ function BandejaTecnico() {
                                 <td className="px-6 py-4 whitespace-nowrap">{report.fecha} {report.hora}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.clientName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tipoEquipo}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{report.marca} / {report.modelo}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.marca}{report.modelo ? ' - ' + report.modelo : ''}{report.otherDescription ? ' - ' + report.otherDescription : ''}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoActual}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.area}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
