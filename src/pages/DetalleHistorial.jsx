@@ -1032,6 +1032,32 @@ function DetalleHistorial() {
                 </div>
             )}
 
+            {(report.pagosRealizado && report.pagosRealizado.length > 0) && (
+                <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
+                    <h2 className="text-xl font-semibold text-purple-600 mb-3">Historial de Pagos</h2>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm text-left">
+                            <thead className="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th className="px-4 py-2">Fecha</th>
+                                    <th className="px-4 py-2">Forma de Pago</th>
+                                    <th className="px-4 py-2">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                                {report.pagosRealizado.map((pago, index) => (
+                                    <tr key={index}>
+                                        <td className="px-4 py-2">{pago.fecha ? new Date(pago.fecha).toLocaleDateString() : '-'}</td>
+                                        <td className="px-4 py-2">{pago.formaPago || '-'}</td>
+                                        <td className="px-4 py-2">{pago.monto ? `S/ ${parseFloat(pago.monto).toFixed(2)}` : '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {(report.comprobantesPago && report.comprobantesPago.length > 0) && (
                 <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
                     <h2 className="text-xl font-semibold text-blue-600 mb-3">Comprobantes de Pago Emitidos</h2>
