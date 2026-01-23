@@ -111,7 +111,7 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1">Tipo de Equipo:</label>
-                        <input type="text" value={report.tipoEquipo || 'N/A'} {...readOnlyInputProps} />
+                        <input type="text" value={(report.tipoEquipo === 'Otros' && report.otherDescription) ? report.otherDescription : (report.tipoEquipo || 'N/A')} {...readOnlyInputProps} />
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1">Marca:</label>

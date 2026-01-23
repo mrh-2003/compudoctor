@@ -630,8 +630,12 @@ function DetalleDiagnostico() {
         const summary = generateTaskSummary();
         setMotivoText(summary);
 
-        // Ensure "Observaciones" starts blank every time
-        setReparacionFinal('');
+        // Ensure "Observaciones" starts with Electronics Obs if applicable, otherwise blank
+        if (report.area === 'ELECTRONICA') {
+            setReparacionFinal(formState.elec_obs || '');
+        } else {
+            setReparacionFinal('');
+        }
 
         if (report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA') {
             if (report.area !== 'IMPRESORA') {
