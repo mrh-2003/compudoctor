@@ -675,7 +675,7 @@ function Diagnostico() {
 
     switch (otherType) {
       case 'TARJETA_VIDEO':
-        if (itemId === 'otros') {
+        if (itemId === 'otros' || itemId === 'tarjetaVideo') {
           isAvailable = true;
           isCheckDisabled = !isCheckOptional;
           isDetailRequired = isCheckOptional;
@@ -686,7 +686,7 @@ function Diagnostico() {
         break;
       case 'PLACA_MADRE_LAPTOP':
       case 'PLACA_MADRE_PC':
-        if (['procesador', 'tarjetaVideo', 'memoriaRam', 'otros', 'hdd', 'ssd', 'm2Nvme', 'auriculares', 'usb'].includes(itemId)) {
+        if (['procesador', 'placaMadre', 'tarjetaVideo', 'memoriaRam', 'otros', 'hdd', 'ssd', 'm2Nvme', 'auriculares', 'usb'].includes(itemId)) {
           isAvailable = true;
           isCheckDisabled = !isCheckOptional;
           isDetailRequired = isCheckOptional;
@@ -1174,6 +1174,19 @@ function Diagnostico() {
       } else {
         setOtherDescription(OTHER_EQUIPMENT_OPTIONS.find(o => o.value === value)?.label || '');
       }
+
+      setFormData(prev => {
+        const newItems = prev.items.map(item => {
+          if (value === 'TARJETA_VIDEO' && item.id === 'tarjetaVideo') {
+            return { ...item, checked: true };
+          }
+          if ((value === 'PLACA_MADRE_LAPTOP' || value === 'PLACA_MADRE_PC') && item.id === 'placaMadre') {
+            return { ...item, checked: true };
+          }
+          return item;
+        });
+        return { ...prev, items: newItems };
+      });
       return;
     }
 
@@ -1420,7 +1433,9 @@ function Diagnostico() {
 
     if (formData.canTurnOn === 'SI') {
 
-      if (!formData.tecnicoTesteoId) {
+      const isOtherAndOtherDesc = formData.tipoEquipo === 'Otros' && otherComponentType === 'OTRO_DESCRIPCION';
+
+      if (!isOtherAndOtherDesc && !formData.tecnicoTesteoId) {
         newErrors.tecnicoTesteoId = "El Técnico de Testeo es obligatorio.";
       }
 
