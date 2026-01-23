@@ -490,18 +490,16 @@ function DetalleHistorial() {
         };
 
         const clientDisplay = report.clientName || "Cliente no registrado";
-        const modelDisplay = `${report.tipoEquipo || ''} ${report.marca || ''} ${report.modelo || ''}`;
+        const otherComponentType = report.otherComponentType;
+        const otherDescription = report.otherDescription;
+        const otherTypeDesc = otherComponentType === 'OTRO_DESCRIPCION' ? otherDescription : (OTHER_EQUIPMENT_OPTIONS.find(o => o.value === otherComponentType)?.label || '');
+
+        const modelDisplay = `${report.tipoEquipo || ''} ${otherTypeDesc || ''} ${report.marca || ''} ${report.modelo || ''}`;
 
         // Calculate combined observations (Intake + History)
         const finalObsHtml = (() => {
             const allObs = [];
 
-            // 1. Initial Intake Observation
-            if (report.observaciones && report.observaciones.trim()) {
-                allObs.push(report.observaciones);
-            }
-
-            // 2. History Observations
             if (report.diagnosticoPorArea) {
                 Object.values(report.diagnosticoPorArea).flat()
                     .filter(e => e.estado === 'TERMINADO')

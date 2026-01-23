@@ -219,6 +219,28 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                 </div>
             </div>
 
+            <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
+                <p className="font-bold text-lg text-indigo-500 dark:text-indigo-400">PERSONAL ASIGNADO</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico Recepción:</label>
+                        <input type="text" value={report.tecnicoRecepcion || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico Inicial:</label>
+                        <input type="text" value={report.tecnicoInicial || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico Testeo:</label>
+                        <input type="text" value={report.tecnicoTesteo || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Técnico Responsable:</label>
+                        <input type="text" value={report.tecnicoResponsable || 'N/A'} {...readOnlyInputProps} />
+                    </div>
+                </div>
+            </div>
+
             {observations && (
                 <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
                     <p className="font-bold text-lg text-gray-700 dark:text-gray-300 uppercase">OBSERVACIONES</p>
