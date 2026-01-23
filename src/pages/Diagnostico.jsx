@@ -68,6 +68,7 @@ const SERVICE_OPTIONS = [
   "Limpieza De Cabezal Manual De Impresora",
   "Limpieza De Cabezal Software De Impresora",
   "Reseteo De Impresora",
+  "Garantía",
   "Otros"
 ];
 
@@ -498,7 +499,7 @@ function Diagnostico() {
 
                 .text-area-container { margin-top: 8px; }
                 .text-area-label { font-weight: 800; font-size: 9pt; margin-bottom: 4px; }
-                .text-block { width: 100%; border: 1px solid #000; padding: 6px; font-size: 9pt; min-height: 40px; border-radius: 4px; }
+                .text-block { width: 100%; border: 1px solid #000; padding: 6px; font-size: 8pt; min-height: 10px; border-radius: 4px; }
 
                 .financials { display: flex; justify-content: space-between; margin: 10px 0; padding: 0 20px; }
                 .money-box { display: flex; align-items: center; border: 1px solid #000; padding: 4px 8px; border-radius: 6px; width: 28%; }
@@ -641,7 +642,7 @@ function Diagnostico() {
                   <div>FIRMA CLIENTE</div>
                 </div>
 
-                <div style="margin-top: 30px; padding-top: 10px; border-top: 1px dashed #ccc; font-size: 8pt;">
+                <div style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ccc; font-size: 8pt;">
                    <div style="font-weight: bold; text-decoration: underline; margin-bottom: 6px;">PERSONAL ASIGNADO:</div>
                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                       <div><strong>Técnico de Recepción:</strong> ${formData.tecnicoRecepcion || ''}</div>
@@ -2078,7 +2079,7 @@ function Diagnostico() {
                 onClick={() => {
                   const amount = newServiceSelection.amount;
 
-                  if (newServiceSelection.service && newServiceSelection.service !== 'Reparación' && (!amount || amount <= 0)) {
+                  if (newServiceSelection.service && newServiceSelection.service !== 'Reparación' && newServiceSelection.service !== 'Garantía' && (!amount || amount <= 0)) {
                     toast.error("El monto debe ser mayor a 0 para este servicio.");
                     return;
                   }
