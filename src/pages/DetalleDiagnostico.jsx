@@ -312,9 +312,18 @@ function DetalleDiagnostico() {
                                 });
                             }
                         });
-                    }
 
-                    initialFormState.testeo_servicio_final = finalSummary.join('\n').trim() + '\n' + fetchedReport.tipoEquipo + ' ' + fetchedReport.marca + ' ' + fetchedReport.modelo + ' - ' + fetchedReport.serie;
+                        // Logic for Electronics non-reparable observation
+                        const elecEntries = fetchedReport.diagnosticoPorArea['ELECTRONICA'] || [];
+                        // Check the last entry in electronics history
+                        const lastElecEntry = elecEntries.length > 0 ? elecEntries[elecEntries.length - 1] : null;
+
+                        if (lastElecEntry && lastElecEntry.elec_placa_reparable === 'NO' && lastElecEntry.elec_obs) {
+                            finalSummary.push(`OBSERVACIÓN ELECTRÓNICA: ${lastElecEntry.elec_obs}`);
+                        }
+                    }
+                    const auxEquipo = fetchedReport.tipoEquipo === 'Otros' ? fetchedReport.otherDescription : fetchedReport.tipoEquipo;
+                    initialFormState.testeo_servicio_final = finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + fetchedReport.marca + ' ' + fetchedReport.modelo + ' - ' + fetchedReport.serie;
                 }
 
                 // AUTO-FILL PRINTER SERVICES REALIZED (FIRST TIME)
