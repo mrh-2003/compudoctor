@@ -849,7 +849,7 @@ function Diagnostico() {
         // En NO PRENDE (OTROS / PLACA), memoriaRam NO es obligatorio marcar check
         const mandatoryCheckOtherPlaca = isNoPrende ? ['procesador'] : ['procesador', 'memoriaRam'];
 
-        if (mandatoryCheckOtherPlaca.includes(itemId)) { 
+        if (mandatoryCheckOtherPlaca.includes(itemId)) {
           isCheckDisabled = isFormLocked;
           isDetailRequired = true;
         }
@@ -2384,7 +2384,7 @@ function Diagnostico() {
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Técnico de Testeo {formData.canTurnOn === 'SI' && <span className="text-red-500">*</span>}
+                Técnico de Testeo {(formData.canTurnOn === 'SI' && !(formData.tipoEquipo === 'Otros' && otherComponentType === 'OTRO_DESCRIPCION')) && <span className="text-red-500">*</span>}
               </label>
               <Select
                 options={users}
