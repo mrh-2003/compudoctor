@@ -1,5 +1,6 @@
 import { collection, getDocs, doc, addDoc, updateDoc, deleteDoc, getDoc, query, orderBy } from 'firebase/firestore'
 import { db } from './firebase'
+import { logAction } from './logService'
 
 const CLIENTES_COLLECTION = 'clientes'
 
@@ -28,20 +29,24 @@ export const createClient = async (clientData) => {
     throw new Error("Tipo de persona inválido.")
   }
 
-  await addDoc(collection(db, CLIENTES_COLLECTION), {
+  const docRef = await addDoc(collection(db, CLIENTES_COLLECTION), {
     ...clientData,
     createdAt: new Date()
   })
+
+  await logAction('CREATE', 'Cliente', clientData, `Registro de cliente: ${clientData.nombre} ${clientData.apellido}`, docRef.id);
 }
 
 export const updateClient = async (clientId, data) => {
   const clientDoc = doc(db, CLIENTES_COLLECTION, clientId)
   await updateDoc(clientDoc, data)
+  await logAction('UPDATE', 'Cliente', data, `Actualización de cliente`, clientId);
 }
 
 export const deleteClient = async (clientId) => {
   const clientDoc = doc(db, CLIENTES_COLLECTION, clientId)
   await deleteDoc(clientDoc)
+  await logAction('DELETE', 'Cliente', { id: clientId }, `Eliminación de cliente`, clientId);
 }
 
 export const getClientById = async (clientId) => {

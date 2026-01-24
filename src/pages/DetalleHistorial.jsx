@@ -262,7 +262,7 @@ function DetalleHistorial() {
 
                         .text-area-container { margin-top: 8px; }
                         .text-area-label { font-weight: 800; font-size: 9pt; margin-bottom: 4px; }
-                        .text-block { width: 100%; border: 1px solid #000; padding: 6px; font-size: 9pt; min-height: 40px; border-radius: 4px; }
+                        .text-block { width: 100%; border: 1px solid #000; padding: 6px; font-size: 8pt; min-height: 10px; border-radius: 4px; }
 
                         .financials { display: flex; justify-content: space-between; margin: 10px 0; padding: 0 20px; }
                         .money-box { display: flex; align-items: center; border: 1px solid #000; padding: 4px 8px; border-radius: 6px; width: 28%; }
@@ -405,7 +405,7 @@ function DetalleHistorial() {
                           <div>FIRMA CLIENTE</div>
                         </div>
 
-                        <div style="margin-top: 30px; padding-top: 10px; border-top: 1px dashed #ccc; font-size: 8pt;">
+                        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ccc; font-size: 8pt;">
                            <div style="font-weight: bold; text-decoration: underline; margin-bottom: 6px;">PERSONAL ASIGNADO:</div>
                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                               <div><strong>Técnico de Recepción:</strong> ${report.tecnicoRecepcion || ''}</div>
@@ -1022,6 +1022,32 @@ function DetalleHistorial() {
                                         <td className="px-4 py-2">{doc.description}</td>
                                         <td className="px-4 py-2">{doc.number}</td>
                                         <td className="px-4 py-2">{doc.amount ? `S/ ${parseFloat(doc.amount).toFixed(2)}` : '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {(report.pagosRealizado && report.pagosRealizado.length > 0) && (
+                <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
+                    <h2 className="text-xl font-semibold text-purple-600 mb-3">Historial de Pagos</h2>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm text-left">
+                            <thead className="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th className="px-4 py-2">Fecha</th>
+                                    <th className="px-4 py-2">Forma de Pago</th>
+                                    <th className="px-4 py-2">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                                {report.pagosRealizado.map((pago, index) => (
+                                    <tr key={index}>
+                                        <td className="px-4 py-2">{pago.fecha ? new Date(pago.fecha).toLocaleDateString() : '-'}</td>
+                                        <td className="px-4 py-2">{pago.formaPago || '-'}</td>
+                                        <td className="px-4 py-2">{pago.monto ? `S/ ${parseFloat(pago.monto).toFixed(2)}` : '-'}</td>
                                     </tr>
                                 ))}
                             </tbody>
