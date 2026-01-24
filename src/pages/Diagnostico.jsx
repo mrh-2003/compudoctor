@@ -849,9 +849,9 @@ function Diagnostico() {
         // En NO PRENDE (OTROS / PLACA), memoriaRam NO es obligatorio marcar check
         const mandatoryCheckOtherPlaca = isNoPrende ? ['procesador'] : ['procesador', 'memoriaRam'];
 
-        if (mandatoryCheckOtherPlaca.includes(itemId)) {
-          isCheckRequired = true;
+        if (mandatoryCheckOtherPlaca.includes(itemId)) { 
           isCheckDisabled = isFormLocked;
+          isDetailRequired = true;
         }
 
         // Configuración específica de selectores para OTROS - PLACA
