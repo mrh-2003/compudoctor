@@ -279,6 +279,12 @@ function Diagnostico() {
     estado: "",
     canTurnOn: "",
     ubicacionFisica: "",
+    // Initial Financial Fields (Immutable after start)
+    initialTotal: 0,
+    initialSaldo: 0,
+    initialACuenta: 0,
+    initialServicesList: [],
+    initialDiagnostico: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -424,15 +430,27 @@ function Diagnostico() {
       return obs;
     };
 
+    // Use INITIAL values for printing if available, otherwise current
+    const printServicesList = (formData.initialServicesList && formData.initialServicesList.length > 0) ? formData.initialServicesList : servicesList;
+    const printDiagnostico = (formData.initialDiagnostico !== undefined && formData.initialDiagnostico !== null) ? formData.initialDiagnostico : formData.diagnostico;
+    const printTotal = (formData.initialTotal !== undefined && formData.initialTotal !== null) ? formData.initialTotal : formData.total;
+    const printACuenta = (formData.initialACuenta !== undefined && formData.initialACuenta !== null) ? formData.initialACuenta : formData.aCuenta;
+    const printSaldo = (formData.initialSaldo !== undefined && formData.initialSaldo !== null) ? formData.initialSaldo : formData.saldo;
+
     // Construir texto de Servicios + Diagnostico + Adicionales
-    const servicesPart = servicesList.map(s => {
+    const servicesPart = printServicesList.map(s => {
+      const amountVal = parseFloat(s.amount);
       const specDisplay = s.specification ? ` [${s.specification}]` : '';
-      return `${s.service}${specDisplay} (S/${s.amount})`;
+      return `${s.service}${specDisplay} (S/${amountVal})`;
     }).join(', ');
 
-    const diagPart = formData.diagnostico > 0 ? `Diagnóstico (S/${formData.diagnostico})` : '';
+    const diagPart = printDiagnostico > 0 ? `Diagnóstico (S/${printDiagnostico})` : '';
 
     // Si tienes "additionalServices" globales en este componente (que parece que sí se usan):
+    // NOTE: additionalServices usually are part of the initial state too if added at start.
+    // However, formData doesn't have 'initialAdditionalServices' explicitly tracked above, but logical flow puts them in servicesList usually or separate.
+    // Given the previous code, additionalServices seems separate. Let's keep it but ideally it should be frozen too if we want perfect snapshot.
+    // For now, we assume additionalServices created at start are what matters.
     const addPart = additionalServices.length > 0 ? additionalServices.map(s => s.description).join(', ') : '';
 
     const parts = [servicesPart, diagPart, addPart].filter(p => p && p.trim() !== '');
@@ -615,15 +633,15 @@ function Diagnostico() {
                 <div class="financials">
                     <div class="money-box">
                         <span class="money-label">TOTAL</span>
-                        <span class="money-value">${formData.total.toFixed(2)}</span>
+                        <span class="money-value">${(parseFloat(printTotal) || 0).toFixed(2)}</span>
                     </div>
                     <div class="money-box">
                         <span class="money-label">A CUENTA</span>
-                        <span class="money-value">${formData.aCuenta.toFixed(2)}</span>
+                        <span class="money-value">${(parseFloat(printACuenta) || 0).toFixed(2)}</span>
                     </div>
                     <div class="money-box">
                         <span class="money-label">SALDO</span>
-                        <span class="money-value">${formData.saldo.toFixed(2)}</span>
+                        <span class="money-value">${(parseFloat(printSaldo) || 0).toFixed(2)}</span>
                     </div>
                 </div>
 
@@ -1524,6 +1542,30 @@ function Diagnostico() {
         canTurnOn: formData.canTurnOn,
         ubicacionFisica: formData.ubicacionFisica,
       };
+
+      // LOGIC: Update Initial Financials ONLY if the work hasn't technically started (Pre-Assigned or Just Assigned but not worked on)
+      // "initialAreaAssignedStatus" tracks if the initial area had started work when we loaded the form.
+      // If we are in a state where we can edit everything (not locked), we sync initial vars.
+      const shouldUpdateInitial = !isReportFinalized && !initialAreaAssignedStatus;
+
+      if (shouldUpdateInitial) {
+        baseData.initialTotal = parseFloat(formData.total) || 0;
+        baseData.initialSaldo = parseFloat(formData.saldo) || 0;
+        baseData.initialACuenta = parseFloat(formData.aCuenta) || 0;
+        baseData.initialDiagnostico = parseFloat(formData.diagnostico) || 0;
+        baseData.initialServicesList = servicesList.map(s => ({ ...s, amount: s.amount.toFixed(2) }));
+      } else {
+        // Preserve existing initial values, or set them if they don't exist (first save or migration)
+        baseData.initialTotal = formData.initialTotal !== undefined ? formData.initialTotal : (parseFloat(formData.total) || 0);
+        baseData.initialSaldo = formData.initialSaldo !== undefined ? formData.initialSaldo : (parseFloat(formData.saldo) || 0);
+        baseData.initialACuenta = formData.initialACuenta !== undefined ? formData.initialACuenta : (parseFloat(formData.aCuenta) || 0);
+        baseData.initialDiagnostico = formData.initialDiagnostico !== undefined ? formData.initialDiagnostico : (parseFloat(formData.diagnostico) || 0);
+
+        // careful with arrays, ensure we have one
+        baseData.initialServicesList = (formData.initialServicesList && formData.initialServicesList.length > 0)
+          ? formData.initialServicesList
+          : servicesList.map(s => ({ ...s, amount: s.amount.toFixed(2) }));
+      }
 
       if (formData.tipoEquipo === 'Otros') {
         baseData.otherComponentType = otherComponentType;

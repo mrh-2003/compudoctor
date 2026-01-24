@@ -183,16 +183,22 @@ function DetalleHistorial() {
             return obs;
         };
 
-        const servicesList = report.servicesList || [];
+        // Use INITIAL values for printing if available, otherwise current
+        const printServicesList = (report.initialServicesList && report.initialServicesList.length > 0) ? report.initialServicesList : (report.servicesList || []);
+        const printDiagnostico = (report.initialDiagnostico !== undefined && report.initialDiagnostico !== null) ? report.initialDiagnostico : parseFloat(report.diagnostico);
+        const printTotal = (report.initialTotal !== undefined && report.initialTotal !== null) ? report.initialTotal : (parseFloat(report.total) || 0);
+        const printACuenta = (report.initialACuenta !== undefined && report.initialACuenta !== null) ? report.initialACuenta : (parseFloat(report.aCuenta) || 0);
+        const printSaldo = (report.initialSaldo !== undefined && report.initialSaldo !== null) ? report.initialSaldo : (parseFloat(report.saldo) || 0);
+
         const additionalServices = report.additionalServices || [];
 
         // Construcción de texto Motivo unificado
-        const servicesPart = servicesList.map(s => {
+        const servicesPart = printServicesList.map(s => {
             const specDisplay = s.specification ? ` [${s.specification}]` : '';
             return `${s.service}${specDisplay} (S/${s.amount})`;
         }).join(', ');
 
-        const diagVal = parseFloat(report.diagnostico) || 0;
+        const diagVal = parseFloat(printDiagnostico) || 0;
         const diagPart = diagVal > 0 ? `Diagnóstico (S/${diagVal.toFixed(2)})` : '';
         const addPart = additionalServices.length > 0 ? additionalServices.map(s => s.description).join(', ') : '';
 
@@ -378,15 +384,15 @@ function DetalleHistorial() {
                         <div class="financials">
                              <div class="money-box" style="width: 24%">
                                 <span class="money-label">TOTAL</span>
-                                <span class="money-value">${(parseFloat(report.total) || 0).toFixed(2)}</span>
+                                <span class="money-value">${(parseFloat(printTotal) || 0).toFixed(2)}</span>
                             </div>
                             <div class="money-box" style="width: 24%">
                                 <span class="money-label">A CUENTA</span>
-                                <span class="money-value">${(parseFloat(report.aCuenta) || 0).toFixed(2)}</span>
+                                <span class="money-value">${(parseFloat(printACuenta) || 0).toFixed(2)}</span>
                             </div>
                             <div class="money-box" style="width: 24%">
                                 <span class="money-label">SALDO</span>
-                                <span class="money-value">${(parseFloat(report.saldo) || 0).toFixed(2)}</span>
+                                <span class="money-value">${(parseFloat(printSaldo) || 0).toFixed(2)}</span>
                             </div>
                         </div>
 
