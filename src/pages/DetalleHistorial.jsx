@@ -784,14 +784,17 @@ function DetalleHistorial() {
                                 ${formatTestRow('Microfono', testeo.testeo_microfono, testeo.testeo_microfono_obs)}
                                 ${formatTestRow('Auricular', testeo.testeo_auricular, testeo.testeo_auricular_obs)}
                                 ${formatTestRow('Parlantes', testeo.testeo_parlantes, testeo.testeo_parlantes_obs)}
+                                ${formatTestRow('Teclado', testeo.testeo_teclado, testeo.testeo_teclado_obs)}
                             </div>
                             <div>
-                                ${formatTestRow('Teclado', testeo.testeo_teclado, testeo.testeo_teclado_obs)}
                                 ${formatTestRow('Lectora', testeo.testeo_lectora, testeo.testeo_lectora_obs)}
                                 ${formatTestRow('Touchpad', testeo.testeo_touchpad, testeo.testeo_touchpad_obs)}
                                 ${formatTestRow('WIFI', testeo.testeo_wifi, testeo.testeo_wifi_obs)}
+                                ${formatTestRow('RJ45', testeo.testeo_rj45, testeo.testeo_rj45_obs)}
                                 ${formatTestRow('USB', testeo.testeo_usb, testeo.testeo_usb_obs)}
+                                ${formatTestRow('Tipo C', testeo.testeo_tipo_c, testeo.testeo_tipo_c_obs)}
                                 ${formatTestRow('HDMI', testeo.testeo_hdmi, testeo.testeo_hdmi_obs)}
+                                ${formatTestRow('VGA', testeo.testeo_vga, testeo.testeo_vga_obs)}
                                 ${formatTestRow('OTRO', testeo.testeo_otros, testeo.testeo_otros_obs)}
                             </div>
                         </div>
