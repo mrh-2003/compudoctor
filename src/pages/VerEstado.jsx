@@ -32,13 +32,26 @@ const calculateReportTotal = (report) => {
         shouldChargeRevision = false;
     }
 
-    if (isPrinter && !shouldChargeRevision) diagCost = 0;
+    // NEW: Check Testeo Area for non-printers
+    if (!isPrinter && report.diagnosticoPorArea && report.diagnosticoPorArea['TESTEO']) {
+        const history = report.diagnosticoPorArea['TESTEO'];
+        const entry = [...history].reverse().find(h => h.cobra_revision);
+        if (entry && entry.cobra_revision === 'NO') shouldChargeRevision = false;
+    }
+
+    if (!shouldChargeRevision) diagCost = 0;
 
     let serviceTotal = 0;
     let additionalTotal = 0;
 
     if (!isPrinter && report.servicesList) {
-        report.servicesList.forEach(s => serviceTotal += (parseFloat(s.amount) || 0));
+        report.servicesList.forEach(s => {
+            // Exclude Revision service if charge is disabled
+            if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
+                return;
+            }
+            serviceTotal += (parseFloat(s.amount) || 0)
+        });
     }
 
     if (report.diagnosticoPorArea) {

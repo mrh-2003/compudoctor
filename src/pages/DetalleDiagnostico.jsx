@@ -245,6 +245,54 @@ function DetalleDiagnostico() {
         }
     }, [reportId]);
 
+    const generateTesteoServiceSummary = useCallback((currentReport, cobraRevisionValue) => {
+        if (!currentReport) return '';
+        let finalSummary = [];
+
+        // 1. Initial Services
+        if (currentReport.servicesList && currentReport.servicesList.length > 0) {
+            currentReport.servicesList.forEach(s => {
+                let amount = parseFloat(s.amount || 0);
+                // Check if we should zero out revision (If explicitly NO, zero it. If undefined or SI, keep it)
+                if (cobraRevisionValue === 'NO' && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
+                    amount = 0;
+                }
+                finalSummary.push(`- ${s.service}${s.specification ? ` (${s.specification})` : ''} - S/ ${amount.toFixed(2)}`);
+            });
+        }
+
+        // 2. Additional Services from Areas
+        if (currentReport.diagnosticoPorArea) {
+            Object.entries(currentReport.diagnosticoPorArea).forEach(([area, entries]) => {
+                if (area === 'TESTEO') return; // Skip current
+
+                const areaAddedServices = [];
+                entries.forEach(entry => {
+                    if (entry.addedServices && entry.addedServices.length > 0) {
+                        entry.addedServices.forEach(s => areaAddedServices.push(s));
+                    }
+                });
+
+                if (areaAddedServices.length > 0) {
+                    areaAddedServices.forEach(s => {
+                        finalSummary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
+                    });
+                }
+            });
+
+            // Logic for Electronics non-reparable observation
+            const elecEntries = currentReport.diagnosticoPorArea['ELECTRONICA'] || [];
+            const lastElecEntry = elecEntries.length > 0 ? elecEntries[elecEntries.length - 1] : null;
+
+            if (lastElecEntry && lastElecEntry.elec_placa_reparable === 'NO' && lastElecEntry.elec_obs) {
+                finalSummary.push(`OBSERVACIÓN ELECTRÓNICA: ${lastElecEntry.elec_obs}`);
+            }
+        }
+
+        const auxEquipo = currentReport.tipoEquipo === 'Otros' ? currentReport.otherDescription : currentReport.tipoEquipo;
+        return finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + currentReport.marca + ' ' + currentReport.modelo + ' - ' + currentReport.serie;
+    }, []);
+
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
@@ -284,46 +332,7 @@ function DetalleDiagnostico() {
                     }
 
                     // --- AUTO-FILL TESTEO FINAL SERVICE SUMMARY ---
-                    // Aggregate all services (Initial + Additional from history) 
-                    let finalSummary = [];
-
-                    // 1. Initial Services
-                    if (fetchedReport.servicesList && fetchedReport.servicesList.length > 0) {
-                        fetchedReport.servicesList.forEach(s => {
-                            finalSummary.push(`- ${s.service}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
-                        });
-                    }
-
-                    // 2. Additional Services from Areas
-                    if (fetchedReport.diagnosticoPorArea) {
-                        Object.entries(fetchedReport.diagnosticoPorArea).forEach(([area, entries]) => {
-                            if (area === 'TESTEO') return; // Skip current
-
-                            const areaAddedServices = [];
-                            entries.forEach(entry => {
-                                if (entry.addedServices && entry.addedServices.length > 0) {
-                                    entry.addedServices.forEach(s => areaAddedServices.push(s));
-                                }
-                            });
-
-                            if (areaAddedServices.length > 0) {
-                                areaAddedServices.forEach(s => {
-                                    finalSummary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
-                                });
-                            }
-                        });
-
-                        // Logic for Electronics non-reparable observation
-                        const elecEntries = fetchedReport.diagnosticoPorArea['ELECTRONICA'] || [];
-                        // Check the last entry in electronics history
-                        const lastElecEntry = elecEntries.length > 0 ? elecEntries[elecEntries.length - 1] : null;
-
-                        if (lastElecEntry && lastElecEntry.elec_placa_reparable === 'NO' && lastElecEntry.elec_obs) {
-                            finalSummary.push(`OBSERVACIÓN ELECTRÓNICA: ${lastElecEntry.elec_obs}`);
-                        }
-                    }
-                    const auxEquipo = fetchedReport.tipoEquipo === 'Otros' ? fetchedReport.otherDescription : fetchedReport.tipoEquipo;
-                    initialFormState.testeo_servicio_final = finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + fetchedReport.marca + ' ' + fetchedReport.modelo + ' - ' + fetchedReport.serie;
+                    initialFormState.testeo_servicio_final = generateTesteoServiceSummary(fetchedReport, initialFormState.cobra_revision);
                 }
 
                 // AUTO-FILL PRINTER SERVICES REALIZED (FIRST TIME)
@@ -360,7 +369,18 @@ function DetalleDiagnostico() {
         if (reportId) {
             fetchData();
         }
-    }, [reportId]);
+    }, [reportId, generateTesteoServiceSummary]);
+
+    // NEW EFFECT: Watch for cobra_revision changes in TESTEO to update summary text
+    useEffect(() => {
+        if (report && report.area === 'TESTEO') {
+            const newSummary = generateTesteoServiceSummary(report, formState.cobra_revision);
+            setFormState(prev => {
+                if (prev.testeo_servicio_final === newSummary) return prev;
+                return { ...prev, testeo_servicio_final: newSummary };
+            });
+        }
+    }, [formState.cobra_revision, report, generateTesteoServiceSummary]);
 
     const handleFormChange = (e) => {
         if (!isAllowedToEdit || isReportFinalized) return;
