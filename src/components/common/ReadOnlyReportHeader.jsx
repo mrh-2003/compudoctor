@@ -215,10 +215,12 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                         if (report.tipoEquipo === 'Impresora' && report.printer_cobra_revision === 'NO') shouldChargeRevision = false;
 
                         let effectiveDiagnostico = parseFloat(diagnostico) || 0;
+                        let originalDiagnostico = parseFloat(diagnostico) || 0;
                         if (!shouldChargeRevision) effectiveDiagnostico = 0;
 
                         // Calculate effective service amount (excluding revision if needed)
                         let effectiveMontoServicio = parseFloat(montoServicio) || 0;
+                        let originalMontoServicio = parseFloat(montoServicio) || 0;
                         if (!shouldChargeRevision && report.servicesList) {
                             // If we can't easily subtract from total without re-summing:
                             let recalcServiceTotal = 0;
@@ -226,22 +228,20 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                                 if (s.service && s.service.toUpperCase().includes('REVISIÓN')) return;
                                 recalcServiceTotal += (parseFloat(s.amount) || 0);
                             });
-                            // If the passed montoServicio matches the raw sum, replace it with recalc
-                            // otherwise assume generic calculation
                             effectiveMontoServicio = recalcServiceTotal;
                         }
 
-                        // Calculate Additional
-                        // Logic: Total - Services - Diag
-                        // But Total passed in prop might correspond to DB total.
-                        // We should rely on calculating "Adicionales" by differencing Total - (Base Services + Diag)
-                        // However, if we change Base Services/Diag here visually, the formula (Total - ...) would yield a HIGHER additional if Total is constant.
-                        // BUT, if `shouldChargeRevision` is NO, the `total` prop passed from parent *should* also be lower.
-                        // If parent is `DetalleDiagnostico`, `total` IS adjusted.
-                        // If parent is `DetalleHistorial`, `report.total` is passed.
-                        // If `report.total` in DB reflects the "No charge", then (Total - EffService - EffDiag) works.
+                        // Diff
+                        let diffDiag = originalDiagnostico - effectiveDiagnostico;
+                        let diffService = originalMontoServicio - effectiveMontoServicio;
 
-                        const displayAdicionales = (total - effectiveMontoServicio - effectiveDiagnostico);
+                        let effectiveTotal = (parseFloat(total) || 0) - diffDiag - diffService;
+                        if (effectiveTotal < 0) effectiveTotal = 0;
+
+                        const displayAdicionales = (effectiveTotal - effectiveMontoServicio - effectiveDiagnostico);
+
+                        let aCuenta = parseFloat(report.aCuenta) || 0;
+                        let effectiveSaldo = effectiveTotal - aCuenta;
 
                         return (
                             <>
@@ -255,17 +255,17 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                                         <input type="text" value={displayAdicionales.toFixed(2)} {...readOnlyInputProps} />
                                     </div>
                                 )}
+                                <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                                    <label className="block text-sm font-medium mb-1">A Cuenta (S/)</label>
+                                    <input type="text" value={aCuenta.toFixed(2)} {...readOnlyInputProps} />
+                                </div>
+                                <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                                    <label className="block text-sm font-medium mb-1">Saldo (S/)</label>
+                                    <input type="text" value={effectiveSaldo.toFixed(2)} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold ${effectiveSaldo > 0 ? 'text-red-500' : 'text-green-500'}`} />
+                                </div>
                             </>
                         );
                     })()}
-                    <div className="col-span-1 md:col-span-2 lg:col-span-1">
-                        <label className="block text-sm font-medium mb-1">A Cuenta (S/)</label>
-                        <input type="text" value={(parseFloat(report.aCuenta) || 0).toFixed(2)} {...readOnlyInputProps} />
-                    </div>
-                    <div className="col-span-1 md:col-span-2 lg:col-span-1">
-                        <label className="block text-sm font-medium mb-1">Saldo (S/)</label>
-                        <input type="text" value={saldo.toFixed(2)} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold ${saldo > 0 ? 'text-red-500' : 'text-green-500'}`} />
-                    </div>
                 </div>
             </div>
 
