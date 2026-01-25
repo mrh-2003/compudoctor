@@ -493,6 +493,7 @@ function DetalleDiagnostico() {
 
         const serviceToAdd = {
             id: Date.now(),
+            serviceKey: selectedServiceOption.value,
             description: finalDescription,
             amount: amountVal,
             specification: finalSpec,
@@ -603,13 +604,25 @@ function DetalleDiagnostico() {
             if (additionalServices.length > 0) {
                 additionalServices.forEach(s => {
                     let displayDesc = s.description;
-                    if (s.serviceKey && s.serviceLabel && SERVICE_FIELD_MAPPING[s.serviceKey]) {
+                    // Verify if function exists before calling, as it appears missing in scan
+                    if (s.serviceKey && s.serviceLabel && typeof buildServiceDescription === 'function' && SERVICE_FIELD_MAPPING[s.serviceKey]) {
                         const dyn = buildServiceDescription(s.serviceKey, s.serviceLabel, formState);
                         if (dyn) displayDesc = dyn;
                     }
-                    summary.push(`• ${displayDesc} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+
+                    let statusInfo = '';
+                    if (s.serviceKey && ['elec_video', 'elec_placa', 'elec_otro'].includes(s.serviceKey)) {
+                        const reparableStatus = formState[`${s.serviceKey}_reparable`];
+                        if (reparableStatus === 'SI') statusInfo = ' - PRENDE';
+                        else if (reparableStatus === 'NO') statusInfo = ' - NO PRENDE';
+                    }
+
+                    summary.push(`• ${displayDesc}${statusInfo} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
+
+            if (formState.elec_etapa) summary.push(`Etapa: ${formState.elec_etapa}`);
+            if (formState.elec_codigo) summary.push(`Código: ${formState.elec_codigo}`);
 
         } else {
             const initialServices = report.servicesList || [];
@@ -2171,9 +2184,16 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
 
                                             // Dynamic Description for List
                                             let displayDesc = service.description;
-                                            if (service.serviceKey && service.serviceLabel && SERVICE_FIELD_MAPPING[service.serviceKey]) {
+                                            if (service.serviceKey && service.serviceLabel && typeof buildServiceDescription === 'function' && SERVICE_FIELD_MAPPING[service.serviceKey]) {
                                                 const dyn = buildServiceDescription(service.serviceKey, service.serviceLabel, formState);
                                                 if (dyn) displayDesc = dyn;
+                                            }
+
+                                            // NEW: Status Info for Electronica
+                                            if (service.serviceKey && ['elec_video', 'elec_placa', 'elec_otro'].includes(service.serviceKey)) {
+                                                const reparableStatus = formState[`${service.serviceKey}_reparable`];
+                                                if (reparableStatus === 'SI') displayDesc += ' - PRENDE';
+                                                else if (reparableStatus === 'NO') displayDesc += ' - NO PRENDE';
                                             }
 
                                             return (
