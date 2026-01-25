@@ -183,12 +183,57 @@ function DetalleHistorial() {
             return obs;
         };
 
+        // Detect "No Cobrar Revision"
+        let shouldChargeRevision = true;
+        if (report.diagnosticoPorArea) {
+            if (report.diagnosticoPorArea['IMPRESORA']) {
+                const entry = [...report.diagnosticoPorArea['IMPRESORA']].reverse().find(h => h.printer_cobra_revision);
+                if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+            }
+            if (shouldChargeRevision && report.diagnosticoPorArea['TESTEO']) { // Only check if not already false
+                const entry = [...report.diagnosticoPorArea['TESTEO']].reverse().find(h => h.cobra_revision);
+                if (entry && entry.cobra_revision === 'NO') shouldChargeRevision = false;
+            }
+        }
+        if (report.tipoEquipo === 'Impresora' && report.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+
+
         // Use INITIAL values for printing if available, otherwise current
-        const printServicesList = (report.initialServicesList && report.initialServicesList.length > 0) ? report.initialServicesList : (report.servicesList || []);
-        const printDiagnostico = (report.initialDiagnostico !== undefined && report.initialDiagnostico !== null) ? report.initialDiagnostico : parseFloat(report.diagnostico);
-        const printTotal = (report.initialTotal !== undefined && report.initialTotal !== null) ? report.initialTotal : (parseFloat(report.total) || 0);
+        let printServicesList = (report.initialServicesList && report.initialServicesList.length > 0) ? [...report.initialServicesList] : [...(report.servicesList || [])];
+        let printDiagnostico = (report.initialDiagnostico !== undefined && report.initialDiagnostico !== null) ? report.initialDiagnostico : parseFloat(report.diagnostico);
+        let printTotal = (report.initialTotal !== undefined && report.initialTotal !== null) ? report.initialTotal : (parseFloat(report.total) || 0);
+
+        // Apply Logic
+        if (!shouldChargeRevision) {
+            printDiagnostico = 0;
+            // Filter Revision service from list and Deduct from Total
+            const originalServiceSum = printServicesList.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0);
+            printServicesList = printServicesList.filter(s => !(s.service && s.service.toUpperCase().includes('REVISIÓN')));
+            const newServiceSum = printServicesList.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0);
+
+            // Adjust Total: (OldTotal - OldDiag - OldServiceSum) + NewDiag + NewServiceSum
+            // This method preserves any other costs (Additional Services) that are part of total
+            // We need to be careful if OldDiag was already included in Total.
+            // But we assume report.total is correct sum of components.
+            // A safer way is reconstruction, but reconstruction is hard without all additional service lists (like printer specific additions).
+            // However, "No revision" should just SUBTRACT the revision costs.
+
+            // Difference in Services
+            const diffServices = originalServiceSum - newServiceSum;
+            // Difference in Diag
+            const floatOriginalDiag = (report.initialDiagnostico !== undefined && report.initialDiagnostico !== null) ? parseFloat(report.initialDiagnostico) : parseFloat(report.diagnostico || 0);
+            const diffDiag = floatOriginalDiag; // Since new is 0
+
+            // New Total
+            printTotal = printTotal - diffServices - diffDiag;
+            // Ensure not negative just in case logic is weird
+            if (printTotal < 0) printTotal = 0;
+        }
+
+
         const printACuenta = (report.initialACuenta !== undefined && report.initialACuenta !== null) ? report.initialACuenta : (parseFloat(report.aCuenta) || 0);
-        const printSaldo = (report.initialSaldo !== undefined && report.initialSaldo !== null) ? report.initialSaldo : (parseFloat(report.saldo) || 0);
+        // Recalculate saldo to be safe: Total - ACuenta
+        const printSaldo = printTotal - printACuenta;
 
         const additionalServices = report.additionalServices || [];
 
