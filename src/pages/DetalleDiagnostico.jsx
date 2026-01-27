@@ -973,6 +973,9 @@ function DetalleDiagnostico() {
         // Exemptions: Billing flags should always be editable if the form is generally editable
         if (fieldKey === 'cobra_revision' || fieldKey === 'printer_cobra_revision' || fieldKey === 'cobra_reparacion') return false;
 
+        // User Request: Testeo is always editable (can be modified as many times as wanted)
+        if (report && report.area === 'TESTEO') return false;
+
         // Not read only if: First time in area OR field is specifically enabled
         if (isFirstTimeInArea) return false;
         return !enabledFields.includes(fieldKey);
