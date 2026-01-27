@@ -1542,10 +1542,6 @@ function Diagnostico() {
         canTurnOn: formData.canTurnOn,
         ubicacionFisica: formData.ubicacionFisica,
       };
-
-      // LOGIC: Update Initial Financials ONLY if the work hasn't technically started (Pre-Assigned or Just Assigned but not worked on)
-      // "initialAreaAssignedStatus" tracks if the initial area had started work when we loaded the form.
-      // If we are in a state where we can edit everything (not locked), we sync initial vars.
       const shouldUpdateInitial = !isReportFinalized && !initialAreaAssignedStatus;
 
       if (shouldUpdateInitial) {
@@ -1555,13 +1551,11 @@ function Diagnostico() {
         baseData.initialDiagnostico = parseFloat(formData.diagnostico) || 0;
         baseData.initialServicesList = servicesList.map(s => ({ ...s, amount: s.amount.toFixed(2) }));
       } else {
-        // Preserve existing initial values, or set them if they don't exist (first save or migration)
         baseData.initialTotal = formData.initialTotal !== undefined ? formData.initialTotal : (parseFloat(formData.total) || 0);
         baseData.initialSaldo = formData.initialSaldo !== undefined ? formData.initialSaldo : (parseFloat(formData.saldo) || 0);
         baseData.initialACuenta = formData.initialACuenta !== undefined ? formData.initialACuenta : (parseFloat(formData.aCuenta) || 0);
         baseData.initialDiagnostico = formData.initialDiagnostico !== undefined ? formData.initialDiagnostico : (parseFloat(formData.diagnostico) || 0);
 
-        // careful with arrays, ensure we have one
         baseData.initialServicesList = (formData.initialServicesList && formData.initialServicesList.length > 0)
           ? formData.initialServicesList
           : servicesList.map(s => ({ ...s, amount: s.amount.toFixed(2) }));

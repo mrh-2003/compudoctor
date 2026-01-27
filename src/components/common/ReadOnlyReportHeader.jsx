@@ -198,24 +198,74 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
                 <p className="font-bold text-lg text-pink-500 dark:text-pink-400">RESUMEN FINANCIERO (BASE)</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="hidden lg:block">
-                        <label className="block text-sm font-medium mb-1">Costo Diagnóstico (S/)</label>
-                        <input type="text" value={diagnostico.toFixed(2)} {...readOnlyInputProps} />
-                    </div>
-                    {(total - montoServicio - diagnostico) > 0 && (
-                        <div className="hidden lg:block">
-                            <label className="block text-sm font-medium mb-1">Servicios Adicionales (S/)</label>
-                            <input type="text" value={(total - montoServicio - diagnostico).toFixed(2)} {...readOnlyInputProps} />
-                        </div>
-                    )}
-                    <div className="col-span-1 md:col-span-2 lg:col-span-1">
-                        <label className="block text-sm font-medium mb-1">A Cuenta (S/)</label>
-                        <input type="text" value={(parseFloat(report.aCuenta) || 0).toFixed(2)} {...readOnlyInputProps} />
-                    </div>
-                    <div className="col-span-1 md:col-span-2 lg:col-span-1">
-                        <label className="block text-sm font-medium mb-1">Saldo (S/)</label>
-                        <input type="text" value={saldo.toFixed(2)} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold ${saldo > 0 ? 'text-red-500' : 'text-green-500'}`} />
-                    </div>
+                    {(() => {
+                        // Calculate effective financials based on "No Cobrar Revision"
+                        let shouldChargeRevision = true;
+                        if (report.diagnosticoPorArea) {
+                            if (report.diagnosticoPorArea['IMPRESORA']) {
+                                const entry = [...report.diagnosticoPorArea['IMPRESORA']].reverse().find(h => h.printer_cobra_revision);
+                                if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+                            }
+                            if (shouldChargeRevision && report.diagnosticoPorArea['TESTEO']) {
+                                const entry = [...report.diagnosticoPorArea['TESTEO']].reverse().find(h => h.cobra_revision);
+                                if (entry && entry.cobra_revision === 'NO') shouldChargeRevision = false;
+                            }
+                        }
+                        // Also check root if Printer
+                        if (report.tipoEquipo === 'Impresora' && report.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+
+                        let effectiveDiagnostico = parseFloat(diagnostico) || 0;
+                        let originalDiagnostico = parseFloat(diagnostico) || 0;
+                        if (!shouldChargeRevision) effectiveDiagnostico = 0;
+
+                        // Calculate effective service amount (excluding revision if needed)
+                        let effectiveMontoServicio = parseFloat(montoServicio) || 0;
+                        let originalMontoServicio = parseFloat(montoServicio) || 0;
+                        if (!shouldChargeRevision && report.servicesList) {
+                            // If we can't easily subtract from total without re-summing:
+                            let recalcServiceTotal = 0;
+                            report.servicesList.forEach(s => {
+                                if (s.service && s.service.toUpperCase().includes('REVISIÓN')) return;
+                                recalcServiceTotal += (parseFloat(s.amount) || 0);
+                            });
+                            effectiveMontoServicio = recalcServiceTotal;
+                        }
+
+                        // Diff
+                        let diffDiag = originalDiagnostico - effectiveDiagnostico;
+                        let diffService = originalMontoServicio - effectiveMontoServicio;
+
+                        let effectiveTotal = (parseFloat(total) || 0) - diffDiag - diffService;
+                        if (effectiveTotal < 0) effectiveTotal = 0;
+
+                        const displayAdicionales = (effectiveTotal - effectiveMontoServicio - effectiveDiagnostico);
+
+                        let aCuenta = parseFloat(report.aCuenta) || 0;
+                        let effectiveSaldo = effectiveTotal - aCuenta;
+
+                        return (
+                            <>
+                                <div className="hidden lg:block">
+                                    <label className="block text-sm font-medium mb-1">Costo Diagnóstico (S/)</label>
+                                    <input type="text" value={effectiveDiagnostico.toFixed(2)} {...readOnlyInputProps} />
+                                </div>
+                                {displayAdicionales > 0 && (
+                                    <div className="hidden lg:block">
+                                        <label className="block text-sm font-medium mb-1">Servicios Adicionales (S/)</label>
+                                        <input type="text" value={displayAdicionales.toFixed(2)} {...readOnlyInputProps} />
+                                    </div>
+                                )}
+                                <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                                    <label className="block text-sm font-medium mb-1">A Cuenta (S/)</label>
+                                    <input type="text" value={aCuenta.toFixed(2)} {...readOnlyInputProps} />
+                                </div>
+                                <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                                    <label className="block text-sm font-medium mb-1">Saldo (S/)</label>
+                                    <input type="text" value={effectiveSaldo.toFixed(2)} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold ${effectiveSaldo > 0 ? 'text-red-500' : 'text-green-500'}`} />
+                                </div>
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
 

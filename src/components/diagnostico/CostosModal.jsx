@@ -195,7 +195,10 @@ function CostosModal({ report, onClose, onUpdate }) {
     }, { totalBase: 0, totalIgv: 0, totalFinal: 0, groupedTotals: { diagnostico: 0, principal: 0, adicional: 0 } });
 
     const pagosRealizados = report.pagosRealizado || [];
-    const totalPagado = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
+    const sumPagos = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
+    // Use the greater of sum list or aCuenta field to handle legacy reports where list might be empty but aCuenta is set
+    const totalPagado = Math.max(sumPagos, parseFloat(report.aCuenta) || 0);
+
     const saldo = (totalFinal - (parseFloat(discount) || 0)) - totalPagado;
 
     // Handler for toggling IGV on a specific item

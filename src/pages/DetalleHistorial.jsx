@@ -183,12 +183,33 @@ function DetalleHistorial() {
             return obs;
         };
 
+        // Detect "No Cobrar Revision"
+        let shouldChargeRevision = true;
+        if (report.diagnosticoPorArea) {
+            if (report.diagnosticoPorArea['IMPRESORA']) {
+                const entry = [...report.diagnosticoPorArea['IMPRESORA']].reverse().find(h => h.printer_cobra_revision);
+                if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+            }
+            if (shouldChargeRevision && report.diagnosticoPorArea['TESTEO']) { // Only check if not already false
+                const entry = [...report.diagnosticoPorArea['TESTEO']].reverse().find(h => h.cobra_revision);
+                if (entry && entry.cobra_revision === 'NO') shouldChargeRevision = false;
+            }
+        }
+        if (report.tipoEquipo === 'Impresora' && report.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+
+
         // Use INITIAL values for printing if available, otherwise current
-        const printServicesList = (report.initialServicesList && report.initialServicesList.length > 0) ? report.initialServicesList : (report.servicesList || []);
-        const printDiagnostico = (report.initialDiagnostico !== undefined && report.initialDiagnostico !== null) ? report.initialDiagnostico : parseFloat(report.diagnostico);
-        const printTotal = (report.initialTotal !== undefined && report.initialTotal !== null) ? report.initialTotal : (parseFloat(report.total) || 0);
+        let printServicesList = (report.initialServicesList && report.initialServicesList.length > 0) ? [...report.initialServicesList] : [...(report.servicesList || [])];
+        let printDiagnostico = (report.initialDiagnostico !== undefined && report.initialDiagnostico !== null) ? report.initialDiagnostico : parseFloat(report.diagnostico);
+        let printTotal = (report.initialTotal !== undefined && report.initialTotal !== null) ? report.initialTotal : (parseFloat(report.total) || 0);
+
+        // Se mantiene la data original sin modificaciones dinámicas para el Informe Técnico,
+        // tal como se solicitó para que sea igual al Diagnostico inicial.
+
+
         const printACuenta = (report.initialACuenta !== undefined && report.initialACuenta !== null) ? report.initialACuenta : (parseFloat(report.aCuenta) || 0);
-        const printSaldo = (report.initialSaldo !== undefined && report.initialSaldo !== null) ? report.initialSaldo : (parseFloat(report.saldo) || 0);
+        // Recalculate saldo to be safe: Total - ACuenta
+        const printSaldo = printTotal - printACuenta;
 
         const additionalServices = report.additionalServices || [];
 
@@ -531,6 +552,139 @@ function DetalleHistorial() {
                 : 'Ninguna';
         })();
 
+        // --- CALCULO FINANCIERO ACTUALIZADO (Logic from CostosModal) ---
+        const getAllCostItems = () => {
+            const items = [];
+            let shouldChargeRevision = true;
+            let shouldChargeReparacion = true;
+
+            if (report.diagnosticoPorArea) {
+                const areasToCheck = ['IMPRESORA', 'HARDWARE', 'SOFTWARE', 'ELECTRONICA', 'TESTEO'];
+                for (const area of areasToCheck) {
+                    if (report.diagnosticoPorArea[area]) {
+                        const history = report.diagnosticoPorArea[area];
+                        const entry = [...history].reverse().find(h => h.printer_cobra_revision || h.cobra_revision);
+
+                        if (entry) {
+                            const decision = entry.printer_cobra_revision || entry.cobra_revision;
+                            if (decision === 'NO') shouldChargeRevision = false;
+                        }
+                    }
+                }
+                if (report.diagnosticoPorArea['TESTEO']) {
+                    const testeoHistory = report.diagnosticoPorArea['TESTEO'];
+                    const repairEntry = [...testeoHistory].reverse().find(h => h.cobra_reparacion);
+                    if (repairEntry && repairEntry.cobra_reparacion === 'NO') shouldChargeReparacion = false;
+                }
+            }
+
+            // Fallback root logic
+            if (report.tipoEquipo === 'Impresora' && report.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+
+            const hasReparacionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+            let initialDiagnosticCost = parseFloat(report.diagnostico) || 0;
+
+            if (hasReparacionServiceInList && shouldChargeReparacion) {
+                initialDiagnosticCost = 0;
+            }
+
+            // 1. Diagnostic
+            if (shouldChargeRevision && initialDiagnosticCost > 0) {
+                items.push({
+                    id: 'diag-1',
+                    label: 'Diagnóstico',
+                    amount: initialDiagnosticCost,
+                    type: 'Diagnóstico'
+                });
+            }
+
+            // 2. Services List
+            if (report.servicesList) {
+                report.servicesList.forEach((s, idx) => {
+                    let amount = parseFloat(s.amount) || 0;
+                    const isRevision = s.service && s.service.toUpperCase().includes('REVISIÓN');
+                    const isReparacion = s.service && s.service.toUpperCase().includes('REPARACIÓN');
+
+                    if (!shouldChargeRevision && isRevision) amount = 0;
+                    if (!shouldChargeReparacion && isReparacion) amount = 0;
+
+                    items.push({
+                        id: `main-${idx}`,
+                        label: s.service + (s.specification ? ` [${s.specification}]` : ''),
+                        amount: amount,
+                        type: 'Principal'
+                    });
+                });
+            }
+
+            // 3. Additional Services (Legacy Global)
+            if (report.additionalServices) {
+                report.additionalServices.forEach((s, idx) => {
+                    const specInfo = s.specification ? ` [${s.specification}]` : '';
+                    items.push({
+                        id: s.id || `legacy-${idx}`,
+                        label: `${s.description}${specInfo}`,
+                        amount: parseFloat(s.amount) || 0,
+                        type: 'Adicional (Global)'
+                    });
+                });
+            }
+
+            // 4. Area Additional Services
+            if (report.diagnosticoPorArea) {
+                const seenServiceIds = new Set();
+                Object.entries(report.diagnosticoPorArea).forEach(([area, entries]) => {
+                    entries.forEach((entry, entryIdx) => {
+                        const processServiceList = (list, listName) => {
+                            if (list) {
+                                list.forEach((s, sIdx) => {
+                                    if (s.id && seenServiceIds.has(s.id)) return;
+                                    if (s.id) seenServiceIds.add(s.id);
+
+                                    const specInfo = s.specification ? ` [${s.specification}]` : '';
+                                    items.push({
+                                        id: s.id || `area-${area}-${entryIdx}-${listName}-${sIdx}`,
+                                        label: `${s.description}${specInfo} (${area})`,
+                                        amount: parseFloat(s.amount) || 0,
+                                        type: 'Adicional (Área)'
+                                    });
+                                });
+                            }
+                        };
+                        processServiceList(entry.addedServices, 'added');
+                        processServiceList(entry.printer_services_additional, 'printer-add');
+                    });
+                });
+            }
+
+            return items;
+        };
+
+        const costItems = getAllCostItems();
+        const igvMap = {};
+        if (report.igvApplicableIds) {
+            report.igvApplicableIds.forEach(id => igvMap[id] = true);
+        }
+
+        const { totalFinal, totalBase, totalIgv } = costItems.reduce((acc, item) => {
+            const base = item.amount;
+            const hasIgv = !!igvMap[item.id];
+            const igv = hasIgv ? (base * 0.18) : 0;
+            acc.totalBase += base;
+            acc.totalIgv += igv;
+            acc.totalFinal += (base + igv);
+            return acc;
+        }, { totalFinal: 0, totalBase: 0, totalIgv: 0 });
+
+        const discountVal = parseFloat(report.descuento) || 0;
+        const finalAmount = totalFinal - discountVal;
+
+        const pagosRealizados = report.pagosRealizado || [];
+        const sumPagos = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
+        const totalPagado = Math.max(sumPagos, parseFloat(report.aCuenta) || 0);
+
+        const saldoPendiente = finalAmount - totalPagado;
+
         const printContent = `
             <html>
             <head>
@@ -739,14 +893,17 @@ function DetalleHistorial() {
                                 ${formatTestRow('Microfono', testeo.testeo_microfono, testeo.testeo_microfono_obs)}
                                 ${formatTestRow('Auricular', testeo.testeo_auricular, testeo.testeo_auricular_obs)}
                                 ${formatTestRow('Parlantes', testeo.testeo_parlantes, testeo.testeo_parlantes_obs)}
+                                ${formatTestRow('Teclado', testeo.testeo_teclado, testeo.testeo_teclado_obs)}
                             </div>
                             <div>
-                                ${formatTestRow('Teclado', testeo.testeo_teclado, testeo.testeo_teclado_obs)}
                                 ${formatTestRow('Lectora', testeo.testeo_lectora, testeo.testeo_lectora_obs)}
                                 ${formatTestRow('Touchpad', testeo.testeo_touchpad, testeo.testeo_touchpad_obs)}
                                 ${formatTestRow('WIFI', testeo.testeo_wifi, testeo.testeo_wifi_obs)}
+                                ${formatTestRow('RJ45', testeo.testeo_rj45, testeo.testeo_rj45_obs)}
                                 ${formatTestRow('USB', testeo.testeo_usb, testeo.testeo_usb_obs)}
+                                ${formatTestRow('Tipo C', testeo.testeo_tipo_c, testeo.testeo_tipo_c_obs)}
                                 ${formatTestRow('HDMI', testeo.testeo_hdmi, testeo.testeo_hdmi_obs)}
+                                ${formatTestRow('VGA', testeo.testeo_vga, testeo.testeo_vga_obs)}
                                 ${formatTestRow('OTRO', testeo.testeo_otros, testeo.testeo_otros_obs)}
                             </div>
                         </div>
@@ -754,11 +911,13 @@ function DetalleHistorial() {
                         <div style="padding:4px; border-top:1px solid #000; font-size:8pt; background:#f0f0f0;">
                             <div><strong>TRABAJO FINAL:</strong> ${txt(testeo.testeo_servicio_final)}</div>
                         </div>
-                    ` : '<div style="padding:10px; text-align:center;">No realizado</div>'}
+                    ` : '<div style="text-align:center; padding:5px; color:#777;">Pendiente de Testeo</div>'}
                     </div>
-                </div>
+                 </div>
 
-                ${impresora ? `
+                
+
+        ${impresora ? `
                 <div class="area-box-fixed" style="margin-top: 8px;">
                     <div class="area-header">SERVICIO TÉCNICO IMPRESORA</div>
                     <div class="area-content" style="padding: 6px;">
@@ -801,7 +960,8 @@ function DetalleHistorial() {
                         ${formatTechFooter(impresora)}
                     </div>
                 </div>
-                ` : ''}
+                ` : ''
+            }
                 
                 <div style="margin-top: 5px;">
                     <div class="payment-box">
@@ -847,20 +1007,23 @@ function DetalleHistorial() {
 
 
 
-                <div class="totals-row">
+                <!-- FINANCIAL SUMMARY (Restored Bubble Design + Discount Note) -->
+                 <div class="totals-row">
+                    ${discountVal > 0 ? `<div style="font-size: 7.5pt; align-self: center; margin-right: 5px; font-weight: bold; color: #ec008c;">* DESCUENTO DE S/ ${discountVal.toFixed(2)} APLICADO</div>` : ''}
+                    
                     <div class="total-bubble">
-                        <span>TOTAL</span>
-                        <span>S/ ${(parseFloat(report.total) || 0).toFixed(2)}</span>
+                        <span style="margin-right:10px">TOTAL</span>
+                        <span>S/ ${finalAmount.toFixed(2)}</span>
                     </div>
-                        <div class="total-bubble">
-                        <span>A CUENTA</span>
-                        <span>S/ ${(parseFloat(report.aCuenta) || 0).toFixed(2)}</span>
+                    <div class="total-bubble">
+                        <span style="margin-right:10px">A CUENTA</span>
+                        <span>S/ ${totalPagado.toFixed(2)}</span>
                     </div>
-                    <div class="total-bubble" style="border-color: #ec008c; color: #ec008c;">
-                        <span>SALDO</span>
-                        <span>S/ ${(parseFloat(report.saldo) || 0).toFixed(2)}</span>
+                    <div class="total-bubble" style="background: ${saldoPendiente > 0.1 ? '#fff' : '#eeffee'}">
+                        <span style="margin-right:10px">SALDO</span>
+                        <span>S/ ${saldoPendiente.toFixed(2)}</span>
                     </div>
-                </div>
+                 </div>
 
             </body>
             </html>
