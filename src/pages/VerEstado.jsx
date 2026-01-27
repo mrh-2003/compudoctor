@@ -39,7 +39,21 @@ const calculateReportTotal = (report) => {
         if (entry && entry.cobra_revision === 'NO') shouldChargeRevision = false;
     }
 
-    if (!shouldChargeRevision) diagCost = 0;
+    // Detect "Cobra Reparacion"
+    let shouldChargeReparacion = true;
+    if (report.diagnosticoPorArea && report.diagnosticoPorArea['TESTEO']) {
+        const history = report.diagnosticoPorArea['TESTEO'];
+        const entry = [...history].reverse().find(h => h.cobra_reparacion);
+        if (entry && entry.cobra_reparacion === 'NO') shouldChargeReparacion = false;
+    }
+
+    const hasReparacionService = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+
+    if (hasReparacionService && shouldChargeReparacion) {
+        diagCost = 0;
+    } else if (!shouldChargeRevision) {
+        diagCost = 0;
+    }
 
     let serviceTotal = 0;
     let additionalTotal = 0;
@@ -48,6 +62,10 @@ const calculateReportTotal = (report) => {
         report.servicesList.forEach(s => {
             // Exclude Revision service if charge is disabled
             if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
+                return;
+            }
+            // Exclude Reparacion if charge is disabled
+            if (!shouldChargeReparacion && s.service && s.service.toUpperCase().includes('REPARACIÓN')) {
                 return;
             }
             serviceTotal += (parseFloat(s.amount) || 0)

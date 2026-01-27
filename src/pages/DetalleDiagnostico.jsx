@@ -159,9 +159,15 @@ function DetalleDiagnostico() {
 
         // Handle "Cobra Revisión" logic
         const shouldChargeRevision = formState.printer_cobra_revision !== 'NO' && formState.cobra_revision !== 'NO';
+        // Handle "Cobra Reparación" logic
+        const shouldChargeReparacion = formState.cobra_reparacion !== 'NO';
 
         let diagCost = parseFloat(report?.diagnostico) || 0;
-        if (!shouldChargeRevision) {
+        const hasReparacionService = report?.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+
+        if (hasReparacionService && shouldChargeReparacion) {
+            diagCost = 0;
+        } else if (!shouldChargeRevision) {
             diagCost = 0;
         }
 
@@ -169,11 +175,16 @@ function DetalleDiagnostico() {
         let serviceTotal = 0;
         if (report?.servicesList) {
             report.servicesList.forEach(s => {
+                let amount = parseFloat(s.amount) || 0;
                 // If Revision is disabled and service name contains "Revisión", exclude it
                 if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
-                    return;
+                    amount = 0;
                 }
-                serviceTotal += (parseFloat(s.amount) || 0);
+                // If Reparacion is disabled and service name contains "Reparación", exclude it
+                if (!shouldChargeReparacion && s.service && s.service.toUpperCase().includes('REPARACIÓN')) {
+                    amount = 0;
+                }
+                serviceTotal += amount;
             });
         } else {
             // Fallback for legacy

@@ -183,21 +183,6 @@ function DetalleHistorial() {
             return obs;
         };
 
-        // Detect "No Cobrar Revision"
-        let shouldChargeRevision = true;
-        if (report.diagnosticoPorArea) {
-            if (report.diagnosticoPorArea['IMPRESORA']) {
-                const entry = [...report.diagnosticoPorArea['IMPRESORA']].reverse().find(h => h.printer_cobra_revision);
-                if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
-            }
-            if (shouldChargeRevision && report.diagnosticoPorArea['TESTEO']) { // Only check if not already false
-                const entry = [...report.diagnosticoPorArea['TESTEO']].reverse().find(h => h.cobra_revision);
-                if (entry && entry.cobra_revision === 'NO') shouldChargeRevision = false;
-            }
-        }
-        if (report.tipoEquipo === 'Impresora' && report.printer_cobra_revision === 'NO') shouldChargeRevision = false;
-
-
         // Use INITIAL values for printing if available, otherwise current
         let printServicesList = (report.initialServicesList && report.initialServicesList.length > 0) ? [...report.initialServicesList] : [...(report.servicesList || [])];
         let printDiagnostico = (report.initialDiagnostico !== undefined && report.initialDiagnostico !== null) ? report.initialDiagnostico : parseFloat(report.diagnostico);
@@ -856,6 +841,7 @@ function DetalleHistorial() {
                                         <div style="margin-top:8px; font-size:8pt; border:1px solid #ddd; padding:3px; background:#fcfcfc;">
                                              <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
                                                 <span><strong>Reparable:</strong> ${elec.elec_otro_reparable || '-'}</span>
+                                                <span><strong>Código:</strong> ${txt(elec.elec_codigo)}</span>
                                                 <span><strong>Etapa:</strong> ${txt(elec.elec_etapa)}</span>
                                              </div>
                                              <div style="border-top:1px solid #eee; padding-top:2px;"><strong>Obs:</strong> ${txt(elec.elec_obs)}</div>
@@ -1065,29 +1051,59 @@ function DetalleHistorial() {
     const diagnostico = parseFloat(report?.diagnostico) || 0;
     const montoServicio = parseFloat(report?.montoServicio) || 0;
 
-    const { total, saldo } = useMemo(() => {
-        if (!report) return { total: 0, saldo: 0 };
+    const { total, saldo, effectiveDiagnostico, effectiveMontoServicio } = useMemo(() => {
+        if (!report) return { total: 0, saldo: 0, effectiveDiagnostico: 0, effectiveMontoServicio: 0 };
 
         let diagCost = parseFloat(report.diagnostico) || 0;
         const isPrinter = report.tipoEquipo === 'Impresora';
         const aCuenta = parseFloat(report.aCuenta) || 0;
 
+        // Extended logic for Revision
         let shouldChargeRevision = true;
-        if (report.diagnosticoPorArea && report.diagnosticoPorArea['IMPRESORA']) {
-            const history = report.diagnosticoPorArea['IMPRESORA'];
-            const entry = [...history].reverse().find(h => h.printer_cobra_revision);
-            if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
-        } else if (report.printer_cobra_revision === 'NO') {
+        if (report.diagnosticoPorArea) {
+            if (report.diagnosticoPorArea['IMPRESORA']) {
+                const history = report.diagnosticoPorArea['IMPRESORA'];
+                const entry = [...history].reverse().find(h => h.printer_cobra_revision);
+                if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
+            }
+            if (shouldChargeRevision && report.diagnosticoPorArea['TESTEO']) {
+                const history = report.diagnosticoPorArea['TESTEO'];
+                const entry = [...history].reverse().find(h => h.cobra_revision);
+                if (entry && entry.cobra_revision === 'NO') shouldChargeRevision = false;
+            }
+        }
+        if (report.tipoEquipo === 'Impresora' && report.printer_cobra_revision === 'NO') {
             shouldChargeRevision = false;
         }
 
-        if (isPrinter && !shouldChargeRevision) diagCost = 0;
+        // Extended logic for Reparacion
+        let shouldChargeReparacion = true;
+        if (report.diagnosticoPorArea && report.diagnosticoPorArea['TESTEO']) {
+            const history = report.diagnosticoPorArea['TESTEO'];
+            const entry = [...history].reverse().find(h => h.cobra_reparacion);
+            if (entry && entry.cobra_reparacion === 'NO') shouldChargeReparacion = false;
+        }
+
+        const hasReparacionService = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+
+        if (hasReparacionService && shouldChargeReparacion) {
+            diagCost = 0;
+        } else if (!shouldChargeRevision) {
+            diagCost = 0;
+        }
 
         let serviceTotal = 0;
         let additionalTotal = 0;
 
         if (!isPrinter && report.servicesList) {
-            report.servicesList.forEach(s => serviceTotal += (parseFloat(s.amount) || 0));
+            report.servicesList.forEach(s => {
+                // Exclude Revision
+                if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) return;
+                // Exclude Reparacion
+                if (!shouldChargeReparacion && s.service && s.service.toUpperCase().includes('REPARACIÓN')) return;
+
+                serviceTotal += (parseFloat(s.amount) || 0)
+            });
         }
 
         if (report.diagnosticoPorArea) {
@@ -1105,7 +1121,9 @@ function DetalleHistorial() {
         const calculatedTotal = diagCost + serviceTotal + additionalTotal - (parseFloat(report.descuento) || 0);
         return {
             total: calculatedTotal,
-            saldo: calculatedTotal - aCuenta
+            saldo: calculatedTotal - aCuenta,
+            effectiveDiagnostico: diagCost,
+            effectiveMontoServicio: serviceTotal
         };
     }, [report]);
 
@@ -1121,7 +1139,7 @@ function DetalleHistorial() {
                     <Link to={backPath} className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white mr-4" title="Volver">
                         <FaArrowLeft size={24} />
                     </Link>
-                    <h1 className="text-2xl font-bold">Informe Tecnico N° {report.reportNumber}</h1>
+                    <h1 className="text-2xl font-bold">Informe Técnico N° {report.reportNumber}</h1>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -1129,7 +1147,7 @@ function DetalleHistorial() {
                         className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex items-center"
                         title="Imprimir Informe Técnico"
                     >
-                        <FaPrint className="mr-2" /> Imprimir
+                        <FaPrint className="mr-2" /> Imprimir Informe Técnico
                     </button>
 
                     <button
@@ -1137,7 +1155,7 @@ function DetalleHistorial() {
                         className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"
                         title="Imprimir Ficha de Servicio"
                     >
-                        <FaPrint className="mr-2" /> Ficha
+                        <FaPrint className="mr-2" /> Imprimir Ficha de Servicio
                     </button>
 
                     {canDeliver && currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'SUPERUSER') && (
@@ -1153,8 +1171,8 @@ function DetalleHistorial() {
 
             <ReadOnlyReportHeader
                 report={report}
-                diagnostico={diagnostico}
-                montoServicio={montoServicio}
+                diagnostico={effectiveDiagnostico}
+                montoServicio={effectiveMontoServicio}
                 total={total}
                 saldo={saldo}
                 componentItems={report.items || []}
