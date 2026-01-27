@@ -92,21 +92,16 @@ function CostosModal({ report, onClose, onUpdate }) {
                 const isReparacion = s.service && s.service.toUpperCase().includes('REPARACIÓN');
 
                 // If Revision is disabled and service name contains "Revisión", set amount to 0
-                if (!shouldChargeRevision && isRevision) {
+                if ((!shouldChargeRevision && isRevision) || (!shouldChargeReparacion && isReparacion)) {
                     amount = 0;
+                } else{
+                    items.push({
+                        id: `main-${idx}`,
+                        label: s.service + (s.specification ? ` [${s.specification}]` : ''),
+                        amount: amount,
+                        type: 'Principal'
+                    });
                 }
-
-                // If Reparacion is disabled (User said NO to charging repair), set amount to 0
-                if (!shouldChargeReparacion && isReparacion) {
-                    amount = 0;
-                }
-
-                items.push({
-                    id: `main-${idx}`,
-                    label: s.service + (s.specification ? ` [${s.specification}]` : ''),
-                    amount: amount,
-                    type: 'Principal'
-                });
             });
         }
 
