@@ -284,8 +284,16 @@ function DetalleDiagnostico() {
             const elecEntries = currentReport.diagnosticoPorArea['ELECTRONICA'] || [];
             const lastElecEntry = elecEntries.length > 0 ? elecEntries[elecEntries.length - 1] : null;
 
-            if (lastElecEntry && lastElecEntry.elec_placa_reparable === 'NO' && lastElecEntry.elec_obs) {
-                finalSummary.push(`OBSERVACIÓN ELECTRÓNICA: ${lastElecEntry.elec_obs}`);
+            if (lastElecEntry) {
+                if (lastElecEntry.elec_placa_reparable === 'NO' && lastElecEntry.elec_obs) {
+                    finalSummary.push(`OBSERVACIÓN ELECTRÓNICA: ${lastElecEntry.elec_obs}`);
+                }
+                if (lastElecEntry.elec_codigo) {
+                    finalSummary.push(`CÓDIGO: ${lastElecEntry.elec_codigo}`);
+                }
+                if (lastElecEntry.elec_etapa) {
+                    finalSummary.push(`ETAPA: ${lastElecEntry.elec_etapa}`);
+                }
             }
         }
 

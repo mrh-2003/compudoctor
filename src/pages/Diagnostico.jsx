@@ -279,7 +279,6 @@ function Diagnostico() {
     estado: "",
     canTurnOn: "",
     ubicacionFisica: "",
-    // Initial Financial Fields (Immutable after start)
     initialTotal: 0,
     initialSaldo: 0,
     initialACuenta: 0,
@@ -317,21 +316,6 @@ function Diagnostico() {
 
   const hasRepairService = servicesList.some(s => s.service === 'Reparación');
 
-
-  const getToday = useMemo(() => {
-    const date = new Date();
-    const day = date.getDate().toString().padStart(2, "0");
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const year = date.getFullYear();
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    return {
-      day,
-      month,
-      year,
-      time: `${hours}:${minutes}`,
-    };
-  }, []);
 
   const ALL_COMPONENTS = useMemo(() => {
     return PRINT_ORDER_MAP.map(item => ({ id: item.id, name: item.label }));
@@ -405,8 +389,6 @@ function Diagnostico() {
     const clientPhone = selectedClient?.data?.telefono || "N/A";
 
     let dia, mes, anio, hora;
-    // Use saved data if available, otherwise current. 
-    // For new reports, formData.fecha/hora are set in useEffect.
     const dateSource = formData.fecha ? formData.fecha : currentFormatted.fullDateDash;
     [dia, mes, anio] = dateSource.split("-");
     hora = formData.hora || currentFormatted.time;
@@ -430,14 +412,12 @@ function Diagnostico() {
       return obs;
     };
 
-    // Use INITIAL values for printing if available, otherwise current
-    const printServicesList = (formData.initialServicesList && formData.initialServicesList.length > 0) ? formData.initialServicesList : servicesList;
-    const printDiagnostico = (formData.initialDiagnostico !== undefined && formData.initialDiagnostico !== null) ? formData.initialDiagnostico : formData.diagnostico;
+    const printServicesList = (formData.initialServicesList && formData.initialServicesList.length > 0) ? formData.initialServicesList : servicesList; 
+    const printDiagnostico = (formData.initialDiagnostico !== undefined && formData.initialDiagnostico !== null && formData.initialDiagnostico !== 0) ? formData.initialDiagnostico : formData.diagnostico;
     const printTotal = (formData.initialTotal !== undefined && formData.initialTotal !== null) ? formData.initialTotal : formData.total;
     const printACuenta = (formData.initialACuenta !== undefined && formData.initialACuenta !== null) ? formData.initialACuenta : formData.aCuenta;
     const printSaldo = (formData.initialSaldo !== undefined && formData.initialSaldo !== null) ? formData.initialSaldo : formData.saldo;
 
-    // Construir texto de Servicios + Diagnostico + Adicionales
     const servicesPart = printServicesList.map(s => {
       const amountVal = parseFloat(s.amount);
       const specDisplay = s.specification ? ` [${s.specification}]` : '';
@@ -445,12 +425,7 @@ function Diagnostico() {
     }).join(', ');
 
     const diagPart = printDiagnostico > 0 ? `Diagnóstico (S/${printDiagnostico})` : '';
-
-    // Si tienes "additionalServices" globales en este componente (que parece que sí se usan):
-    // NOTE: additionalServices usually are part of the initial state too if added at start.
-    // However, formData doesn't have 'initialAdditionalServices' explicitly tracked above, but logical flow puts them in servicesList usually or separate.
-    // Given the previous code, additionalServices seems separate. Let's keep it but ideally it should be frozen too if we want perfect snapshot.
-    // For now, we assume additionalServices created at start are what matters.
+    
     const addPart = additionalServices.length > 0 ? additionalServices.map(s => s.description).join(', ') : '';
 
     const parts = [servicesPart, diagPart, addPart].filter(p => p && p.trim() !== '');
@@ -755,29 +730,15 @@ function Diagnostico() {
     let isDetailRequired = false;
     let isCheckRequired = false;
     let isSelectorMode = false; // "SI DEJA" / "NO DEJA" dropdown
-    let selectorType = 'DEJA'; // 'DEJA' (SI/NO DEJA) or 'TIENE' (SI/NO TIENE)
-
-    // --- Dynamic "SI DEJA" / "NO DEJA" Configuration ---
+    let selectorType = 'DEJA'; 
     let siNoDejaItems = [...(SI_NO_DEJA_CONFIG[tipoEquipo] || [])];
-
-    // Special Rules for Selector Mode:
-
-    // 1. All in one: Wifi always selector
+ 
     if (isAIO && !siNoDejaItems.includes('wifi')) {
       siNoDejaItems.push('wifi');
-    }
-
-    // 2. PC/Laptop/AIO: Tarjeta Video
-    // "SI PRENDE" -> Text Input (Not selector), UNLESS it is Laptop/AIO which have it by default?
-    // User said: "CUANDO SE SELECCIONA QUE "SI PRENDE" EL TARJ. DE VIDEO QUE SE HABILITE PARA ESCRIBIR EN DETALLES"
-    // So if SI PRENDE, we must remove it from selector mode.
+    } 
     if ((isPC || isLaptop || isAIO) && isSiPrende) {
       siNoDejaItems = siNoDejaItems.filter(i => i !== 'tarjetaVideo');
     }
-
-    // "NO PRENDE" -> Selector Mode
-    // "habilitar la lista de seleccion si deja o no deja para tarj. de video."
-    // Also user mentioned "PC / Laptop / All in one" for this.
     if ((isPC || isLaptop || isAIO) && isNoPrende) {
       if (!siNoDejaItems.includes('tarjetaVideo')) siNoDejaItems.push('tarjetaVideo');
     }
@@ -793,15 +754,9 @@ function Diagnostico() {
       isDetailRequired = true; // Rule: "Ademas debe ser obligatorio el detalle en todos los campos donde se marca SI DEJA/NO DEJA"
     }
 
-    // 5. Hardcoded NO PRENDE selectors (legacy/existing logic preserved)
     if (isNoPrende && ['pantalla', 'teclado', 'camara', 'microfono', 'parlantes'].includes(itemId)) {
       isSelectorMode = true;
     }
-
-
-    // --- Requirements Logic (Mandatory Checks/Details) ---
-
-    // Logic for "SI PRENDE"
     let mandatoryDetailSiPrende = ['procesador', 'placaMadre', 'memoriaRam', 'tarjetaVideo'];
     if (isLaptop) {
       mandatoryDetailSiPrende = [...mandatoryDetailSiPrende, 'camara', 'microfono', 'parlantes', 'teclado'];
@@ -1365,9 +1320,6 @@ function Diagnostico() {
 
     requiredGeneralFields.forEach(({ field, message }) => {
       if (!String(formData[field])) {
-        // Validation for modelo: 
-        // Rule 1: Not required for general 'Otros' (unless specified specific sub-types)
-        // Rule 2: Required for general PC, Laptop, etc.
         if (field === 'modelo') {
           if (formData.tipoEquipo === 'Otros') {
             if (['TARJETA_VIDEO', 'PLACA_MADRE_PC'].includes(otherComponentType)) {
@@ -1436,8 +1388,6 @@ function Diagnostico() {
       }
     }
 
-    // We use the `isOther` flag we added to services, OR check if service name matches 'Mantenimiento de Software'
-    // Also need to check if ANY service is 'Otros' (which we are now renaming, so we use the flag)
     const hasSoftwareOrOtherService = servicesList.some(s => s.service === 'Mantenimiento de Software' || s.isOther === true);
 
     const isTecnicoInicialRequired = !hasSoftwareOrOtherService && (
@@ -1474,23 +1424,17 @@ function Diagnostico() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    console.log("--- DEBUG: Handle Submit ---");
-    console.log("FormData:", formData);
-    console.log("isFormLocked:", isFormLocked, "isSaving:", isSaving);
+    e.preventDefault(); 
 
     if (isFormLocked || isSaving) {
-      console.warn("Submit blocked due to lock or saving state.");
       toast.error("Procesando registro. Por favor, espera.");
       return;
     }
 
     if (!validateForm()) {
-      console.warn("Validation failed (check logs for errors).");
       toast.error("Completa los campos obligatorios marcados en rojo.");
       return;
     }
-    console.log("Validation passed. Proceeding to save.");
 
     setIsSaving(true);
 
@@ -1548,7 +1492,7 @@ function Diagnostico() {
         baseData.initialTotal = parseFloat(formData.total) || 0;
         baseData.initialSaldo = parseFloat(formData.saldo) || 0;
         baseData.initialACuenta = parseFloat(formData.aCuenta) || 0;
-        baseData.initialDiagnostico = parseFloat(formData.diagnostico) || 0;
+        baseData.initialDiagnostico = parseFloat(formData.diagnostico) || 0; 
         baseData.initialServicesList = servicesList.map(s => ({ ...s, amount: s.amount.toFixed(2) }));
       } else {
         baseData.initialTotal = formData.initialTotal !== undefined ? formData.initialTotal : (parseFloat(formData.total) || 0);
@@ -2166,9 +2110,7 @@ function Diagnostico() {
                       return;
                     }
                     serviceDesc = newServiceSelection.specification; // The name of the service becomes what they typed
-                    finalSpec = ""; // Clear specification to avoid redundancy, OR keep it? 
-                    // User said: "EL MISMO CAMPO QUE APARECE PARA ESPECIFICAR DEBE SER LO QUE SE USE".
-                    // Implicitly, this text IS the service. So we don't need a separate spec.
+                    finalSpec = ""; 
                     isOther = true;
                   }
 

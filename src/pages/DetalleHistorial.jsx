@@ -521,7 +521,7 @@ function DetalleHistorial() {
         const otherDescription = report.otherDescription;
         const otherTypeDesc = otherComponentType === 'OTRO_DESCRIPCION' ? otherDescription : (OTHER_EQUIPMENT_OPTIONS.find(o => o.value === otherComponentType)?.label || '');
 
-        const modelDisplay = `${report.tipoEquipo || ''} ${otherTypeDesc || ''} ${report.marca || ''} ${report.modelo || ''}`;
+        const modelDisplay = `${report.tipoEquipo == 'Otros' ? '' : report.tipoEquipo || ''} ${otherTypeDesc || ''} ${report.marca || ''} ${report.modelo || ''}`;
 
         // Calculate combined observations (Intake + History)
         const finalObsHtml = (() => {
