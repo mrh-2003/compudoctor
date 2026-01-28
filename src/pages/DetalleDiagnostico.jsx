@@ -296,6 +296,9 @@ function DetalleDiagnostico() {
             const lastElecEntry = elecEntries.length > 0 ? elecEntries[elecEntries.length - 1] : null;
 
             if (lastElecEntry) {
+                if (lastElecEntry.elec_placa_reparable === 'NO' && lastElecEntry.elec_obs) {
+                    finalSummary.push(`OBSERVACIÓN ELECTRÓNICA: ${lastElecEntry.elec_obs}`);
+                }
                 if (lastElecEntry.elec_codigo) {
                     finalSummary.push(`CÓDIGO: ${lastElecEntry.elec_codigo}`);
                 }
