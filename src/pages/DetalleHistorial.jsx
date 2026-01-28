@@ -823,9 +823,6 @@ function DetalleHistorial() {
                             <div class="area-content">
                                 ${sw ? `
                                     <div>
-                                        <div class="equip-check">
-                                            <span style="font-weight:normal">OS: <strong>${report.sistemaOperativo || 'N/A'}</strong></span>
-                                        </div>
                                         ${formatItem(sw.backup, 'Backup Info', 'Obs', sw.backup_obs)}
                                         ${formatItem(sw.clonacion, 'Clonación Disco', 'Obs', sw.clonacion_obs)}
                                         ${formatItem(sw.formateo, 'Formateo + Progs', 'Obs', sw.formateo_obs)}
