@@ -72,6 +72,17 @@ const SERVICE_OPTIONS = [
   "Otros"
 ];
 
+const ALLOWED_SERVICES_FOR_OPTIONAL_TECH = [
+  "Activación De Windows",
+  "Activación De Office",
+  "Backup De Información",
+  "Optimización De Sistema",
+  "Instalación De Programas De Diseño",
+  "Instalación De Programas De Ingeniería",
+  "Clonación De Disco",
+  "Instalación De Driver"
+];
+
 const MAX_SERVICES = 6;
 
 const SI_NO_DEJA_CONFIG = {
@@ -412,7 +423,7 @@ function Diagnostico() {
       return obs;
     };
 
-    const printServicesList = (formData.initialServicesList && formData.initialServicesList.length > 0) ? formData.initialServicesList : servicesList; 
+    const printServicesList = (formData.initialServicesList && formData.initialServicesList.length > 0) ? formData.initialServicesList : servicesList;
     const printDiagnostico = (formData.initialDiagnostico !== undefined && formData.initialDiagnostico !== null && formData.initialDiagnostico !== 0) ? formData.initialDiagnostico : formData.diagnostico;
     const printTotal = (formData.initialTotal !== undefined && formData.initialTotal !== null) ? formData.initialTotal : formData.total;
     const printACuenta = (formData.initialACuenta !== undefined && formData.initialACuenta !== null) ? formData.initialACuenta : formData.aCuenta;
@@ -425,7 +436,7 @@ function Diagnostico() {
     }).join(', ');
 
     const diagPart = printDiagnostico > 0 ? `Diagnóstico (S/${printDiagnostico})` : '';
-    
+
     const addPart = additionalServices.length > 0 ? additionalServices.map(s => s.description).join(', ') : '';
 
     const parts = [servicesPart, diagPart, addPart].filter(p => p && p.trim() !== '');
@@ -730,12 +741,12 @@ function Diagnostico() {
     let isDetailRequired = false;
     let isCheckRequired = false;
     let isSelectorMode = false; // "SI DEJA" / "NO DEJA" dropdown
-    let selectorType = 'DEJA'; 
+    let selectorType = 'DEJA';
     let siNoDejaItems = [...(SI_NO_DEJA_CONFIG[tipoEquipo] || [])];
- 
+
     if (isAIO && !siNoDejaItems.includes('wifi')) {
       siNoDejaItems.push('wifi');
-    } 
+    }
     if ((isPC || isLaptop || isAIO) && isSiPrende) {
       siNoDejaItems = siNoDejaItems.filter(i => i !== 'tarjetaVideo');
     }
@@ -1390,7 +1401,10 @@ function Diagnostico() {
 
     const hasSoftwareOrOtherService = servicesList.some(s => s.service === 'Mantenimiento de Software' || s.isOther === true);
 
-    const isTecnicoInicialRequired = !hasSoftwareOrOtherService && (
+    const areAllServicesAllowed = servicesList.length > 0 && servicesList.every(s => ALLOWED_SERVICES_FOR_OPTIONAL_TECH.includes(s.service));
+    const isOptionalByServiceList = ['Laptop', 'PC'].includes(formData.tipoEquipo) && areAllServicesAllowed;
+
+    const isTecnicoInicialRequired = !hasSoftwareOrOtherService && !isOptionalByServiceList && (
       (formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) ||
       (formData.canTurnOn === 'NO' && ['Laptop', 'PC', 'All in one'].includes(formData.tipoEquipo))
     );
@@ -1424,7 +1438,7 @@ function Diagnostico() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); 
+    e.preventDefault();
 
     if (isFormLocked || isSaving) {
       toast.error("Procesando registro. Por favor, espera.");
@@ -1492,7 +1506,7 @@ function Diagnostico() {
         baseData.initialTotal = parseFloat(formData.total) || 0;
         baseData.initialSaldo = parseFloat(formData.saldo) || 0;
         baseData.initialACuenta = parseFloat(formData.aCuenta) || 0;
-        baseData.initialDiagnostico = parseFloat(formData.diagnostico) || 0; 
+        baseData.initialDiagnostico = parseFloat(formData.diagnostico) || 0;
         baseData.initialServicesList = servicesList.map(s => ({ ...s, amount: s.amount.toFixed(2) }));
       } else {
         baseData.initialTotal = formData.initialTotal !== undefined ? formData.initialTotal : (parseFloat(formData.total) || 0);
@@ -1560,8 +1574,10 @@ function Diagnostico() {
 
   const hasSoftwareOrOtherService = servicesList.some(s => s.service === 'Mantenimiento de Software' || s.service === 'Otros' || (s.isOther === true));
 
+  const areAllServicesAllowed = servicesList.length > 0 && servicesList.every(s => ALLOWED_SERVICES_FOR_OPTIONAL_TECH.includes(s.service));
+  const isOptionalByServiceList = ['Laptop', 'PC'].includes(formData.tipoEquipo) && areAllServicesAllowed;
 
-  const isTecnicoInicialRequired = !hasSoftwareOrOtherService && (
+  const isTecnicoInicialRequired = !hasSoftwareOrOtherService && !isOptionalByServiceList && (
     (formData.canTurnOn === 'SI' && !['Impresora', 'Otros', 'All in one'].includes(formData.tipoEquipo)) ||
     (formData.canTurnOn === 'NO' && ['Laptop', 'PC', 'All in one'].includes(formData.tipoEquipo))
   );
@@ -2110,7 +2126,7 @@ function Diagnostico() {
                       return;
                     }
                     serviceDesc = newServiceSelection.specification; // The name of the service becomes what they typed
-                    finalSpec = ""; 
+                    finalSpec = "";
                     isOther = true;
                   }
 
