@@ -555,13 +555,25 @@ const ReadOnlyAreaHistory = ({ entry, areaName, report }) => {
                             <h3 className="font-bold text-lg mb-3">SERVICIO REALIZADO FINAL</h3>
                             <textarea value={entry.testeo_servicio_final || ''} {...readOnlyInputProps} className={`${readOnlyInputProps.className} w-full`} rows="4"></textarea>
                         </div>
-                        <div className="border-t pt-4 dark:border-gray-700">
-                            <label className="block text-sm font-medium mb-1">¿Se cobra revisión?</label>
-                            <div className="flex gap-4">
-                                <label className="flex items-center text-sm"><input type="radio" checked={entry.cobra_revision === 'SI' || !entry.cobra_revision} {...readOnlyRadioProps} /> SI</label>
-                                <label className="flex items-center text-sm"><input type="radio" checked={entry.cobra_revision === 'NO'} {...readOnlyRadioProps} /> NO</label>
+                        {/* Conditional Rendering using Report Services */}
+                        {report?.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REVISIÓN')) && (
+                            <div className="border-t pt-4 dark:border-gray-700">
+                                <label className="block text-sm font-medium mb-1">¿Se cobra revisión?</label>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center text-sm"><input type="radio" checked={entry.cobra_revision === 'SI' || !entry.cobra_revision} {...readOnlyRadioProps} /> SI</label>
+                                    <label className="flex items-center text-sm"><input type="radio" checked={entry.cobra_revision === 'NO'} {...readOnlyRadioProps} /> NO</label>
+                                </div>
                             </div>
-                        </div>
+                        )}
+                        {report?.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN')) && (
+                            <div className="border-t pt-4 dark:border-gray-700">
+                                <label className="block text-sm font-medium mb-1">¿Se cobra reparación?</label>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center text-sm"><input type="radio" checked={entry.cobra_reparacion === 'SI' || !entry.cobra_reparacion} {...readOnlyRadioProps} /> SI</label>
+                                    <label className="flex items-center text-sm"><input type="radio" checked={entry.cobra_reparacion === 'NO'} {...readOnlyRadioProps} /> NO</label>
+                                </div>
+                            </div>
+                        )}
                     </div >
                 );
             default:

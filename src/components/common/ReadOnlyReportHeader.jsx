@@ -199,7 +199,7 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                 <p className="font-bold text-lg text-pink-500 dark:text-pink-400">RESUMEN FINANCIERO (BASE)</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {(() => {
-                        // Calculate effective financials based on "No Cobrar Revision"
+                        // Calculate effective financials based on "No Cobrar Revision" and "Cobra Reparacion"
                         let shouldChargeRevision = true;
                         if (report.diagnosticoPorArea) {
                             if (report.diagnosticoPorArea['IMPRESORA']) {
@@ -214,18 +214,37 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                         // Also check root if Printer
                         if (report.tipoEquipo === 'Impresora' && report.printer_cobra_revision === 'NO') shouldChargeRevision = false;
 
+                        let shouldChargeReparacion = true;
+                        if (report.diagnosticoPorArea && report.diagnosticoPorArea['TESTEO']) {
+                            const entry = [...report.diagnosticoPorArea['TESTEO']].reverse().find(h => h.cobra_reparacion);
+                            if (entry && entry.cobra_reparacion === 'NO') shouldChargeReparacion = false;
+                        }
+
                         let effectiveDiagnostico = parseFloat(diagnostico) || 0;
                         let originalDiagnostico = parseFloat(diagnostico) || 0;
-                        if (!shouldChargeRevision) effectiveDiagnostico = 0;
+
+                        // Check if Reparacion service exists
+                        const hasReparacionService = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+
+                        if (hasReparacionService && shouldChargeReparacion) {
+                            effectiveDiagnostico = 0;
+                        } else if (!shouldChargeRevision) {
+                            effectiveDiagnostico = 0;
+                        }
 
                         // Calculate effective service amount (excluding revision if needed)
                         let effectiveMontoServicio = parseFloat(montoServicio) || 0;
                         let originalMontoServicio = parseFloat(montoServicio) || 0;
-                        if (!shouldChargeRevision && report.servicesList) {
-                            // If we can't easily subtract from total without re-summing:
+
+                        if (report.servicesList) {
                             let recalcServiceTotal = 0;
                             report.servicesList.forEach(s => {
-                                if (s.service && s.service.toUpperCase().includes('REVISIÓN')) return;
+                                // Exclude Revision if not charging revision
+                                if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) return;
+
+                                // Exclude Reparacion if not charging reparacion
+                                if (!shouldChargeReparacion && s.service && s.service.toUpperCase().includes('REPARACIÓN')) return;
+
                                 recalcServiceTotal += (parseFloat(s.amount) || 0);
                             });
                             effectiveMontoServicio = recalcServiceTotal;
