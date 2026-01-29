@@ -279,11 +279,11 @@ function Diagnostico() {
     estado: "",
     canTurnOn: "",
     ubicacionFisica: "",
-    initialTotal: 0,
-    initialSaldo: 0,
-    initialACuenta: 0,
+    initialTotal: null,
+    initialSaldo: null,
+    initialACuenta: null,
     initialServicesList: [],
-    initialDiagnostico: 0,
+    initialDiagnostico: null,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -412,7 +412,7 @@ function Diagnostico() {
       return obs;
     };
 
-    const printServicesList = (formData.initialServicesList && formData.initialServicesList.length > 0) ? formData.initialServicesList : servicesList; 
+    const printServicesList = (formData.initialServicesList && formData.initialServicesList.length > 0) ? formData.initialServicesList : servicesList;
     const printDiagnostico = (formData.initialDiagnostico !== undefined && formData.initialDiagnostico !== null && formData.initialDiagnostico !== 0) ? formData.initialDiagnostico : formData.diagnostico;
     const printTotal = (formData.initialTotal !== undefined && formData.initialTotal !== null) ? formData.initialTotal : formData.total;
     const printACuenta = (formData.initialACuenta !== undefined && formData.initialACuenta !== null) ? formData.initialACuenta : formData.aCuenta;
@@ -425,7 +425,7 @@ function Diagnostico() {
     }).join(', ');
 
     const diagPart = printDiagnostico > 0 ? `Diagnóstico (S/${printDiagnostico})` : '';
-    
+
     const addPart = additionalServices.length > 0 ? additionalServices.map(s => s.description).join(', ') : '';
 
     const parts = [servicesPart, diagPart, addPart].filter(p => p && p.trim() !== '');
@@ -730,12 +730,12 @@ function Diagnostico() {
     let isDetailRequired = false;
     let isCheckRequired = false;
     let isSelectorMode = false; // "SI DEJA" / "NO DEJA" dropdown
-    let selectorType = 'DEJA'; 
+    let selectorType = 'DEJA';
     let siNoDejaItems = [...(SI_NO_DEJA_CONFIG[tipoEquipo] || [])];
- 
+
     if (isAIO && !siNoDejaItems.includes('wifi')) {
       siNoDejaItems.push('wifi');
-    } 
+    }
     if ((isPC || isLaptop || isAIO) && isSiPrende) {
       siNoDejaItems = siNoDejaItems.filter(i => i !== 'tarjetaVideo');
     }
@@ -1424,7 +1424,7 @@ function Diagnostico() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); 
+    e.preventDefault();
 
     if (isFormLocked || isSaving) {
       toast.error("Procesando registro. Por favor, espera.");
@@ -1492,7 +1492,7 @@ function Diagnostico() {
         baseData.initialTotal = parseFloat(formData.total) || 0;
         baseData.initialSaldo = parseFloat(formData.saldo) || 0;
         baseData.initialACuenta = parseFloat(formData.aCuenta) || 0;
-        baseData.initialDiagnostico = parseFloat(formData.diagnostico) || 0; 
+        baseData.initialDiagnostico = parseFloat(formData.diagnostico) || 0;
         baseData.initialServicesList = servicesList.map(s => ({ ...s, amount: s.amount.toFixed(2) }));
       } else {
         baseData.initialTotal = formData.initialTotal !== undefined ? formData.initialTotal : (parseFloat(formData.total) || 0);
@@ -2110,7 +2110,7 @@ function Diagnostico() {
                       return;
                     }
                     serviceDesc = newServiceSelection.specification; // The name of the service becomes what they typed
-                    finalSpec = ""; 
+                    finalSpec = "";
                     isOther = true;
                   }
 
