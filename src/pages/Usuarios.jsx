@@ -11,6 +11,7 @@ const ALL_MODULES = [
     { id: 'inventario', name: 'Inventario' },
     { id: 'reportes', name: 'Reportes' },
     { id: 'historial', name: 'Historial' },
+    { id: 'ventas', name: 'Ventas' },
 ];
 
 function Usuarios() {

@@ -24,6 +24,8 @@ import Categorias from './pages/Inventario/Categorias';
 import EstadosFuncionales from './pages/Inventario/EstadosFuncionales';
 import UnidadesMedida from './pages/Inventario/UnidadesMedida';
 import Historial from './pages/Historial';
+import Ventas from './pages/Ventas';
+import DetalleVenta from './pages/DetalleVenta';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -140,6 +142,22 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+
+                    <Route path="ventas" element={
+                        <ProtectedRoute permissionId="ventas">
+                            <Ventas />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="ventas/nueva" element={
+                        <ProtectedRoute permissionId="ventas">
+                            <DetalleVenta />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="ventas/:id" element={
+                        <ProtectedRoute permissionId="ventas">
+                            <DetalleVenta />
+                        </ProtectedRoute>
+                    } />
 
                     <Route
                         path="usuarios"

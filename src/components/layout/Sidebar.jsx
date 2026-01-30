@@ -12,7 +12,8 @@ import {
     FaAngleLeft,
     FaAngleRight,
     FaInbox,
-    FaHistory
+    FaHistory,
+    FaFileInvoiceDollar
 } from 'react-icons/fa';
 import logo from '../../assets/images/compudoctor-logo.png';
 import { signOut } from 'firebase/auth';
@@ -45,6 +46,7 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
         { name: 'Bandeja', icon: <FaInbox />, path: '/bandeja-tecnico', id: 'bandeja' },
         { name: 'Ver Estado', icon: <FaCogs />, path: '/ver-estado', id: 'ver-estado' },
         { name: 'Historial', icon: <FaHistory />, path: '/historial', id: 'historial' },
+        { name: 'Ventas', icon: <FaFileInvoiceDollar />, path: '/ventas', id: 'ventas' },
         {
             name: 'Inventario',
             icon: <FaBox />,
