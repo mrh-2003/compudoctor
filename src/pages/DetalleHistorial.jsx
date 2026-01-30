@@ -917,7 +917,9 @@ function DetalleHistorial() {
                         
                         <div style="font-weight:bold; font-size:8pt; margin-bottom:2px; text-decoration:underline;">Servicios Realizados:</div>
                         <ul style="margin:0 0 8px 15px; padding:0; font-size:8pt;">
-                            ${(impresora.printer_services_realized || []).map(s => `
+                            ${(impresora.printer_services_realized || [])
+                    .filter(s => !(impresora.printer_cobra_revision === 'NO' && /revisi[oó]n/i.test(s.description)))
+                    .map(s => `
                                 <li>
                                     ${s.description}
                                     ${s.specification ? `(${s.specification})` : ''} 
@@ -928,7 +930,9 @@ function DetalleHistorial() {
                         ${impresora.printer_services_additional && impresora.printer_services_additional.length > 0 ? `
                             <div style="font-weight:bold; font-size:8pt; margin-bottom:2px; text-decoration:underline;">Adicionales:</div>
                             <ul style="margin:0 0 8px 15px; padding:0; font-size:8pt;">
-                                ${(impresora.printer_services_additional || []).map(s => `
+                                ${(impresora.printer_services_additional || [])
+                        .filter(s => !(impresora.printer_cobra_revision === 'NO' && /revisi[oó]n/i.test(s.description)))
+                        .map(s => `
                                     <li>
                                         ${s.description}
                                         ${s.specification ? `(${s.specification})` : ''} 

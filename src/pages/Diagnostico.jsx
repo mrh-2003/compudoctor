@@ -290,11 +290,11 @@ function Diagnostico() {
     estado: "",
     canTurnOn: "",
     ubicacionFisica: "",
-    initialTotal: 0,
-    initialSaldo: 0,
-    initialACuenta: 0,
+    initialTotal: null,
+    initialSaldo: null,
+    initialACuenta: null,
     initialServicesList: [],
-    initialDiagnostico: 0,
+    initialDiagnostico: null,
   });
   const [isLoading, setIsLoading] = useState(true);
 
