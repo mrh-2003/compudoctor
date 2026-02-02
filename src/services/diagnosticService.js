@@ -62,6 +62,18 @@ export const getAllDiagnosticReports = async () => {
     return reportSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
+export const getDiagnosticReportByNumber = async (reportNumber) => {
+    const reportsCol = collection(db, DIAGNOSTICO_COLLECTION);
+    const q = query(reportsCol, where('reportNumber', '==', parseInt(reportNumber)));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        return { id: doc.id, ...doc.data() };
+    }
+    return null;
+};
+
 
 export const getDiagnosticReportById = async (reportId) => {
     const reportDocRef = doc(db, DIAGNOSTICO_COLLECTION, reportId);

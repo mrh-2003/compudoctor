@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createSale, getSaleById, updateSale } from '../services/salesService';
-import { getAllClientsForSelection } from '../services/diagnosticService'; // Reusing client fetch
+import { getAllClientsForSelection, getDiagnosticReportByNumber, getClientById } from '../services/diagnosticService'; // Reusing client fetch
 import Select from 'react-select';
-import { FaPlus, FaTrash, FaSave, FaArrowLeft } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaSave, FaArrowLeft, FaSearch } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const TIPOS_COMPROBANTE = [
@@ -17,14 +17,12 @@ const TIPOS_DOC_CLIENTE = [
 ];
 
 function DetalleVenta() {
-    const { id } = useParams(); // If "nueva", id undefined? No, route will be /ventas/nueva or /ventas/:id
-    // Wait, if path is /ventas/nueva, id is 'nueva'? Or different route?
-    // I'll set route /ventas/nueva and /ventas/:id. If id is present and not 'nueva', it's edit.
-
+    const { id } = useParams();
     const isEditMode = id && id !== 'nueva';
     const navigate = useNavigate();
 
     const [loading, setLoading] = useState(isEditMode);
+    const [isSaving, setIsSaving] = useState(false);
     const [clients, setClients] = useState([]);
     const [selectedClient, setSelectedClient] = useState(null);
 
@@ -77,7 +75,18 @@ function DetalleVenta() {
                 clientDocNum: sale.clientDocNum,
                 clientId: sale.clientId
             });
-            // If editing, map items
+            if (sale.clientId) {
+                // Find and set selected client option to keep UI consistent if possible, though not strictly required
+                const clientFound = clients.find(c => c.id === sale.clientId);
+                if (clientFound) {
+                    setSelectedClient({
+                        value: clientFound.id,
+                        label: clientFound.display,
+                        data: clientFound
+                    });
+                }
+            }
+
             if (sale.items) {
                 setItems(sale.items.map((i, idx) => ({ ...i, id: Date.now() + idx })));
             }
@@ -89,6 +98,7 @@ function DetalleVenta() {
     };
 
     const handleClientSelect = (option) => {
+        if (isSaving) return;
         setSelectedClient(option);
         if (option) {
             const c = option.data;
@@ -101,8 +111,18 @@ function DetalleVenta() {
                 docNum = c.ruc;
                 name = c.razonSocial;
             } else {
-                docNum = c.dni || ''; // Assuming DNI field exists or we extract from somewhere. Actually getAllClientsForSelection returns limited data.
-                // Re-checking diagnosticService getAllClientsForSelection...
+                docNum = c.dni || ''; // Adjust based on actual data structure if needed
+                // Assuming c.dni exists or fallback
+                name = c.tipoPersona === 'JURIDICA' ? c.razonSocial : `${c.nombre} ${c.apellido}`;
+                // Correction: display logic is complex, name needs to be simple string
+            }
+
+            // Refine Name Logic
+            if (c.tipoPersona === 'JURIDICA') {
+                name = c.razonSocial;
+                docType = 'RUC';
+                docNum = c.ruc;
+            } else {
                 name = `${c.nombre} ${c.apellido}`;
             }
 
@@ -114,7 +134,6 @@ function DetalleVenta() {
                 clientId: c.id
             }));
         } else {
-            // Clear or keep? clear
             setHeader(prev => ({
                 ...prev,
                 clientId: '',
@@ -124,25 +143,80 @@ function DetalleVenta() {
         }
     };
 
+    const handleSearchReport = async () => {
+        if (!header.techReportNum) {
+            toast.error("Ingrese un número de informe");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const report = await getDiagnosticReportByNumber(header.techReportNum);
+            if (report) {
+                toast.success(`Informe #${report.reportNumber} encontrado`);
+
+                if (report.clientId) {
+                    const client = await getClientById(report.clientId);
+                    if (client) {
+                        let docType = 'DNI';
+                        let docNum = '';
+                        let name = '';
+
+                        if (client.tipoPersona === 'JURIDICA') {
+                            docType = 'RUC';
+                            docNum = client.ruc;
+                            name = client.razonSocial;
+                        } else {
+                            name = `${client.nombre} ${client.apellido}`;
+                            docNum = client.dni || ''; // Assuming DNI field
+                        }
+
+                        setHeader(prev => ({
+                            ...prev,
+                            clientName: name,
+                            clientDocType: docType,
+                            clientDocNum: docNum,
+                            clientId: client.id
+                        }));
+
+                        // Update Select UI
+                        // Need to reconstruct the 'display' format used in Select
+                        const clientDisplay = client.tipoPersona === 'JURIDICA'
+                            ? `${client.razonSocial} (RUC: ${client.ruc})`
+                            : `${client.nombre} ${client.apellido}`;
+
+                        setSelectedClient({
+                            value: client.id,
+                            label: clientDisplay,
+                            data: { ...client, display: clientDisplay }
+                        });
+                    }
+                }
+            } else {
+                toast.error("Informe no encontrado");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Error al buscar informe");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     // Recalculate totals
     const { subTotal, igv, total } = useMemo(() => {
         const sum = items.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-        // User asked: TOTAL = SUBTOTAL + IGV. 
-        // Usually Importe includes IGV or not?
-        // "PRECIO IMPORTE (PRECIO IMPORTE * CANTIDAD)" -> Should be Unit Price * Cant... ambiguous.
-        // Assuming user enters values that are BASE? Or values are VALID TOTAL?
-        // "IGV = SUBTOTAL * 0.18". "TOTAL = SUBTOTAL + IGV".
-        // This implies the Item Amount is the Subtotal part? Or the Item Amount is the Total?
-        // Let's assume the entered Unit Price is EXCLUDING IGV (Subtotal base).
-
         const _sub = sum;
-        const _igv = _sub * 0.18;
+
+        // Logic change: BOLETA FISICA = No IGV (IGV = 0), and Total = Subtotal
+        const _igv = header.tipoComprobante === 'BOLETA FISICA' ? 0 : _sub * 0.18;
         const _total = _sub + _igv;
 
         return { subTotal: _sub, igv: _igv, total: _total };
-    }, [items]);
+    }, [items, header.tipoComprobante]);
 
     const handleItemChange = (id, field, value) => {
+        if (isSaving) return;
         setItems(prev => prev.map(item => {
             if (item.id === id) {
                 const changes = { [field]: value };
@@ -161,10 +235,12 @@ function DetalleVenta() {
     };
 
     const addItem = () => {
+        if (isSaving) return;
         setItems(prev => [...prev, { id: Date.now(), quantity: 1, description: '', unitPrice: 0, amount: 0, purchaseDocNum: '', provider: '', observation: '' }]);
     };
 
     const removeItem = (id) => {
+        if (isSaving) return;
         if (items.length > 1) {
             setItems(prev => prev.filter(i => i.id !== id));
         } else {
@@ -192,6 +268,7 @@ function DetalleVenta() {
             total: total
         };
 
+        setIsSaving(true);
         try {
             if (isEditMode) {
                 await updateSale(id, saleData);
@@ -204,6 +281,7 @@ function DetalleVenta() {
         } catch (error) {
             toast.error("Error al guardar");
             console.error(error);
+            setIsSaving(false);
         }
     };
 
@@ -212,7 +290,7 @@ function DetalleVenta() {
     return (
         <div className="container mx-auto p-4 md:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
             <div className="flex items-center mb-6 gap-4">
-                <button onClick={() => navigate('/ventas')} className="text-gray-600 dark:text-gray-300 hover:text-blue-500">
+                <button onClick={() => navigate('/ventas')} className="text-gray-600 dark:text-gray-300 hover:text-blue-500" disabled={isSaving}>
                     <FaArrowLeft size={20} />
                 </button>
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -230,6 +308,7 @@ function DetalleVenta() {
                             value={header.tipoComprobante}
                             onChange={e => setHeader({ ...header, tipoComprobante: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
+                            disabled={isSaving}
                         >
                             {TIPOS_COMPROBANTE.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -241,6 +320,7 @@ function DetalleVenta() {
                             value={header.saleCompNum}
                             onChange={e => setHeader({ ...header, saleCompNum: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm font-bold"
+                            disabled={isSaving}
                         />
                     </div>
                 </div>
@@ -253,6 +333,7 @@ function DetalleVenta() {
                             value={header.date}
                             onChange={e => setHeader({ ...header, date: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
+                            disabled={isSaving}
                         />
                     </div>
 
@@ -269,16 +350,29 @@ function DetalleVenta() {
                             placeholder="Buscar cliente..."
                             isClearable
                             className="text-sm"
+                            isDisabled={isSaving}
                         />
                     </div>
                     <div>
                         <label className="block text-xs font-bold mb-1">N° Informe Técnico</label>
-                        <input
-                            type="text"
-                            value={header.techReportNum}
-                            onChange={e => setHeader({ ...header, techReportNum: e.target.value })}
-                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
-                        />
+                        <div className="flex gap-1">
+                            <input
+                                type="text"
+                                value={header.techReportNum}
+                                onChange={e => setHeader({ ...header, techReportNum: e.target.value })}
+                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                disabled={isSaving}
+                            />
+                            <button
+                                onClick={handleSearchReport}
+                                className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded disabled:bg-blue-300"
+                                title="Buscar Informe"
+                                type="button"
+                                disabled={isSaving}
+                            >
+                                <FaSearch />
+                            </button>
+                        </div>
                     </div>
 
                     <div>
@@ -287,6 +381,7 @@ function DetalleVenta() {
                             value={header.clientDocType}
                             onChange={e => setHeader({ ...header, clientDocType: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
+                            disabled={isSaving}
                         >
                             {TIPOS_DOC_CLIENTE.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -298,6 +393,7 @@ function DetalleVenta() {
                             value={header.clientDocNum}
                             onChange={e => setHeader({ ...header, clientDocNum: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
+                            disabled={isSaving}
                         />
                     </div>
                     <div className="md:col-span-2">
@@ -307,6 +403,7 @@ function DetalleVenta() {
                             value={header.clientName}
                             onChange={e => setHeader({ ...header, clientName: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
+                            disabled={isSaving}
                         />
                     </div>
                 </div>
@@ -335,33 +432,33 @@ function DetalleVenta() {
                                 <tr key={item.id}>
                                     <td className="p-1 border">
                                         <input type="number" min="1" className="w-16 p-1 border rounded text-center dark:bg-gray-700"
-                                            value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} />
+                                            value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} disabled={isSaving} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} />
+                                            value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} disabled={isSaving} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="number" min="0" step="0.01" className="w-20 p-1 border rounded text-right dark:bg-gray-700"
-                                            value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} />
+                                            value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} disabled={isSaving} />
                                     </td>
                                     <td className="p-1 border bg-gray-50 dark:bg-gray-900 text-right font-bold">
                                         {parseFloat(item.amount).toFixed(2)}
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.purchaseDocNum} onChange={(e) => handleItemChange(item.id, 'purchaseDocNum', e.target.value)} />
+                                            value={item.purchaseDocNum} onChange={(e) => handleItemChange(item.id, 'purchaseDocNum', e.target.value)} disabled={isSaving} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.provider} onChange={(e) => handleItemChange(item.id, 'provider', e.target.value)} />
+                                            value={item.provider} onChange={(e) => handleItemChange(item.id, 'provider', e.target.value)} disabled={isSaving} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.observation} onChange={(e) => handleItemChange(item.id, 'observation', e.target.value)} />
+                                            value={item.observation} onChange={(e) => handleItemChange(item.id, 'observation', e.target.value)} disabled={isSaving} />
                                     </td>
                                     <td className="p-1 border text-center">
-                                        <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700">
+                                        <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 disabled:text-red-300" disabled={isSaving}>
                                             <FaTrash />
                                         </button>
                                     </td>
@@ -371,7 +468,7 @@ function DetalleVenta() {
                     </table>
                 </div>
 
-                <button onClick={addItem} className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm font-bold py-1 px-3 rounded flex items-center mb-6">
+                <button onClick={addItem} className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm font-bold py-1 px-3 rounded flex items-center mb-6 disabled:bg-gray-200 disabled:text-gray-500" disabled={isSaving}>
                     <FaPlus className="mr-1" /> Agregar Fila
                 </button>
 
@@ -397,15 +494,17 @@ function DetalleVenta() {
             <div className="flex justify-center mt-8 space-x-4">
                 <button
                     onClick={() => navigate('/ventas')}
-                    className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg"
+                    className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-400"
+                    disabled={isSaving}
                 >
                     Cancelar
                 </button>
                 <button
                     onClick={handleSave}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg flex items-center text-lg"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg flex items-center text-lg disabled:bg-blue-400"
+                    disabled={isSaving}
                 >
-                    <FaSave className="mr-2" /> Guardar Venta
+                    <FaSave className="mr-2" /> {isSaving ? 'Guardando...' : 'Guardar Venta'}
                 </button>
             </div>
         </div>
