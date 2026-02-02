@@ -54,76 +54,50 @@ function Ventas() {
         }
     };
 
-    const filteredFlatItems = useMemo(() => {
-        let items = [];
-
-        // Flatten first (or filter sales then flatten? Filtering items is requested via search)
-        // Let's flatten then filter to allows searching within items
-        sales.forEach((sale) => {
+    const filteredSales = useMemo(() => {
+        let result = sales.filter((sale) => {
             const saleDate = sale.date; // YYYY-MM-DD
 
             // Date Filter
-            if (dateRange.start && saleDate < dateRange.start) return;
-            if (dateRange.end && saleDate > dateRange.end) return;
+            if (dateRange.start && saleDate < dateRange.start) return false;
+            if (dateRange.end && saleDate > dateRange.end) return false;
 
-            if (sale.items && sale.items.length > 0) {
-                sale.items.forEach((item, itemIndex) => {
-                    items.push({
-                        uniqueId: `${sale.id}-${itemIndex}`,
-                        saleId: sale.id,
-                        index: 0, // Will assign later
-                        ...sale,
-                        item
-                    });
-                });
-            } else {
-                items.push({
-                    uniqueId: `${sale.id}-empty`,
-                    saleId: sale.id,
-                    index: 0,
-                    ...sale,
-                    item: {}
-                });
-            }
+            // Type Filter
+            if (filterTipo !== 'TODOS' && sale.tipoComprobante !== filterTipo) return false;
+
+            return true;
         });
 
         // Search Filter
         if (searchTerm) {
             const lowerTerm = searchTerm.toLowerCase();
-            items = items.filter(row => {
-                return (
-                    (row.clientName || '').toLowerCase().includes(lowerTerm) ||
-                    (row.saleCompNum || '').toLowerCase().includes(lowerTerm) ||
-                    (row.clientDocNum || '').toLowerCase().includes(lowerTerm) ||
-                    (row.techReportNum || '').toLowerCase().includes(lowerTerm) ||
-                    (row.item.description || '').toLowerCase().includes(lowerTerm) ||
-                    (row.item.provider || '').toLowerCase().includes(lowerTerm)
-                );
+            result = result.filter(sale => {
+                // Check header fields
+                if (
+                    (sale.clientName || '').toLowerCase().includes(lowerTerm) ||
+                    (sale.saleCompNum || '').toLowerCase().includes(lowerTerm) ||
+                    (sale.clientDocNum || '').toLowerCase().includes(lowerTerm) ||
+                    (sale.techReportNum || '').toLowerCase().includes(lowerTerm)
+                ) return true;
+
+                // Check items
+                if (sale.items && sale.items.some(item =>
+                    (item.description || '').toLowerCase().includes(lowerTerm) ||
+                    (item.provider || '').toLowerCase().includes(lowerTerm)
+                )) return true;
+
+                return false;
             });
         }
 
-        // Assign/Re-index
-        return items.map((item, idx) => ({ ...item, index: idx + 1 }));
+        // Sort descending by date/created
+        return result.sort((a, b) => (a.date < b.date ? 1 : -1));
 
-    }, [sales, dateRange, searchTerm]);
+    }, [sales, dateRange, searchTerm, filterTipo]);
 
     const totalCalculated = useMemo(() => {
-        // Calculate total of UNIQUE sales present in filteredFlatItems
-        // If 2 items from same sale are shown, we shouldn't add the SALE total twice if we mean "Volume of Sales".
-        // BUT, if we mean "Sum of displayed rows' value", it's ambiguous.
-        // Usually, financial summary sums the Documents.
-        // If I see 2 lines of Invoice #100 (Total 100), adding 100+100=200 is wrong.
-        // So I will sum unique filtered sales.
-        const uniqueSaleIds = new Set(filteredFlatItems.map(i => i.saleId));
-        let sum = 0;
-        uniqueSaleIds.forEach(id => {
-            const sale = sales.find(s => s.id === id);
-            if (sale) {
-                sum += (parseFloat(sale.total) || 0);
-            }
-        });
-        return sum;
-    }, [filteredFlatItems, sales]);
+        return filteredSales.reduce((sum, sale) => sum + (parseFloat(sale.total) || 0), 0);
+    }, [filteredSales]);
 
     const handleExportExcel = () => {
         // 1. Prepare Filter Info
@@ -144,27 +118,39 @@ function Ventas() {
 
         // 2. Prepare Headers and Data
         const headers = [
-            "N° Item", "Fecha Venta", "Cliente", "Tipo Doc", "N° Documento",
-            "N° Inf. Tec.", "Tipo Comp.", "N° Comp. Venta", "Cant", "Descripción",
-            "Total (Global)", "N° Fact/Guía Compra", "Proveedor", "Observación"
+            "N°", "Fecha Venta", "Cliente", "Tipo Doc", "N° Documento",
+            "N° Inf. Tec.", "Tipo Comp.", "N° Comp. Venta",
+            "Cantidades", "Descripciones", "Importes",
+            "N° Fact/Guía Compra", "Proveedores", "Observaciones"
         ];
 
-        const values = filteredFlatItems.map(row => [
-            row.index,
-            row.date,
-            row.clientName,
-            row.clientDocType,
-            row.clientDocNum,
-            row.techReportNum,
-            row.tipoComprobante,
-            row.saleCompNum,
-            row.item.quantity,
-            row.item.description,
-            parseFloat(row.total || 0).toFixed(2),
-            row.item.purchaseDocNum,
-            row.item.provider,
-            row.item.observation
-        ]);
+        const values = filteredSales.map((sale, index) => {
+            const items = sale.items || [];
+            // Join with newline - This acts as "Multi-line" in Excel if wrap text is on
+            const quantities = items.map(i => i.quantity).join('\n');
+            const descriptions = items.map(i => i.description).join('\n');
+            const amounts = items.map(i => parseFloat(i.amount || 0).toFixed(2)).join('\n');
+            const purchaseDocs = items.map(i => i.purchaseDocNum || '-').join('\n');
+            const providers = items.map(i => i.provider || '-').join('\n');
+            const observations = items.map(i => i.observation || '-').join('\n');
+
+            return [
+                index + 1,
+                sale.date,
+                sale.clientName,
+                sale.clientDocType,
+                sale.clientDocNum,
+                sale.techReportNum,
+                sale.tipoComprobante,
+                sale.saleCompNum,
+                quantities,
+                descriptions,
+                amounts,
+                purchaseDocs,
+                providers,
+                observations
+            ];
+        });
 
         // 3. Combine All
         const finalData = [...filterInfo, headers, ...values];
@@ -282,7 +268,7 @@ function Ventas() {
                     <table className="min-w-full text-xs text-left">
                         <thead className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 uppercase font-bold text-[10px] md:text-xs">
                             <tr>
-                                <th className="px-3 py-2 border-b">N° Item</th>
+                                <th className="px-3 py-2 border-b">N°</th>
                                 <th className="px-3 py-2 border-b">Fecha Venta</th>
                                 <th className="px-3 py-2 border-b">Cliente</th>
                                 <th className="px-3 py-2 border-b hidden md:table-cell">Tipo Doc</th>
@@ -292,7 +278,7 @@ function Ventas() {
                                 <th className="px-3 py-2 border-b">N° Comp. Venta</th>
                                 <th className="px-3 py-2 border-b text-center">Cant</th>
                                 <th className="px-3 py-2 border-b">Descripción</th>
-                                <th className="px-3 py-2 border-b text-blue-600">Total (Global)</th>
+                                <th className="px-3 py-2 border-b text-right">Importe</th>
                                 <th className="px-3 py-2 border-b hidden xl:table-cell">N° Fact/Guia Compra</th>
                                 <th className="px-3 py-2 border-b hidden xl:table-cell">Proveedor</th>
                                 <th className="px-3 py-2 border-b hidden xl:table-cell">Observación</th>
@@ -300,34 +286,61 @@ function Ventas() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                            {filteredFlatItems.length > 0 ? filteredFlatItems.map((row) => (
-                                <tr key={row.uniqueId} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition group">
-                                    <td className="px-3 py-2">{row.index}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">{row.date}</td>
-                                    <td className="px-3 py-2 font-medium">{row.clientName}</td>
-                                    <td className="px-3 py-2 hidden md:table-cell">{row.clientDocType}</td>
-                                    <td className="px-3 py-2">{row.clientDocNum}</td>
-                                    <td className="px-3 py-2 hidden lg:table-cell">{row.techReportNum || '-'}</td>
-                                    <td className="px-3 py-2 text-[10px]">{row.tipoComprobante}</td>
-                                    <td className="px-3 py-2 font-bold">{row.saleCompNum || '-'}</td>
-                                    <td className="px-3 py-2 text-center bg-gray-50 dark:bg-gray-900 group-hover:bg-white dark:group-hover:bg-gray-800">{row.item.quantity || 0}</td>
-                                    <td className="px-3 py-2 truncate max-w-xs">{row.item.description || '-'}</td>
-                                    <td className="px-3 py-2 font-bold text-blue-600">
-                                        S/ {(parseFloat(row.total) || 0).toFixed(2)}
+                            {filteredSales.length > 0 ? filteredSales.map((sale, index) => (
+                                <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition group align-top">
+                                    <td className="px-3 py-2">{index + 1}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{sale.date}</td>
+                                    <td className="px-3 py-2 font-medium">{sale.clientName}</td>
+                                    <td className="px-3 py-2 hidden md:table-cell">{sale.clientDocType}</td>
+                                    <td className="px-3 py-2">{sale.clientDocNum}</td>
+                                    <td className="px-3 py-2 hidden lg:table-cell">{sale.techReportNum || '-'}</td>
+                                    <td className="px-3 py-2 text-[10px]">{sale.tipoComprobante}</td>
+                                    <td className="px-3 py-2 font-bold">{sale.saleCompNum || '-'}</td>
+
+                                    {/* Multi-line Item Columns */}
+                                    <td className="px-3 py-2 text-center bg-gray-50 dark:bg-gray-900 group-hover:bg-white dark:group-hover:bg-gray-800">
+                                        {(sale.items || []).map((item, idx) => (
+                                            <div key={idx} className="h-6 overflow-hidden">{item.quantity}</div>
+                                        ))}
                                     </td>
-                                    <td className="px-3 py-2 hidden xl:table-cell">{row.item.purchaseDocNum || '-'}</td>
-                                    <td className="px-3 py-2 hidden xl:table-cell">{row.item.provider || '-'}</td>
-                                    <td className="px-3 py-2 truncate max-w-xs hidden xl:table-cell">{row.item.observation || '-'}</td>
-                                    <td className="px-3 py-2 text-center flex justify-center gap-2">
+                                    <td className="px-3 py-2">
+                                        {(sale.items || []).map((item, idx) => (
+                                            <div key={idx} className="h-6 overflow-hidden truncate max-w-xs">{item.description}</div>
+                                        ))}
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                        {(sale.items || []).map((item, idx) => (
+                                            <div key={idx} className="h-6 overflow-hidden font-bold text-blue-600">
+                                                {parseFloat(item.amount || 0).toFixed(2)}
+                                            </div>
+                                        ))}
+                                    </td>
+                                    <td className="px-3 py-2 hidden xl:table-cell">
+                                        {(sale.items || []).map((item, idx) => (
+                                            <div key={idx} className="h-6 overflow-hidden">{item.purchaseDocNum || '-'}</div>
+                                        ))}
+                                    </td>
+                                    <td className="px-3 py-2 hidden xl:table-cell">
+                                        {(sale.items || []).map((item, idx) => (
+                                            <div key={idx} className="h-6 overflow-hidden">{item.provider || '-'}</div>
+                                        ))}
+                                    </td>
+                                    <td className="px-3 py-2 hidden xl:table-cell">
+                                        {(sale.items || []).map((item, idx) => (
+                                            <div key={idx} className="h-6 overflow-hidden truncate max-w-xs">{item.observation || '-'}</div>
+                                        ))}
+                                    </td>
+
+                                    <td className="px-3 py-2 text-center flex justify-center gap-2 items-start pt-2">
                                         <button
-                                            onClick={() => navigate(`/ventas/${row.saleId}`)}
+                                            onClick={() => navigate(`/ventas/${sale.id}`)}
                                             className="text-blue-500 hover:text-blue-700 p-1 border border-blue-500 rounded"
                                             title="Ver/Editar Detalle"
                                         >
                                             <FaPlus size={12} />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(row.saleId)}
+                                            onClick={() => handleDelete(sale.id)}
                                             className="text-red-500 hover:text-red-700 p-1"
                                             title="Eliminar Comprobante Completo"
                                         >
