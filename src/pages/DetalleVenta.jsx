@@ -273,6 +273,7 @@ function DetalleVenta() {
             if (isEditMode) {
                 await updateSale(id, saleData);
                 toast.success("Venta actualizada");
+                setIsSaving(false);
             } else {
                 await createSale(saleData);
                 toast.success("Venta creada");
