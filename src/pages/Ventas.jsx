@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { getSales, deleteSale } from '../services/salesService';
 import { FaPlus, FaTrash, FaSpinner, FaSearch, FaFileExcel, FaFilter } from 'react-icons/fa';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 const TIPOS_COMPROBANTE = [
     "BOLETA FISICA",
@@ -126,13 +126,15 @@ function Ventas() {
 
         const values = filteredSales.map((sale, index) => {
             const items = sale.items || [];
-            // Join with newline - This acts as "Multi-line" in Excel if wrap text is on
-            const quantities = items.map(i => i.quantity).join('\n');
-            const descriptions = items.map(i => i.description).join('\n');
-            const amounts = items.map(i => parseFloat(i.amount || 0).toFixed(2)).join('\n');
-            const purchaseDocs = items.map(i => i.purchaseDocNum || '-').join('\n');
-            const providers = items.map(i => i.provider || '-').join('\n');
-            const observations = items.map(i => i.observation || '-').join('\n');
+            // Join with newline - valid newline char
+            const joinChar = '\n';
+
+            const quantities = items.map(i => i.quantity).join(joinChar);
+            const descriptions = items.map(i => i.description).join(joinChar);
+            const amounts = items.map(i => parseFloat(i.amount || 0).toFixed(2)).join(joinChar);
+            const purchaseDocs = items.map(i => i.purchaseDocNum || '-').join(joinChar);
+            const providers = items.map(i => i.provider || '-').join(joinChar);
+            const observations = items.map(i => i.observation || '-').join(joinChar);
 
             return [
                 index + 1,
@@ -155,6 +157,55 @@ function Ventas() {
         // 3. Combine All
         const finalData = [...filterInfo, headers, ...values];
         const finalSheet = XLSX.utils.aoa_to_sheet(finalData);
+
+        // 4. Apply Styles
+        // Iterate over all cells in the sheet
+        const range = XLSX.utils.decode_range(finalSheet['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+                const cell = finalSheet[cell_address];
+
+                if (cell) {
+                    // Default style
+                    if (!cell.s) cell.s = {};
+
+                    cell.s.alignment = {
+                        vertical: 'top',
+                        wrapText: true
+                    };
+
+                    // Headers Bold (row index 13 if filterInfo length is 12 + 1 empty? No, headers are at filterInfo.length)
+                    // filterInfo length is 12 rows. Headers are at index 12 (0-based) ?
+                    // Let's count:
+                    // 0: TITLE, 1: Date, 2: Empty, 3: Filters Title, 4,5,6,7: Filters, 8: Empty, 9: Resume Title, 10: Total, 11: Empty.
+                    // Headers are at rowIndex 12.
+                    if (R === 12) {
+                        cell.s.font = { bold: true };
+                        cell.s.fill = { fgColor: { rgb: "E0E0E0" } };
+                        cell.s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+                    }
+                }
+            }
+        }
+
+        // Set Column Widths
+        finalSheet['!cols'] = [
+            { wch: 5 },  // N
+            { wch: 12 }, // Date
+            { wch: 20 }, // Client
+            { wch: 10 }, // DocType
+            { wch: 15 }, // DocNum
+            { wch: 12 }, // TechReport
+            { wch: 15 }, // CompType
+            { wch: 15 }, // CompNum
+            { wch: 10 }, // Qty
+            { wch: 30 }, // Desc
+            { wch: 12 }, // Amount
+            { wch: 15 }, // PurchDoc
+            { wch: 15 }, // Provider
+            { wch: 20 }  // Obs
+        ];
 
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, finalSheet, "Ventas");
