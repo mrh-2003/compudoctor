@@ -26,6 +26,8 @@ import UnidadesMedida from './pages/Inventario/UnidadesMedida';
 import Historial from './pages/Historial';
 import Ventas from './pages/Ventas';
 import DetalleVenta from './pages/DetalleVenta';
+import Compras from './pages/Compras';
+import DetalleCompra from './pages/DetalleCompra';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -156,6 +158,22 @@ function App() {
                     <Route path="ventas/:id" element={
                         <ProtectedRoute permissionId="ventas">
                             <DetalleVenta />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="compras" element={
+                        <ProtectedRoute permissionId="ventas">
+                            <Compras />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="compras/nueva" element={
+                        <ProtectedRoute permissionId="ventas">
+                            <DetalleCompra />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="compras/:id" element={
+                        <ProtectedRoute permissionId="ventas">
+                            <DetalleCompra />
                         </ProtectedRoute>
                     } />
 
