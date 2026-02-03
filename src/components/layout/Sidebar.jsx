@@ -48,7 +48,7 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
         { name: 'Ver Estado', icon: <FaCogs />, path: '/ver-estado', id: 'ver-estado' },
         { name: 'Historial', icon: <FaHistory />, path: '/historial', id: 'historial' },
         { name: 'Ventas', icon: <FaFileInvoiceDollar />, path: '/ventas', id: 'ventas' },
-        { name: 'Compras', icon: <FaShoppingCart />, path: '/compras', id: 'ventas' },
+        { name: 'Compras', icon: <FaShoppingCart />, path: '/compras', id: 'compras' },
         {
             name: 'Inventario',
             icon: <FaBox />,

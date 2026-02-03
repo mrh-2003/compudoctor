@@ -162,17 +162,17 @@ function App() {
                     } />
 
                     <Route path="compras" element={
-                        <ProtectedRoute permissionId="ventas">
+                        <ProtectedRoute permissionId="compras">
                             <Compras />
                         </ProtectedRoute>
                     } />
                     <Route path="compras/nueva" element={
-                        <ProtectedRoute permissionId="ventas">
+                        <ProtectedRoute permissionId="compras">
                             <DetalleCompra />
                         </ProtectedRoute>
                     } />
                     <Route path="compras/:id" element={
-                        <ProtectedRoute permissionId="ventas">
+                        <ProtectedRoute permissionId="compras">
                             <DetalleCompra />
                         </ProtectedRoute>
                     } />
