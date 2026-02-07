@@ -4,6 +4,8 @@ import { createSale, getSaleById, updateSale } from '../services/salesService';
 import { getAllClientsForSelection, getDiagnosticReportByNumber, getClientById } from '../services/diagnosticService'; // Reusing client fetch
 import Select from 'react-select';
 import { FaPlus, FaTrash, FaSave, FaArrowLeft, FaSearch } from 'react-icons/fa';
+import { useContext } from 'react';
+import { ThemeContext } from '../context/ThemeContext';
 import toast from 'react-hot-toast';
 
 const TIPOS_COMPROBANTE = [
@@ -20,6 +22,7 @@ function DetalleVenta() {
     const { id } = useParams();
     const isEditMode = id && id !== 'nueva';
     const navigate = useNavigate();
+    const { theme } = useContext(ThemeContext);
 
     const [loading, setLoading] = useState(isEditMode);
     const [isSaving, setIsSaving] = useState(false);
@@ -352,6 +355,38 @@ function DetalleVenta() {
                             isClearable
                             className="text-sm"
                             isDisabled={isSaving}
+                            styles={{
+                                control: (baseStyles) => ({
+                                    ...baseStyles,
+                                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                                    borderColor: theme === "dark" ? "#4B5563" : baseStyles.borderColor,
+                                    color: theme === "dark" ? "#fff" : "#000",
+                                }),
+                                menu: (baseStyles) => ({
+                                    ...baseStyles,
+                                    backgroundColor: theme === "dark" ? "#374151" : "#fff",
+                                    color: theme === "dark" ? "#fff" : "#000",
+                                }),
+                                option: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    backgroundColor: state.isFocused
+                                        ? (theme === "dark" ? "#4B5563" : "#e5e7eb")
+                                        : "transparent",
+                                    color: theme === "dark" ? "#fff" : "#000",
+                                }),
+                                singleValue: (baseStyles) => ({
+                                    ...baseStyles,
+                                    color: theme === "dark" ? "#fff" : "#000",
+                                }),
+                                input: (baseStyles) => ({
+                                    ...baseStyles,
+                                    color: theme === "dark" ? "#fff" : "#000",
+                                }),
+                                placeholder: (baseStyles) => ({
+                                    ...baseStyles,
+                                    color: theme === "dark" ? "#9CA3AF" : "#9CA3AF",
+                                }),
+                            }}
                         />
                     </div>
                     <div>
