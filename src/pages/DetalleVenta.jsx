@@ -208,12 +208,27 @@ function DetalleVenta() {
 
     // Recalculate totals
     const { subTotal, igv, total } = useMemo(() => {
-        const sum = items.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-        const _sub = sum;
+        // Now 'amount' in items is the Final Amount (inclusive of IGV if applicable)
+        const sumFinal = items.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
 
-        // Logic change: BOLETA FISICA = No IGV (IGV = 0), and Total = Subtotal
-        const _igv = header.tipoComprobante === 'BOLETA FISICA' ? 0 : _sub * 0.18;
-        const _total = _sub + _igv;
+        let _sub = 0;
+        let _igv = 0;
+        let _total = 0;
+
+        if (header.tipoComprobante === 'BOLETA FISICA') {
+            // No IGV scenario
+            _total = sumFinal;
+            _sub = sumFinal;
+            _igv = 0;
+        } else {
+            // IGV included in the Item Amount
+            // Total = Subtotal + IGV
+            // Total = Subtotal * 1.18
+            // Subtotal = Total / 1.18
+            _total = sumFinal;
+            _sub = _total / 1.18;
+            _igv = _total - _sub;
+        }
 
         return { subTotal: _sub, igv: _igv, total: _total };
     }, [items, header.tipoComprobante]);
@@ -228,7 +243,11 @@ function DetalleVenta() {
                     const q = field === 'quantity' ? parseFloat(value) : parseFloat(item.quantity);
                     const p = field === 'unitPrice' ? parseFloat(value) : parseFloat(item.unitPrice);
                     if (!isNaN(q) && !isNaN(p)) {
-                        changes.amount = (q * p).toFixed(2);
+                        const base = q * p;
+                        // Calculate IGV based on current header type
+                        const isNoIgv = header.tipoComprobante === 'BOLETA FISICA';
+                        const rate = isNoIgv ? 1 : 1.18;
+                        changes.amount = (base * rate).toFixed(2);
                     }
                 }
                 return { ...item, ...changes };
@@ -310,7 +329,23 @@ function DetalleVenta() {
                         <label className="block text-xs font-bold mb-1">Tipo de Comprobante</label>
                         <select
                             value={header.tipoComprobante}
-                            onChange={e => setHeader({ ...header, tipoComprobante: e.target.value })}
+                            onChange={e => {
+                                const newType = e.target.value;
+                                setHeader({ ...header, tipoComprobante: newType });
+
+                                // Recalculate amounts based on new type
+                                setItems(prev => prev.map(item => {
+                                    const q = parseFloat(item.quantity);
+                                    const p = parseFloat(item.unitPrice);
+                                    if (!isNaN(q) && !isNaN(p)) {
+                                        const base = q * p;
+                                        const isNoIgv = newType === 'BOLETA FISICA';
+                                        const rate = isNoIgv ? 1 : 1.18;
+                                        return { ...item, amount: (base * rate).toFixed(2) };
+                                    }
+                                    return item;
+                                }));
+                            }}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
                             disabled={isSaving}
                         >
