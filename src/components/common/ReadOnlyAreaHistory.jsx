@@ -92,7 +92,7 @@ const ReadOnlyAreaHistory = ({ entry, areaName, report }) => {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-bold mb-1 text-gray-700 dark:text-gray-300">SERVICIOS REALIZADOS:</label>
+                                <label className="block text-sm font-bold mb-1 text-gray-700 dark:text-gray-300">MOTIVO DE INGRESO:</label>
                                 {entry.printer_services_realized && entry.printer_services_realized.length > 0 ? (
                                     <ul className="list-disc list-inside text-sm p-2 bg-white dark:bg-gray-700 rounded border dark:border-gray-600">
                                         {entry.printer_services_realized.map((s, i) => (

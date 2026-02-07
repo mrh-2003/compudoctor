@@ -1034,7 +1034,7 @@ function DetalleDiagnostico() {
                                     <span>{item.description}</span>
                                     <div className="flex items-center gap-3">
                                         <span className="font-bold">S/ {parseFloat(item.amount).toFixed(2)}</span>
-                                        {!isReportFinalized && isAllowedToEdit && (
+                                        {!isReportFinalized && type === 'ADICIONALES' && isAllowedToEdit && (
                                             <button onClick={() => handleRemovePrinterService(idx, type)} className="text-red-500 hover:text-red-700"><FaTimes /></button>
                                         )}
                                     </div>
@@ -1044,7 +1044,7 @@ function DetalleDiagnostico() {
                         </ul>
 
                         {/* Adder */}
-                        {(!isReportFinalized && isAllowedToEdit) && (
+                        {(!isReportFinalized && isAllowedToEdit && type === 'ADICIONALES') && (
                             <div className="flex flex-col md:flex-row gap-2 items-end">
                                 <div className="flex-grow w-full">
                                     <label className="text-xs font-bold mb-1 block">SERVICIO / DETALLE</label>
@@ -1073,7 +1073,7 @@ function DetalleDiagnostico() {
                                     disabled={!selection || !newServiceState.amount}
                                     className="bg-black text-white px-3 py-2 rounded h-[38px] text-xs font-bold uppercase disabled:bg-gray-400 whitespace-nowrap"
                                 >
-                                    + AGREGAR {type === 'ADICIONALES' ? 'S.A' : ''}
+                                    + AGREGAR S.A
                                 </button>
                             </div>
                         )}
@@ -1157,7 +1157,7 @@ function DetalleDiagnostico() {
                     {/* Services Lists */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {renderPrinterServiceAdder(
-                            "SERVICIO REALIZADO",
+                            "MOTIVO DE INGRESO",
                             "REALIZADOS",
                             selectedPrinterServiceRealizado,
                             setSelectedPrinterServiceRealizado,
