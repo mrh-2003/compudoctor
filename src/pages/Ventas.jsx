@@ -100,23 +100,8 @@ function Ventas() {
     }, [filteredSales]);
 
     const handleExportExcel = () => {
-        // 1. Prepare Filter Info
-        const filterInfo = [
-            ["REPORTE DE VENTAS"],
-            ["Fecha de Generación:", new Date().toLocaleString()],
-            [""],
-            ["FILTROS APLICADOS:"],
-            ["Fecha Inicio:", dateRange.start || "Todos"],
-            ["Fecha Fin:", dateRange.end || "Todos"],
-            ["Tipo Comprobante:", filterTipo || "TODOS"],
-            ["Búsqueda:", searchTerm || "-"],
-            [""],
-            ["RESUMEN:"],
-            ["Total Ventas (Filtrado):", `S/ ${totalCalculated.toFixed(2)}`],
-            [""]
-        ];
+        const workbook = XLSX.utils.book_new();
 
-        // 2. Prepare Headers and Data
         const headers = [
             "N°", "Fecha Venta", "Cliente", "Tipo Doc", "N° Documento",
             "N° Inf. Tec.", "Tipo Comp.", "N° Comp. Venta",
@@ -126,7 +111,6 @@ function Ventas() {
 
         const values = filteredSales.map((sale, index) => {
             const items = sale.items || [];
-            // Join with newline - valid newline char
             const joinChar = '\n';
 
             const quantities = items.map(i => i.quantity).join(joinChar);
@@ -154,61 +138,84 @@ function Ventas() {
             ];
         });
 
-        // 3. Combine All
-        const finalData = [...filterInfo, headers, ...values];
-        const finalSheet = XLSX.utils.aoa_to_sheet(finalData);
+        // Construct Data with placeholders for merging
+        const displayData = [
+            ["REPORTE DE VENTAS"],
+            ["Fecha de Generación:", "", "", new Date().toLocaleString()],
+            [""],
+            ["FILTROS APLICADOS:"],
+            ["Fecha Inicio:", "", "", dateRange.start || "Todos"],
+            ["Fecha Fin:", "", "", dateRange.end || "Todos"],
+            ["Tipo Comprobante:", "", "", filterTipo || "TODOS"],
+            ["Búsqueda:", "", "", searchTerm || "-"],
+            [""],
+            ["RESUMEN:"],
+            ["Total Ventas (Filtrado):", "", "", `S/ ${totalCalculated.toFixed(2)}`],
+            [""],
+            headers,
+            ...values
+        ];
 
-        // 4. Apply Styles
-        // Iterate over all cells in the sheet
-        const range = XLSX.utils.decode_range(finalSheet['!ref']);
+        const sheetWithMerges = XLSX.utils.aoa_to_sheet(displayData);
+
+        sheetWithMerges['!merges'] = [
+            // Title
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+            // Gen Date
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } }, // Label 3 cols
+            { s: { r: 1, c: 3 }, e: { r: 1, c: 6 } }, // Value 4 cols
+            // Filters Title
+            { s: { r: 3, c: 0 }, e: { r: 3, c: 3 } },
+            // Date Start
+            { s: { r: 4, c: 0 }, e: { r: 4, c: 2 } },
+            { s: { r: 4, c: 3 }, e: { r: 4, c: 6 } },
+            // Date End
+            { s: { r: 5, c: 0 }, e: { r: 5, c: 2 } },
+            { s: { r: 5, c: 3 }, e: { r: 5, c: 6 } },
+            // Type
+            { s: { r: 6, c: 0 }, e: { r: 6, c: 2 } },
+            { s: { r: 6, c: 3 }, e: { r: 6, c: 6 } },
+            // Search
+            { s: { r: 7, c: 0 }, e: { r: 7, c: 2 } },
+            { s: { r: 7, c: 3 }, e: { r: 7, c: 6 } },
+            // Summary
+            { s: { r: 9, c: 0 }, e: { r: 9, c: 3 } },
+            // Total
+            { s: { r: 10, c: 0 }, e: { r: 10, c: 2 } },
+            { s: { r: 10, c: 3 }, e: { r: 10, c: 6 } },
+        ];
+
+        // Apply Styles
+        const range = XLSX.utils.decode_range(sheetWithMerges['!ref']);
         for (let R = range.s.r; R <= range.e.r; ++R) {
             for (let C = range.s.c; C <= range.e.c; ++C) {
                 const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-                const cell = finalSheet[cell_address];
-
+                const cell = sheetWithMerges[cell_address];
                 if (cell) {
-                    // Default style
                     if (!cell.s) cell.s = {};
+                    cell.s.alignment = { vertical: 'top', wrapText: true };
 
-                    cell.s.alignment = {
-                        vertical: 'top',
-                        wrapText: true
-                    };
-
-                    // Headers Bold (row index 13 if filterInfo length is 12 + 1 empty? No, headers are at filterInfo.length)
-                    // filterInfo length is 12 rows. Headers are at index 12 (0-based) ?
-                    // Let's count:
-                    // 0: TITLE, 1: Date, 2: Empty, 3: Filters Title, 4,5,6,7: Filters, 8: Empty, 9: Resume Title, 10: Total, 11: Empty.
-                    // Headers are at rowIndex 12.
+                    // Header Row is 12
                     if (R === 12) {
                         cell.s.font = { bold: true };
                         cell.s.fill = { fgColor: { rgb: "E0E0E0" } };
                         cell.s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
                     }
+                    // Bold Labels for Filters
+                    if (C === 0 && R >= 4 && R <= 10) {
+                        cell.s.font = { bold: true };
+                    }
                 }
             }
         }
 
-        // Set Column Widths
-        finalSheet['!cols'] = [
-            { wch: 5 },  // N
-            { wch: 12 }, // Date
-            { wch: 20 }, // Client
-            { wch: 10 }, // DocType
-            { wch: 15 }, // DocNum
-            { wch: 12 }, // TechReport
-            { wch: 15 }, // CompType
-            { wch: 15 }, // CompNum
-            { wch: 10 }, // Qty
-            { wch: 30 }, // Desc
-            { wch: 12 }, // Amount
-            { wch: 15 }, // PurchDoc
-            { wch: 15 }, // Provider
-            { wch: 20 }  // Obs
+        sheetWithMerges['!cols'] = [
+            { wch: 5 }, { wch: 12 }, { wch: 20 }, { wch: 10 }, { wch: 15 },
+            { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 30 },
+            { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 }
         ];
 
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, finalSheet, "Ventas");
+        XLSX.utils.book_append_sheet(workbook, sheetWithMerges, "Ventas");
         XLSX.writeFile(workbook, `Ventas_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
