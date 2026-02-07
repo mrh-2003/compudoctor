@@ -20,71 +20,116 @@ const STATUS_COLORS = {
 };
 
 const calculateReportTotal = (report) => {
-    let diagCost = parseFloat(report.diagnostico) || 0;
-    const isPrinter = report.tipoEquipo === 'Impresora';
+    // Logic from CostosModal.jsx to ensure exact match
 
+    // 1. Check Flags for Charging Logic
     let shouldChargeRevision = true;
-    if (report.diagnosticoPorArea && report.diagnosticoPorArea['IMPRESORA']) {
-        const history = report.diagnosticoPorArea['IMPRESORA'];
-        const entry = [...history].reverse().find(h => h.printer_cobra_revision);
-        if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
-    } else if (report.printer_cobra_revision === 'NO') {
-        shouldChargeRevision = false;
-    }
-
-    // NEW: Check Testeo Area for non-printers
-    if (!isPrinter && report.diagnosticoPorArea && report.diagnosticoPorArea['TESTEO']) {
-        const history = report.diagnosticoPorArea['TESTEO'];
-        const entry = [...history].reverse().find(h => h.cobra_revision);
-        if (entry && entry.cobra_revision === 'NO') shouldChargeRevision = false;
-    }
-
-    // Detect "Cobra Reparacion"
     let shouldChargeReparacion = true;
-    if (report.diagnosticoPorArea && report.diagnosticoPorArea['TESTEO']) {
-        const history = report.diagnosticoPorArea['TESTEO'];
-        const entry = [...history].reverse().find(h => h.cobra_reparacion);
-        if (entry && entry.cobra_reparacion === 'NO') shouldChargeReparacion = false;
-    }
-
-    const hasReparacionService = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
-
-    if (hasReparacionService && shouldChargeReparacion) {
-        diagCost = 0;
-    } else if (!shouldChargeRevision) {
-        diagCost = 0;
-    }
-
-    let serviceTotal = 0;
-    let additionalTotal = 0;
-
-    if (!isPrinter && report.servicesList) {
-        report.servicesList.forEach(s => {
-            // Exclude Revision service if charge is disabled
-            if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
-                return;
-            }
-            // Exclude Reparacion if charge is disabled
-            if (!shouldChargeReparacion && s.service && s.service.toUpperCase().includes('REPARACIÓN')) {
-                return;
-            }
-            serviceTotal += (parseFloat(s.amount) || 0)
-        });
-    }
 
     if (report.diagnosticoPorArea) {
-        Object.values(report.diagnosticoPorArea).flat().forEach(entry => {
-            if (entry.addedServices) entry.addedServices.forEach(s => additionalTotal += (parseFloat(s.amount) || 0));
-            if (entry.printer_services_realized) entry.printer_services_realized.forEach(s => serviceTotal += (parseFloat(s.amount) || 0));
-            if (entry.printer_services_additional) entry.printer_services_additional.forEach(s => additionalTotal += (parseFloat(s.amount) || 0));
+        const areasToCheck = ['IMPRESORA', 'HARDWARE', 'SOFTWARE', 'ELECTRONICA', 'TESTEO'];
+
+        for (const area of areasToCheck) {
+            if (report.diagnosticoPorArea[area]) {
+                const history = report.diagnosticoPorArea[area];
+                const entryWithDecision = [...history].reverse().find(h => h.printer_cobra_revision || h.cobra_revision);
+
+                if (entryWithDecision) {
+                    const decision = entryWithDecision.printer_cobra_revision || entryWithDecision.cobra_revision;
+                    if (decision === 'NO') {
+                        shouldChargeRevision = false;
+                    }
+                }
+            }
+        }
+
+        if (report.diagnosticoPorArea['TESTEO']) {
+            const testeoHistory = report.diagnosticoPorArea['TESTEO'];
+            const repairEntry = [...testeoHistory].reverse().find(h => h.cobra_reparacion);
+            if (repairEntry && repairEntry.cobra_reparacion === 'NO') {
+                shouldChargeReparacion = false;
+            }
+        }
+    }
+
+    const hasReparacionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+    let initialDiagnosticCost = parseFloat(report.diagnostico) || 0;
+
+    if (hasReparacionServiceInList && shouldChargeReparacion) {
+        initialDiagnosticCost = 0;
+    }
+
+    // 2. Prepare IGV Map
+    const igvMap = {};
+    if (report.igvApplicableIds) {
+        report.igvApplicableIds.forEach(id => igvMap[id] = true);
+    }
+
+    const getAmountWithIgv = (id, amount) => {
+        const base = parseFloat(amount) || 0;
+        const hasIgv = !!igvMap[id];
+        return base + (hasIgv ? base * 0.18 : 0);
+    };
+
+    let total = 0;
+
+    // 3. Sum Items matching CostosModal IDs
+
+    // Diagnostic
+    if (shouldChargeRevision && initialDiagnosticCost > 0) {
+        total += getAmountWithIgv('diag-1', initialDiagnosticCost);
+    }
+
+    // Services List
+    if (report.servicesList) {
+        report.servicesList.forEach((s, idx) => {
+            let amount = parseFloat(s.amount) || 0;
+            const isRevision = s.service && s.service.toUpperCase().includes('REVISIÓN');
+            const isReparacion = s.service && s.service.toUpperCase().includes('REPARACIÓN');
+
+            if ((!shouldChargeRevision && isRevision) || (!shouldChargeReparacion && isReparacion)) {
+                amount = 0;
+            } else {
+                total += getAmountWithIgv(`main-${idx}`, amount);
+            }
         });
     }
 
+    // Legacy Additional
     if (report.additionalServices) {
-        report.additionalServices.forEach(s => additionalTotal += (parseFloat(s.amount) || 0));
+        report.additionalServices.forEach((s, idx) => {
+            total += getAmountWithIgv(s.id || `legacy-${idx}`, s.amount);
+        });
     }
 
-    return diagCost + serviceTotal + additionalTotal - (parseFloat(report.descuento) || 0);
+    // Area Additional (New)
+    if (report.diagnosticoPorArea) {
+        const seenServiceIds = new Set();
+
+        Object.entries(report.diagnosticoPorArea).forEach(([area, entries]) => {
+            entries.forEach((entry, entryIdx) => {
+                const processServiceList = (list, listName) => {
+                    if (list) {
+                        list.forEach((s, sIdx) => {
+                            if (s.id && seenServiceIds.has(s.id)) return;
+                            if (s.id) seenServiceIds.add(s.id);
+
+                            const id = s.id || `area-${area}-${entryIdx}-${listName}-${sIdx}`;
+                            total += getAmountWithIgv(id, s.amount);
+                        });
+                    }
+                };
+
+                processServiceList(entry.addedServices, 'added');
+                processServiceList(entry.printer_services_additional, 'printer-add');
+            });
+        });
+    }
+
+    // 4. Subtract Discount
+    const discount = parseFloat(report.descuento) || 0;
+
+    return total - discount;
 };
 
 function VerEstado() {

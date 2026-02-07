@@ -694,6 +694,8 @@ function DetalleDiagnostico() {
         // Ensure "Observaciones" starts with Electronics Obs if applicable, otherwise blank
         if (report.area === 'ELECTRONICA') {
             setReparacionFinal(formState.elec_obs || '');
+        } else if (report.area === 'IMPRESORA' || report.tipoEquipo === 'Impresora') {
+            setReparacionFinal(formState.printer_observaciones || '');
         } else {
             setReparacionFinal('');
         }
@@ -1958,7 +1960,12 @@ function DetalleDiagnostico() {
                             <label className="block text-sm font-medium mb-1">Observaciones</label>
                             <textarea
                                 value={reparacionFinal}
-                                onChange={(e) => setReparacionFinal(e.target.value)}
+                                onChange={(e) => {
+                                    setReparacionFinal(e.target.value);
+                                    if (report.area === 'IMPRESORA' || report.tipoEquipo === 'Impresora') {
+                                        setFormState(prev => ({ ...prev, printer_observaciones: e.target.value }));
+                                    }
+                                }}
                                 rows="4"
                                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                                 placeholder="Describe las observaciones del equipo."

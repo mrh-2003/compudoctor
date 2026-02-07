@@ -197,90 +197,149 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
 
             <div className="border p-4 rounded-md dark:border-gray-700 space-y-4 bg-gray-50 dark:bg-gray-900">
                 <p className="font-bold text-lg text-pink-500 dark:text-pink-400">RESUMEN FINANCIERO (BASE)</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {(() => {
-                        // Calculate effective financials based on "No Cobrar Revision" and "Cobra Reparacion"
+                        // --- LOGIC FROM COSTOSMODAL ---
+
+                        // 1. Check Flags
                         let shouldChargeRevision = true;
-                        if (report.diagnosticoPorArea) {
-                            if (report.diagnosticoPorArea['IMPRESORA']) {
-                                const entry = [...report.diagnosticoPorArea['IMPRESORA']].reverse().find(h => h.printer_cobra_revision);
-                                if (entry && entry.printer_cobra_revision === 'NO') shouldChargeRevision = false;
-                            }
-                            if (shouldChargeRevision && report.diagnosticoPorArea['TESTEO']) {
-                                const entry = [...report.diagnosticoPorArea['TESTEO']].reverse().find(h => h.cobra_revision);
-                                if (entry && entry.cobra_revision === 'NO') shouldChargeRevision = false;
-                            }
-                        }
-                        // Also check root if Printer
-                        if (report.tipoEquipo === 'Impresora' && report.printer_cobra_revision === 'NO') shouldChargeRevision = false;
-
                         let shouldChargeReparacion = true;
-                        if (report.diagnosticoPorArea && report.diagnosticoPorArea['TESTEO']) {
-                            const entry = [...report.diagnosticoPorArea['TESTEO']].reverse().find(h => h.cobra_reparacion);
-                            if (entry && entry.cobra_reparacion === 'NO') shouldChargeReparacion = false;
+
+                        if (report.diagnosticoPorArea) {
+                            const areasToCheck = ['IMPRESORA', 'HARDWARE', 'SOFTWARE', 'ELECTRONICA', 'TESTEO'];
+                            for (const area of areasToCheck) {
+                                if (report.diagnosticoPorArea[area]) {
+                                    const history = report.diagnosticoPorArea[area];
+                                    const entryWithDecision = [...history].reverse().find(h => h.printer_cobra_revision || h.cobra_revision);
+                                    if (entryWithDecision) {
+                                        const decision = entryWithDecision.printer_cobra_revision || entryWithDecision.cobra_revision;
+                                        if (decision === 'NO') shouldChargeRevision = false;
+                                    }
+                                }
+                            }
+                            if (report.diagnosticoPorArea['TESTEO']) {
+                                const testeoHistory = report.diagnosticoPorArea['TESTEO'];
+                                const repairEntry = [...testeoHistory].reverse().find(h => h.cobra_reparacion);
+                                if (repairEntry && repairEntry.cobra_reparacion === 'NO') shouldChargeReparacion = false;
+                            }
                         }
 
-                        let effectiveDiagnostico = parseFloat(diagnostico) || 0;
-                        let originalDiagnostico = parseFloat(diagnostico) || 0;
+                        const hasReparacionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+                        let initialDiagnosticCost = parseFloat(report.diagnostico) || 0;
 
-                        // Check if Reparacion service exists
-                        const hasReparacionService = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
-
-                        if (hasReparacionService && shouldChargeReparacion) {
-                            effectiveDiagnostico = 0;
-                        } else if (!shouldChargeRevision) {
-                            effectiveDiagnostico = 0;
+                        if (hasReparacionServiceInList && shouldChargeReparacion) {
+                            initialDiagnosticCost = 0;
                         }
 
-                        // Calculate effective service amount (excluding revision if needed)
-                        let effectiveMontoServicio = parseFloat(montoServicio) || 0;
-                        let originalMontoServicio = parseFloat(montoServicio) || 0;
+                        // 2. Prepare IGV Map
+                        const igvMap = {};
+                        if (report.igvApplicableIds) {
+                            report.igvApplicableIds.forEach(id => igvMap[id] = true);
+                        }
 
+                        // Helper to get amounts
+                        const getAmounts = (id, amount) => {
+                            const base = parseFloat(amount) || 0;
+                            const hasIgv = !!igvMap[id];
+                            const igv = hasIgv ? base * 0.18 : 0;
+                            return { base, igv, total: base + igv };
+                        };
+
+                        let accBase = 0;
+                        let accIgv = 0;
+                        let accTotal = 0;
+
+                        // 3. Sum Items matching CostosModal IDs
+
+                        // Diagnostic
+                        if (shouldChargeRevision && initialDiagnosticCost > 0) {
+                            const { base, igv, total } = getAmounts('diag-1', initialDiagnosticCost);
+                            accBase += base; accIgv += igv; accTotal += total;
+                        }
+
+                        // Services List
                         if (report.servicesList) {
-                            let recalcServiceTotal = 0;
-                            report.servicesList.forEach(s => {
-                                // Exclude Revision if not charging revision
-                                if (!shouldChargeRevision && s.service && s.service.toUpperCase().includes('REVISIÓN')) return;
+                            report.servicesList.forEach((s, idx) => {
+                                let amount = parseFloat(s.amount) || 0;
+                                const isRevision = s.service && s.service.toUpperCase().includes('REVISIÓN');
+                                const isReparacion = s.service && s.service.toUpperCase().includes('REPARACIÓN');
 
-                                // Exclude Reparacion if not charging reparacion
-                                if (!shouldChargeReparacion && s.service && s.service.toUpperCase().includes('REPARACIÓN')) return;
-
-                                recalcServiceTotal += (parseFloat(s.amount) || 0);
+                                if ((!shouldChargeRevision && isRevision) || (!shouldChargeReparacion && isReparacion)) {
+                                    amount = 0;
+                                } else {
+                                    const { base, igv, total } = getAmounts(`main-${idx}`, amount);
+                                    accBase += base; accIgv += igv; accTotal += total;
+                                }
                             });
-                            effectiveMontoServicio = recalcServiceTotal;
                         }
 
-                        // Diff
-                        let diffDiag = originalDiagnostico - effectiveDiagnostico;
-                        let diffService = originalMontoServicio - effectiveMontoServicio;
+                        // Legacy Additional
+                        if (report.additionalServices) {
+                            report.additionalServices.forEach((s, idx) => {
+                                const { base, igv, total } = getAmounts(s.id || `legacy-${idx}`, s.amount);
+                                accBase += base; accIgv += igv; accTotal += total;
+                            });
+                        }
 
-                        let effectiveTotal = (parseFloat(total) || 0) - diffDiag - diffService;
-                        if (effectiveTotal < 0) effectiveTotal = 0;
+                        // Area Additional (New)
+                        if (report.diagnosticoPorArea) {
+                            const seenServiceIds = new Set();
+                            Object.entries(report.diagnosticoPorArea).forEach(([area, entries]) => {
+                                entries.forEach((entry, entryIdx) => {
+                                    const processList = (list, listName) => {
+                                        if (list) {
+                                            list.forEach((s, sIdx) => {
+                                                if (s.id && seenServiceIds.has(s.id)) return;
+                                                if (s.id) seenServiceIds.add(s.id);
 
-                        const displayAdicionales = (effectiveTotal - effectiveMontoServicio - effectiveDiagnostico);
+                                                const id = s.id || `area-${area}-${entryIdx}-${listName}-${sIdx}`;
+                                                const { base, igv, total } = getAmounts(id, s.amount);
+                                                accBase += base; accIgv += igv; accTotal += total;
+                                            });
+                                        }
+                                    };
+                                    processList(entry.addedServices, 'added');
+                                    processList(entry.printer_services_additional, 'printer-add');
+                                });
+                            });
+                        }
 
-                        let aCuenta = parseFloat(report.aCuenta) || 0;
-                        let effectiveSaldo = effectiveTotal - aCuenta;
+                        // 4. Totals
+                        const discount = parseFloat(report.descuento) || 0;
+                        const finalTotal = accTotal - discount;
 
+                        const pagosRealizados = report.pagosRealizado || [];
+                        const sumPagos = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
+                        const totalPagado = Math.max(sumPagos, parseFloat(report.aCuenta) || 0);
+
+                        const saldo = finalTotal - totalPagado;
+
+                        // RENDER
                         return (
                             <>
-                                <div className="hidden lg:block">
-                                    <label className="block text-sm font-medium mb-1">Costo Diagnóstico (S/)</label>
-                                    <input type="text" value={effectiveDiagnostico.toFixed(2)} {...readOnlyInputProps} />
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Total Base</label>
+                                    <input type="text" value={`S/ ${accBase.toFixed(2)}`} {...readOnlyInputProps} />
                                 </div>
-                                {displayAdicionales > 0 && (
-                                    <div className="hidden lg:block">
-                                        <label className="block text-sm font-medium mb-1">Servicios Adicionales (S/)</label>
-                                        <input type="text" value={displayAdicionales.toFixed(2)} {...readOnlyInputProps} />
-                                    </div>
-                                )}
-                                <div className="col-span-1 md:col-span-2 lg:col-span-1">
-                                    <label className="block text-sm font-medium mb-1">A Cuenta (S/)</label>
-                                    <input type="text" value={aCuenta.toFixed(2)} {...readOnlyInputProps} />
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Total IGV</label>
+                                    <input type="text" value={`S/ ${accIgv.toFixed(2)}`} {...readOnlyInputProps} />
                                 </div>
-                                <div className="col-span-1 md:col-span-2 lg:col-span-1">
-                                    <label className="block text-sm font-medium mb-1">Saldo (S/)</label>
-                                    <input type="text" value={effectiveSaldo.toFixed(2)} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold ${effectiveSaldo > 0 ? 'text-red-500' : 'text-green-500'}`} />
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Descuento</label>
+                                    <input type="text" value={`S/ ${discount.toFixed(2)}`} {...readOnlyInputProps} className={`${readOnlyInputProps.className} text-red-500`} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Total General</label>
+                                    <input type="text" value={`S/ ${finalTotal.toFixed(2)}`} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-bold`} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">A Cuenta / Pagado</label>
+                                    <input type="text" value={`S/ ${totalPagado.toFixed(2)}`} {...readOnlyInputProps} className={`${readOnlyInputProps.className} text-green-600 font-bold`} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Saldo Pendiente</label>
+                                    <input type="text" value={`S/ ${saldo.toFixed(2)}`} {...readOnlyInputProps} className={`${readOnlyInputProps.className} font-black ${saldo > 0 ? 'text-red-600' : 'text-blue-600'}`} />
                                 </div>
                             </>
                         );
