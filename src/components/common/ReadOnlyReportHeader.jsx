@@ -326,8 +326,8 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                                     <input type="text" value={`S/ ${accIgv.toFixed(2)}`} {...readOnlyInputProps} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Descuento</label>
-                                    <input type="text" value={`S/ ${discount.toFixed(2)}`} {...readOnlyInputProps} className={`${readOnlyInputProps.className} text-red-500`} />
+                                    <label className="block text-sm font-medium mb-1">Diagnostico</label>
+                                    <input type="text" value={`S/ ${initialDiagnosticCost.toFixed(2)}`} {...readOnlyInputProps} className={`${readOnlyInputProps.className} text-red-500`} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Total General</label>
