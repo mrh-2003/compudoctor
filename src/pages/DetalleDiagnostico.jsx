@@ -365,6 +365,16 @@ function DetalleDiagnostico() {
                     initialFormState.printer_services_additional = [];
                 }
 
+                // AUTO-FILL HARDWARE CHECKS FROM SERVICE LIST (For existing reports)
+                if (fetchedReport.area === 'HARDWARE' && fetchedReport.servicesList) {
+                    fetchedReport.servicesList.forEach(s => {
+                        const upperService = (s.service || '').toUpperCase();
+                        if (upperService === 'MANTENIMIENTO DE HARDWARE') initialFormState.mant_hardware = true;
+                        if (upperService === 'RECONSTRUCCIÓN' || upperService === 'RECONSTRUCCION') initialFormState.reconstruccion = true;
+                        if (upperService === 'ADAPTACIÓN DE PARLANTES' || upperService === 'ADAPTACION DE PARLANTES') initialFormState.adapt_parlantes = true;
+                    });
+                }
+
                 setFormState(initialFormState);
 
                 setUbicacionFisica(fetchedReport.ubicacionFisica || '');
@@ -536,10 +546,26 @@ function DetalleDiagnostico() {
             isOther: isOther
         };
 
-        setFormState(prev => ({
-            ...prev,
-            addedServices: [...(prev.addedServices || []), serviceToAdd]
-        }));
+        setFormState(prev => {
+            const newState = {
+                ...prev,
+                addedServices: [...(prev.addedServices || []), serviceToAdd]
+            };
+
+            // Auto-check checkbox for Unmapped services (like Mant. Hardware, Reconstruccion)
+            // or ensure it is checked for others
+            if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area)) {
+                newState[selectedServiceOption.value] = true;
+
+                // Extra safety for specific Hardware unmapped ones if value key matches form key
+                if (report.area === 'HARDWARE') {
+                    if (selectedServiceOption.value === 'mant_hardware') newState.mant_hardware = true;
+                    if (selectedServiceOption.value === 'reconstruccion') newState.reconstruccion = true;
+                    if (selectedServiceOption.value === 'adapt_parlantes') newState.adapt_parlantes = true;
+                }
+            }
+            return newState;
+        });
 
         // Reset inputs
         setNuevoServicio({ description: '', amount: 0, specification: '' });
