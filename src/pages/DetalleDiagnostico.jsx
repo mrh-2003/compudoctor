@@ -268,7 +268,7 @@ function DetalleDiagnostico() {
                 if (cobraRevisionValue === 'NO' && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
                     amount = 0;
                 }
-                finalSummary.push(`- ${s.service}${s.specification ? ` (${s.specification})` : ''} - S/ ${amount.toFixed(2)}`);
+                finalSummary.push(`- ${s.service}${s.specification ? ` ${s.specification}` : ''} S/${amount.toFixed(2)}`);
             });
         }
 
@@ -286,7 +286,7 @@ function DetalleDiagnostico() {
 
                 if (areaAddedServices.length > 0) {
                     areaAddedServices.forEach(s => {
-                        finalSummary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
+                        finalSummary.push(`- ${s.description}${s.specification ? ` ${s.specification}` : ''} S/${parseFloat(s.amount || 0).toFixed(2)}`);
                     });
                 }
             });
@@ -477,16 +477,16 @@ function DetalleDiagnostico() {
             const detailsParts = mapping.map(field => {
                 const val = tempValues[field.name];
                 if (val && val !== 'null' && val !== 'undefined') {
-                    if (field.type === 'radio') {
-                        return `${field.label}: ${val}`;
+                    if (field.name.includes('_gb')) {
+                        return `${val}GB`;
                     }
-                    return `${field.label}: ${val}`;
+                    return `${val}`;
                 }
                 return null;
             }).filter(Boolean);
 
             if (detailsParts.length > 0) {
-                finalDescription += ` (${detailsParts.join(', ')})`;
+                finalDescription += ` ${detailsParts.join(' ')}`;
             }
 
             // HERE is where we sync to formState (Summary)
@@ -620,13 +620,13 @@ function DetalleDiagnostico() {
             if (formState.printer_services_realized && formState.printer_services_realized.length > 0) {
                 formState.printer_services_realized.forEach(s => {
                     if (shouldFilterRevision && isRevision(s.description)) return;
-                    summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                    summary.push(`- ${s.description}${s.specification ? ` ${s.specification}` : ''} S/${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
             if (formState.printer_services_additional && formState.printer_services_additional.length > 0) {
                 formState.printer_services_additional.forEach(s => {
                     if (shouldFilterRevision && isRevision(s.description)) return;
-                    summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                    summary.push(`- ${s.description}${s.specification ? ` ${s.specification}` : ''} S/${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
 
@@ -637,7 +637,7 @@ function DetalleDiagnostico() {
 
             if (initialServices.length > 0) {
                 initialServices.forEach(s => {
-                    const spec = s.specification ? ` (${s.specification})` : '';
+                    const spec = s.specification ? ` ${s.specification}` : '';
                     summary.push(`• ${s.service}${spec}`);
                 });
             }
@@ -658,7 +658,7 @@ function DetalleDiagnostico() {
                         else if (reparableStatus === 'NO') statusInfo = ' - NO PRENDE';
                     }
 
-                    summary.push(`• ${displayDesc}${statusInfo} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                    summary.push(`• ${displayDesc}${statusInfo} S/${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
 
@@ -671,14 +671,14 @@ function DetalleDiagnostico() {
 
             if (initialServices.length > 0) {
                 initialServices.forEach(s => {
-                    const spec = s.specification ? ` (${s.specification})` : '';
+                    const spec = s.specification ? ` ${s.specification}` : '';
                     summary.push(`• ${s.service}${spec}`);
                 });
             }
 
             if (additionalServices.length > 0) {
                 additionalServices.forEach(s => {
-                    summary.push(`• ${s.description} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                    summary.push(`• ${s.description} S/${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
         }
