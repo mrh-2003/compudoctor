@@ -520,7 +520,7 @@ function DetalleDiagnostico() {
                     return;
                 }
                 if (nuevoServicio.specification) {
-                    finalDescription = `${selectedServiceOption.label} (${nuevoServicio.specification})`;
+                    finalDescription = `${selectedServiceOption.label} ${nuevoServicio.specification}`;
                 }
                 if (selectedServiceOption.value === 'Otros') isOther = true;
             }
