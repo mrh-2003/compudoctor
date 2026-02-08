@@ -306,7 +306,7 @@ function DetalleDiagnostico() {
         }
 
         const auxEquipo = currentReport.tipoEquipo === 'Otros' ? currentReport.otherDescription : currentReport.tipoEquipo;
-        return finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + currentReport.marca + ' ' + currentReport.modelo + ' - ' + currentReport.serie;
+        return finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + currentReport.marca + ' ' + currentReport.modelo + ' - SERIE: ' + currentReport.serie;
     }, []);
 
     useEffect(() => {
