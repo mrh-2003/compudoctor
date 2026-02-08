@@ -256,19 +256,46 @@ function DetalleDiagnostico() {
         }
     }, [reportId]);
 
-    const generateTesteoServiceSummary = useCallback((currentReport, cobraRevisionValue) => {
+    const generateTesteoServiceSummary = useCallback((currentReport, cobraRevisionValue, cobraReparacionValue) => {
         if (!currentReport) return '';
         let finalSummary = [];
+
+        // Get Electronics Data first
+        const elecEntries = currentReport.diagnosticoPorArea && currentReport.diagnosticoPorArea['ELECTRONICA'] ? currentReport.diagnosticoPorArea['ELECTRONICA'] : [];
+        const lastElecEntry = elecEntries.length > 0 ? elecEntries[elecEntries.length - 1] : null;
+        let reparationLineHandled = false;
 
         // 1. Initial Services
         if (currentReport.servicesList && currentReport.servicesList.length > 0) {
             currentReport.servicesList.forEach(s => {
                 let amount = parseFloat(s.amount || 0);
-                // Check if we should zero out revision (If explicitly NO, zero it. If undefined or SI, keep it)
+                let serviceName = s.service;
+                let extraInfo = '';
+
+                // REVISION LOGIC
                 if (cobraRevisionValue === 'NO' && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
                     amount = 0;
                 }
-                finalSummary.push(`- ${s.service}${s.specification ? ` ${s.specification}` : ''} S/${amount.toFixed(2)}`);
+
+                // REPARACION LOGIC
+                if (s.service && s.service.toUpperCase().includes('REPARACIÓN')) {
+                    reparationLineHandled = true;
+                    if (cobraReparacionValue === 'NO') {
+                        // Case: No Reparable -> Show "Diagnostico" + Etapa
+                        serviceName = 'Diagnostico';
+                        if (lastElecEntry && lastElecEntry.elec_etapa) {
+                            extraInfo = ` ${lastElecEntry.elec_etapa}`;
+                        }
+                    } else {
+                        // Case: Reparable (Default/SI) -> Show "Reparación" + Codigo
+                        // Service name stays as is (Reparación)
+                        if (lastElecEntry && lastElecEntry.elec_codigo) {
+                            extraInfo = ` ${lastElecEntry.elec_codigo}`;
+                        }
+                    }
+                }
+
+                finalSummary.push(`- ${serviceName}${s.specification ? ` ${s.specification}` : ''}${extraInfo} S/${amount.toFixed(2)}`);
             });
         }
 
@@ -291,11 +318,14 @@ function DetalleDiagnostico() {
                 }
             });
 
-            // Logic for Electronics non-reparable observation
-            const elecEntries = currentReport.diagnosticoPorArea['ELECTRONICA'] || [];
-            const lastElecEntry = elecEntries.length > 0 ? elecEntries[elecEntries.length - 1] : null;
+            // Logic for Electronics non-reparable observation (Fallback if Reparation service wasn't present to absorb them)
+            // Or if we want to show them ONLY if not handled?
+            // User requirement: "El codigo a su lado... por lo contrario... etapa... Y luego se debe mostrar todos los servicios adicionales y lo ya existente."
+            // If we successfully integrated them into the Reparation line, we probably shouldn't duplicate them.
+            // However, "lo ya existente" might imply keeping old behavior for others.
+            // Let's assume if we handled it in the reparation line, we don't dump them at the bottom.
 
-            if (lastElecEntry) {
+            if (lastElecEntry && !reparationLineHandled) {
                 if (lastElecEntry.elec_codigo) {
                     finalSummary.push(`CÓDIGO: ${lastElecEntry.elec_codigo}`);
                 }
@@ -348,7 +378,7 @@ function DetalleDiagnostico() {
                     }
 
                     // --- AUTO-FILL TESTEO FINAL SERVICE SUMMARY ---
-                    initialFormState.testeo_servicio_final = generateTesteoServiceSummary(fetchedReport, initialFormState.cobra_revision);
+                    initialFormState.testeo_servicio_final = generateTesteoServiceSummary(fetchedReport, initialFormState.cobra_revision, initialFormState.cobra_reparacion);
                 }
 
                 // AUTO-FILL PRINTER SERVICES REALIZED (FIRST TIME)
@@ -400,13 +430,13 @@ function DetalleDiagnostico() {
     // NEW EFFECT: Watch for cobra_revision changes in TESTEO to update summary text
     useEffect(() => {
         if (report && report.area === 'TESTEO') {
-            const newSummary = generateTesteoServiceSummary(report, formState.cobra_revision);
+            const newSummary = generateTesteoServiceSummary(report, formState.cobra_revision, formState.cobra_reparacion);
             setFormState(prev => {
                 if (prev.testeo_servicio_final === newSummary) return prev;
                 return { ...prev, testeo_servicio_final: newSummary };
             });
         }
-    }, [formState.cobra_revision, report, generateTesteoServiceSummary]);
+    }, [formState.cobra_revision, formState.cobra_reparacion, report, generateTesteoServiceSummary]);
 
     const handleFormChange = (e) => {
         if (!isAllowedToEdit || isReportFinalized) return;

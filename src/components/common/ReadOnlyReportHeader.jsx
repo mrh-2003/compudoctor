@@ -227,9 +227,6 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                         const hasReparacionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
                         let initialDiagnosticCost = parseFloat(report.diagnostico) || 0;
 
-                        if (hasReparacionServiceInList && shouldChargeReparacion) {
-                            initialDiagnosticCost = 0;
-                        }
 
                         // 2. Prepare IGV Map
                         const igvMap = {};
@@ -248,15 +245,6 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                         let accBase = 0;
                         let accIgv = 0;
                         let accTotal = 0;
-
-                        // 3. Sum Items matching CostosModal IDs
-
-                        // Diagnostic
-                        if (shouldChargeRevision && initialDiagnosticCost > 0) {
-                            const { base, igv, total } = getAmounts('diag-1', initialDiagnosticCost);
-                            accBase += base; accIgv += igv; accTotal += total;
-                        }
-
                         // Services List
                         if (report.servicesList) {
                             report.servicesList.forEach((s, idx) => {
