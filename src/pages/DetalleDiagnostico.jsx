@@ -283,12 +283,15 @@ function DetalleDiagnostico() {
                     if (cobraReparacionValue === 'NO') {
                         // Case: No Reparable -> Show "Diagnostico" + Etapa
                         serviceName = 'Diagnostico';
+                        // Use Diagnostic Cost instead of Service Cost
+                        amount = parseFloat(currentReport.diagnostico || 0);
+
                         if (lastElecEntry && lastElecEntry.elec_etapa) {
                             extraInfo = ` ${lastElecEntry.elec_etapa}`;
                         }
                     } else {
                         // Case: Reparable (Default/SI) -> Show "Reparación" + Codigo
-                        // Service name stays as is (Reparación)
+                        // Service name stays as is (Reparación) and Amount stays as Service Amount
                         if (lastElecEntry && lastElecEntry.elec_codigo) {
                             extraInfo = ` ${lastElecEntry.elec_codigo}`;
                         }
@@ -317,13 +320,6 @@ function DetalleDiagnostico() {
                     });
                 }
             });
-
-            // Logic for Electronics non-reparable observation (Fallback if Reparation service wasn't present to absorb them)
-            // Or if we want to show them ONLY if not handled?
-            // User requirement: "El codigo a su lado... por lo contrario... etapa... Y luego se debe mostrar todos los servicios adicionales y lo ya existente."
-            // If we successfully integrated them into the Reparation line, we probably shouldn't duplicate them.
-            // However, "lo ya existente" might imply keeping old behavior for others.
-            // Let's assume if we handled it in the reparation line, we don't dump them at the bottom.
 
             if (lastElecEntry && !reparationLineHandled) {
                 if (lastElecEntry.elec_codigo) {

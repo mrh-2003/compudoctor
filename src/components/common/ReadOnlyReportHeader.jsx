@@ -182,7 +182,27 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="col-span-full">
                         <label className="block text-sm font-medium mb-1">Motivo de Ingreso (Servicios):</label>
-                        <textarea value={report.motivoIngreso || ''} {...readOnlyInputProps} rows="2"></textarea>
+                        <textarea value={(() => {
+                            // Reconstruct the full string like in Print View (Diagnostico.jsx)
+                            // 1. Services
+                            const printServicesList = report.servicesList || [];
+                            const servicesPart = printServicesList.map(s => {
+                                const amountVal = parseFloat(s.amount);
+                                const specDisplay = s.specification ? ` [${s.specification}]` : '';
+                                return `${s.service}${specDisplay} (S/${amountVal})`;
+                            }).join(', ');
+
+                            // 2. Diagnostic
+                            const printDiagnostico = parseFloat(report.diagnostico) || 0;
+                            const diagPart = printDiagnostico > 0 ? `Diagnóstico (S/${printDiagnostico})` : '';
+
+                            // 3. Additional (Initial ones, usually stored in additionalServices)
+                            const additionalServices = report.additionalServices || [];
+                            const addPart = additionalServices.length > 0 ? additionalServices.map(s => s.description).join(', ') : '';
+
+                            const parts = [servicesPart, diagPart, addPart].filter(p => p && p.trim() !== '');
+                            return parts.join(', ');
+                        })()} {...readOnlyInputProps} rows="2"></textarea>
                     </div>
                     <div className="col-span-full">
                         <label className="block text-sm font-medium mb-1">Observaciones de Recepción:</label>
@@ -247,17 +267,27 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                         let accTotal = 0;
                         // Services List
                         if (report.servicesList) {
-                            report.servicesList.forEach((s, idx) => {
+                            report.servicesList.forEach((s, idx)     => {
                                 let amount = parseFloat(s.amount) || 0;
                                 const isRevision = s.service && s.service.toUpperCase().includes('REVISIÓN');
                                 const isReparacion = s.service && s.service.toUpperCase().includes('REPARACIÓN');
 
-                                if ((!shouldChargeRevision && isRevision) || (!shouldChargeReparacion && isReparacion)) {
+                                let useId = `main-${idx}`;
+
+                                if (!shouldChargeRevision && isRevision) {
                                     amount = 0;
-                                } else {
-                                    const { base, igv, total } = getAmounts(`main-${idx}`, amount);
-                                    accBase += base; accIgv += igv; accTotal += total;
+                                } else if (isReparacion) {
+                                    if (!shouldChargeReparacion) {
+                                        // If NOT charging reparation, we charge DIAGNOSTIC instead
+                                        amount = initialDiagnosticCost;
+                                        // Use the IGV setting for the Diagnostic item, not the Repair item
+                                        useId = 'diag-1';
+                                    }
+                                    // If charging reparation, we use existing amount and existing ID (main-idx)
                                 }
+
+                                const { base, igv, total } = getAmounts(useId, amount);
+                                accBase += base; accIgv += igv;
                             });
                         }
 
@@ -265,12 +295,13 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                         if (report.additionalServices) {
                             report.additionalServices.forEach((s, idx) => {
                                 const { base, igv, total } = getAmounts(s.id || `legacy-${idx}`, s.amount);
-                                accBase += base; accIgv += igv; accTotal += total;
+                                accBase += base; accIgv += igv;
                             });
                         }
 
                         // Area Additional (New)
                         if (report.diagnosticoPorArea) {
+                            // ... (Area logic remains same)
                             const seenServiceIds = new Set();
                             Object.entries(report.diagnosticoPorArea).forEach(([area, entries]) => {
                                 entries.forEach((entry, entryIdx) => {
@@ -282,7 +313,7 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
 
                                                 const id = s.id || `area-${area}-${entryIdx}-${listName}-${sIdx}`;
                                                 const { base, igv, total } = getAmounts(id, s.amount);
-                                                accBase += base; accIgv += igv; accTotal += total;
+                                                accBase += base; accIgv += igv;
                                             });
                                         }
                                     };
@@ -292,13 +323,17 @@ const ReadOnlyReportHeader = React.memo(({ report, diagnostico, montoServicio, t
                             });
                         }
 
+                        accTotal = accBase + accIgv; // Recalculate total cleanly from base + igv
+
                         // 4. Totals
                         const discount = parseFloat(report.descuento) || 0;
                         const finalTotal = accTotal - discount;
 
                         const pagosRealizados = report.pagosRealizado || [];
                         const sumPagos = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
-                        const totalPagado = Math.max(sumPagos, parseFloat(report.aCuenta) || 0);
+                        // If 'aCuenta' was initial payment, we should check if it is included in pagosRealizados or separate. 
+                        // Usually existing logic uses max or specific logic. Keeping existing:
+                        let totalPagado = Math.max(sumPagos, parseFloat(report.aCuenta) || 0);
 
                         const saldo = finalTotal - totalPagado;
 
