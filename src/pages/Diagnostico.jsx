@@ -1532,6 +1532,7 @@ function Diagnostico() {
           baseData.tecnicoActual = baseData.tecnicoResponsable;
           baseData.tecnicoActualId = baseData.tecnicoResponsableId;
           baseData.diagnosticoPorArea = {
+            ...(baseData.diagnosticoPorArea || {}),
             [baseData.area]: [{
               reparacion: '',
               tecnico: baseData.tecnicoResponsable,

@@ -1990,7 +1990,10 @@ function DetalleDiagnostico() {
                                     <label className="block text-sm font-medium mb-1">Pasar a la Siguiente Área</label>
                                     <Select
                                         options={nextAreaOptions}
-                                        onChange={(option) => setNextArea(option.value)}
+                                        onChange={(option) => {
+                                            setNextArea(option.value);
+                                            setTecnicoSiguiente(null);
+                                        }}
                                         placeholder="Selecciona la siguiente área..."
                                         styles={selectStyles(theme)}
                                         menuPortalTarget={document.body}
@@ -1999,7 +2002,7 @@ function DetalleDiagnostico() {
                                 </div>
                                 {nextArea && nextArea !== 'TERMINADO' && (
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Asignar a:</label>
+                                        <label className="block text-sm font-medium mb-1">Asignar a: <span className="text-red-500">*</span></label>
                                         <Select
                                             options={techniciansForNextArea}
                                             value={tecnicoSiguiente}
@@ -2016,9 +2019,25 @@ function DetalleDiagnostico() {
                         )}
                         <div className="flex justify-end space-x-2">
                             <button type="button" onClick={handleCloseCompletionModal} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg" disabled={isSaving}>Cancelar</button>
-                            <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center" disabled={isSaving}>
-                                {isSaving ? 'Guardando...' : 'Guardar y Pasar'}
-                            </button>
+                            {(() => {
+                                const isStandardFlow = !(report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA');
+                                const isExpandedTransfer = nextArea && nextArea !== 'TERMINADO';
+                                const isFormValid = !isStandardFlow || (
+                                    ubicacionFisica &&
+                                    nextArea &&
+                                    (!isExpandedTransfer || tecnicoSiguiente)
+                                );
+
+                                return (
+                                    <button
+                                        type="submit"
+                                        className={`font-bold py-2 px-4 rounded-lg flex items-center ${isFormValid ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}`}
+                                        disabled={!isFormValid || isSaving}
+                                    >
+                                        {isSaving ? 'Guardando...' : 'Guardar y Pasar'}
+                                    </button>
+                                );
+                            })()}
                         </div>
                     </form>
                 </Modal>
