@@ -614,13 +614,18 @@ function DetalleDiagnostico() {
         // For TESTEO, we keep the checklist summary because it's a diagnostic checklist
         if (report.area === 'IMPRESORA') {
             // For Impresora, keep services + additional specific to printer
+            const shouldFilterRevision = formState.printer_cobra_revision === 'NO';
+            const isRevision = (desc) => /revisi[oó]n/i.test(desc);
+
             if (formState.printer_services_realized && formState.printer_services_realized.length > 0) {
                 formState.printer_services_realized.forEach(s => {
+                    if (shouldFilterRevision && isRevision(s.description)) return;
                     summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
             if (formState.printer_services_additional && formState.printer_services_additional.length > 0) {
                 formState.printer_services_additional.forEach(s => {
+                    if (shouldFilterRevision && isRevision(s.description)) return;
                     summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
