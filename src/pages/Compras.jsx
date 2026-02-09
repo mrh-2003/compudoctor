@@ -92,6 +92,10 @@ function Compras() {
     }, [filteredPurchases]);
 
     const handleExportExcel = () => {
+        const workbook = XLSX.utils.book_new();
+
+        // 1. Prepare Filter Info (Structured for placement)
+        // We will manually place them to handle merges better or just use the array and then add merges
         const filterInfo = [
             ["REPORTE DE COMPRAS"],
             ["Fecha de Generación:", new Date().toLocaleString()],
@@ -138,32 +142,100 @@ function Compras() {
         const finalData = [...filterInfo, headers, ...values];
         const finalSheet = XLSX.utils.aoa_to_sheet(finalData);
 
-        // Simple Styling
-        const range = XLSX.utils.decode_range(finalSheet['!ref']);
-        for (let R = range.s.r; R <= range.e.r; ++R) {
-            for (let C = range.s.c; C <= range.e.c; ++C) {
+        // Define Merges
+        // Filter rows start at index 4 (0-based): 4, 5, 6, 7. 
+        // Label at Col 0 (span 3 -> 0,1,2), Value at Col 1 (but effectively Col 3 after merge? No, AOA puts it in Col 1. We need to move value to Col 3?
+        // Actually, AOA puts ["Label", "Value"].
+        // To merge A1:C1 (Label) and D1:G1 (Value), we need the data to be in A1 and D1.
+
+        // Let's Correct data placement for Filters
+        // We need to re-construct the Top part to place values in correct columns for merging
+        /*
+            Rows:
+            0: Title
+            1: Gen Date
+            3: "FILTROS APLICADOS:"
+            4: [Label, "", "", Value] -> We need to spacer items if we want AOA to place it in 4th col? 
+            No, we can just write to specific cells, OR we can use nulls/empty strings in between.
+        */
+
+        const spacer = ["", "", ""]; // 3 empty cells
+        const displayData = [
+            ["REPORTE DE COMPRAS"],
+            ["Fecha de Generación:", "", "", new Date().toLocaleString()],
+            [""],
+            ["FILTROS APLICADOS:"],
+            ["Fecha Inicio:", "", "", dateRange.start || "Todos"],
+            ["Fecha Fin:", "", "", dateRange.end || "Todos"],
+            ["Tipo Comprobante:", "", "", filterTipo || "TODOS"],
+            ["Búsqueda:", "", "", searchTerm || "-"],
+            [""],
+            ["RESUMEN:"],
+            ["Total Compras (Filtrado):", "", "", `S/ ${totalCalculated.toFixed(2)}`],
+            [""],
+            headers,
+            ...values
+        ];
+
+        const sheetWithMerges = XLSX.utils.aoa_to_sheet(displayData);
+
+        sheetWithMerges['!merges'] = [
+            // Title
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+            // Gen Date
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } }, // Label 3 cols
+            { s: { r: 1, c: 3 }, e: { r: 1, c: 6 } }, // Value 4 cols
+            // Filters Title
+            { s: { r: 3, c: 0 }, e: { r: 3, c: 3 } },
+            // Date Start
+            { s: { r: 4, c: 0 }, e: { r: 4, c: 2 } }, // Label A-C
+            { s: { r: 4, c: 3 }, e: { r: 4, c: 6 } }, // Value D-G
+            // Date End
+            { s: { r: 5, c: 0 }, e: { r: 5, c: 2 } },
+            { s: { r: 5, c: 3 }, e: { r: 5, c: 6 } },
+            // Type
+            { s: { r: 6, c: 0 }, e: { r: 6, c: 2 } },
+            { s: { r: 6, c: 3 }, e: { r: 6, c: 6 } },
+            // Search
+            { s: { r: 7, c: 0 }, e: { r: 7, c: 2 } },
+            { s: { r: 7, c: 3 }, e: { r: 7, c: 6 } },
+            // Summary
+            { s: { r: 9, c: 0 }, e: { r: 9, c: 3 } },
+            // Total
+            { s: { r: 10, c: 0 }, e: { r: 10, c: 2 } },
+            { s: { r: 10, c: 3 }, e: { r: 10, c: 6 } },
+        ];
+
+        // Apply Styles
+        const range2 = XLSX.utils.decode_range(sheetWithMerges['!ref']);
+        for (let R = range2.s.r; R <= range2.e.r; ++R) {
+            for (let C = range2.s.c; C <= range2.e.c; ++C) {
                 const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-                const cell = finalSheet[cell_address];
+                const cell = sheetWithMerges[cell_address];
                 if (cell) {
                     if (!cell.s) cell.s = {};
                     cell.s.alignment = { vertical: 'top', wrapText: true };
-                    if (R === 12) { // Header row
+                    // Header Row is now index 12
+                    if (R === 12) {
                         cell.s.font = { bold: true };
                         cell.s.fill = { fgColor: { rgb: "E0E0E0" } };
                         cell.s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+                    }
+                    // Bold Labels for Filters (First Column A)
+                    if (C === 0 && R >= 4 && R <= 10) {
+                        cell.s.font = { bold: true };
                     }
                 }
             }
         }
 
-        finalSheet['!cols'] = [
+        sheetWithMerges['!cols'] = [
             { wch: 5 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 },
             { wch: 15 }, { wch: 8 }, { wch: 30 }, { wch: 12 }, { wch: 12 },
             { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }
         ];
 
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, finalSheet, "Compras");
+        XLSX.utils.book_append_sheet(workbook, sheetWithMerges, "Compras");
         XLSX.writeFile(workbook, `Compras_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 

@@ -187,13 +187,7 @@ function DetalleHistorial() {
         let printServicesList = (report.initialServicesList && report.initialServicesList.length > 0) ? [...report.initialServicesList] : [...(report.servicesList || [])];
         let printDiagnostico = (report.initialDiagnostico !== undefined && report.initialDiagnostico !== null) ? report.initialDiagnostico : parseFloat(report.diagnostico);
         let printTotal = (report.initialTotal !== undefined && report.initialTotal !== null) ? report.initialTotal : (parseFloat(report.total) || 0);
-
-        // Se mantiene la data original sin modificaciones dinámicas para el Informe Técnico,
-        // tal como se solicitó para que sea igual al Diagnostico inicial.
-
-
         const printACuenta = (report.initialACuenta !== undefined && report.initialACuenta !== null) ? report.initialACuenta : (parseFloat(report.aCuenta) || 0);
-        // Recalculate saldo to be safe: Total - ACuenta
         const printSaldo = printTotal - printACuenta;
 
         const additionalServices = report.additionalServices || [];
@@ -1285,8 +1279,7 @@ function DetalleHistorial() {
                 ) : (
                     <p className="text-gray-500">No hay historial de intervenciones para este informe.</p>
                 )}
-            </div>
-
+            </div> 
             {isDeliveryModalOpen && (
                 <Modal onClose={handleCloseDeliveryModal}>
                     <form onSubmit={handleDeliverEquipment} className="space-y-4 p-4">
@@ -1294,7 +1287,7 @@ function DetalleHistorial() {
                         <div className="bg-blue-50 dark:bg-blue-900 border border-blue-300 dark:border-blue-700 p-3 rounded-md text-sm">
                             <p><strong>Informe N°:</strong> {report.reportNumber}</p>
                             <p><strong>Cliente:</strong> {report.clientName}</p>
-                            <p><strong>Equipo:</strong> {report.tipoEquipo} - {report.marca} {report.modelo}</p>
+                            <p><strong>Equipo:</strong> {`${report.tipoEquipo == 'Otros' ? '' : report.tipoEquipo || ''} ${report.otherDescription || ''} ${report.marca || ''} ${report.modelo || ''}`}</p>
                             <p className="font-bold text-red-600 mt-2">¡Advertencia! Esta acción marcará el equipo como **ENTREGADO** y no se podrá modificar.</p>
                         </div>
                         <div>

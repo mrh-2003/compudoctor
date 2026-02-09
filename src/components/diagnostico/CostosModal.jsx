@@ -57,17 +57,10 @@ function CostosModal({ report, onClose, onUpdate }) {
                     shouldChargeReparacion = false;
                 }
             }
-        }
-
-        // LOGIC MATRIX for CostosModal:
-        // By default: Charge Repair (if present) + Diagnostic is 0.
-        // If Cobrar Reparacion = NO -> Charge Diagnostic, Reparaction = 0.
-
+        } 
         const hasReparacionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
 
         let initialDiagnosticCost = parseFloat(report.diagnostico);
-
-        // If we have a repair service and we ARE charging for it, Diagnostic becomes 0 (it's included or waived)
         if (hasReparacionServiceInList && shouldChargeReparacion) {
             initialDiagnosticCost = 0;
         }

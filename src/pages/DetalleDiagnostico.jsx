@@ -256,19 +256,49 @@ function DetalleDiagnostico() {
         }
     }, [reportId]);
 
-    const generateTesteoServiceSummary = useCallback((currentReport, cobraRevisionValue) => {
+    const generateTesteoServiceSummary = useCallback((currentReport, cobraRevisionValue, cobraReparacionValue) => {
         if (!currentReport) return '';
         let finalSummary = [];
+
+        // Get Electronics Data first
+        const elecEntries = currentReport.diagnosticoPorArea && currentReport.diagnosticoPorArea['ELECTRONICA'] ? currentReport.diagnosticoPorArea['ELECTRONICA'] : [];
+        const lastElecEntry = elecEntries.length > 0 ? elecEntries[elecEntries.length - 1] : null;
+        let reparationLineHandled = false;
 
         // 1. Initial Services
         if (currentReport.servicesList && currentReport.servicesList.length > 0) {
             currentReport.servicesList.forEach(s => {
                 let amount = parseFloat(s.amount || 0);
-                // Check if we should zero out revision (If explicitly NO, zero it. If undefined or SI, keep it)
+                let serviceName = s.service;
+                let extraInfo = '';
+
+                // REVISION LOGIC
                 if (cobraRevisionValue === 'NO' && s.service && s.service.toUpperCase().includes('REVISIÓN')) {
                     amount = 0;
                 }
-                finalSummary.push(`- ${s.service}${s.specification ? ` (${s.specification})` : ''} - S/ ${amount.toFixed(2)}`);
+
+                // REPARACION LOGIC
+                if (s.service && s.service.toUpperCase().includes('REPARACIÓN')) {
+                    reparationLineHandled = true;
+                    if (cobraReparacionValue === 'NO') {
+                        // Case: No Reparable -> Show "Diagnostico" + Etapa
+                        serviceName = 'Diagnostico';
+                        // Use Diagnostic Cost instead of Service Cost
+                        amount = parseFloat(currentReport.diagnostico || 0);
+
+                        if (lastElecEntry && lastElecEntry.elec_etapa) {
+                            extraInfo = ` ${lastElecEntry.elec_etapa}`;
+                        }
+                    } else {
+                        // Case: Reparable (Default/SI) -> Show "Reparación" + Codigo
+                        // Service name stays as is (Reparación) and Amount stays as Service Amount
+                        if (lastElecEntry && lastElecEntry.elec_codigo) {
+                            extraInfo = ` ${lastElecEntry.elec_codigo}`;
+                        }
+                    }
+                }
+
+                finalSummary.push(`- ${serviceName}${s.specification ? ` ${s.specification}` : ''}${extraInfo} S/${amount.toFixed(2)}`);
             });
         }
 
@@ -286,19 +316,12 @@ function DetalleDiagnostico() {
 
                 if (areaAddedServices.length > 0) {
                     areaAddedServices.forEach(s => {
-                        finalSummary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount || 0).toFixed(2)}`);
+                        finalSummary.push(`- ${s.description}${s.specification ? ` ${s.specification}` : ''} S/${parseFloat(s.amount || 0).toFixed(2)}`);
                     });
                 }
             });
 
-            // Logic for Electronics non-reparable observation
-            const elecEntries = currentReport.diagnosticoPorArea['ELECTRONICA'] || [];
-            const lastElecEntry = elecEntries.length > 0 ? elecEntries[elecEntries.length - 1] : null;
-
-            if (lastElecEntry) {
-                if (lastElecEntry.elec_placa_reparable === 'NO' && lastElecEntry.elec_obs) {
-                    finalSummary.push(`OBSERVACIÓN ELECTRÓNICA: ${lastElecEntry.elec_obs}`);
-                }
+            if (lastElecEntry && !reparationLineHandled) {
                 if (lastElecEntry.elec_codigo) {
                     finalSummary.push(`CÓDIGO: ${lastElecEntry.elec_codigo}`);
                 }
@@ -309,7 +332,7 @@ function DetalleDiagnostico() {
         }
 
         const auxEquipo = currentReport.tipoEquipo === 'Otros' ? currentReport.otherDescription : currentReport.tipoEquipo;
-        return finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + currentReport.marca + ' ' + currentReport.modelo + ' - ' + currentReport.serie;
+        return finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + currentReport.marca + ' ' + currentReport.modelo + ' - SERIE: ' + currentReport.serie;
     }, []);
 
     useEffect(() => {
@@ -351,7 +374,7 @@ function DetalleDiagnostico() {
                     }
 
                     // --- AUTO-FILL TESTEO FINAL SERVICE SUMMARY ---
-                    initialFormState.testeo_servicio_final = generateTesteoServiceSummary(fetchedReport, initialFormState.cobra_revision);
+                    initialFormState.testeo_servicio_final = generateTesteoServiceSummary(fetchedReport, initialFormState.cobra_revision, initialFormState.cobra_reparacion);
                 }
 
                 // AUTO-FILL PRINTER SERVICES REALIZED (FIRST TIME)
@@ -366,6 +389,16 @@ function DetalleDiagnostico() {
                         isOther: s.isOther
                     }));
                     initialFormState.printer_services_additional = [];
+                }
+
+                // AUTO-FILL HARDWARE CHECKS FROM SERVICE LIST (For existing reports)
+                if (fetchedReport.area === 'HARDWARE' && fetchedReport.servicesList) {
+                    fetchedReport.servicesList.forEach(s => {
+                        const upperService = (s.service || '').toUpperCase();
+                        if (upperService === 'MANTENIMIENTO DE HARDWARE') initialFormState.mant_hardware = true;
+                        if (upperService === 'RECONSTRUCCIÓN' || upperService === 'RECONSTRUCCION') initialFormState.reconstruccion = true;
+                        if (upperService === 'ADAPTACIÓN DE PARLANTES' || upperService === 'ADAPTACION DE PARLANTES') initialFormState.adapt_parlantes = true;
+                    });
                 }
 
                 setFormState(initialFormState);
@@ -393,13 +426,13 @@ function DetalleDiagnostico() {
     // NEW EFFECT: Watch for cobra_revision changes in TESTEO to update summary text
     useEffect(() => {
         if (report && report.area === 'TESTEO') {
-            const newSummary = generateTesteoServiceSummary(report, formState.cobra_revision);
+            const newSummary = generateTesteoServiceSummary(report, formState.cobra_revision, formState.cobra_reparacion);
             setFormState(prev => {
                 if (prev.testeo_servicio_final === newSummary) return prev;
                 return { ...prev, testeo_servicio_final: newSummary };
             });
         }
-    }, [formState.cobra_revision, report, generateTesteoServiceSummary]);
+    }, [formState.cobra_revision, formState.cobra_reparacion, report, generateTesteoServiceSummary]);
 
     const handleFormChange = (e) => {
         if (!isAllowedToEdit || isReportFinalized) return;
@@ -480,16 +513,16 @@ function DetalleDiagnostico() {
             const detailsParts = mapping.map(field => {
                 const val = tempValues[field.name];
                 if (val && val !== 'null' && val !== 'undefined') {
-                    if (field.type === 'radio') {
-                        return `${field.label}: ${val}`;
+                    if (field.name.includes('_gb')) {
+                        return `${val}GB`;
                     }
-                    return `${field.label}: ${val}`;
+                    return `${val}`;
                 }
                 return null;
             }).filter(Boolean);
 
             if (detailsParts.length > 0) {
-                finalDescription += ` (${detailsParts.join(', ')})`;
+                finalDescription += ` ${detailsParts.join(' ')}`;
             }
 
             // HERE is where we sync to formState (Summary)
@@ -523,7 +556,7 @@ function DetalleDiagnostico() {
                     return;
                 }
                 if (nuevoServicio.specification) {
-                    finalDescription = `${selectedServiceOption.label} (${nuevoServicio.specification})`;
+                    finalDescription = `${selectedServiceOption.label} ${nuevoServicio.specification}`;
                 }
                 if (selectedServiceOption.value === 'Otros') isOther = true;
             }
@@ -539,10 +572,26 @@ function DetalleDiagnostico() {
             isOther: isOther
         };
 
-        setFormState(prev => ({
-            ...prev,
-            addedServices: [...(prev.addedServices || []), serviceToAdd]
-        }));
+        setFormState(prev => {
+            const newState = {
+                ...prev,
+                addedServices: [...(prev.addedServices || []), serviceToAdd]
+            };
+
+            // Auto-check checkbox for Unmapped services (like Mant. Hardware, Reconstruccion)
+            // or ensure it is checked for others
+            if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area)) {
+                newState[selectedServiceOption.value] = true;
+
+                // Extra safety for specific Hardware unmapped ones if value key matches form key
+                if (report.area === 'HARDWARE') {
+                    if (selectedServiceOption.value === 'mant_hardware') newState.mant_hardware = true;
+                    if (selectedServiceOption.value === 'reconstruccion') newState.reconstruccion = true;
+                    if (selectedServiceOption.value === 'adapt_parlantes') newState.adapt_parlantes = true;
+                }
+            }
+            return newState;
+        });
 
         // Reset inputs
         setNuevoServicio({ description: '', amount: 0, specification: '' });
@@ -617,14 +666,19 @@ function DetalleDiagnostico() {
         // For TESTEO, we keep the checklist summary because it's a diagnostic checklist
         if (report.area === 'IMPRESORA') {
             // For Impresora, keep services + additional specific to printer
+            const shouldFilterRevision = formState.printer_cobra_revision === 'NO';
+            const isRevision = (desc) => /revisi[oó]n/i.test(desc);
+
             if (formState.printer_services_realized && formState.printer_services_realized.length > 0) {
                 formState.printer_services_realized.forEach(s => {
-                    summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                    if (shouldFilterRevision && isRevision(s.description)) return;
+                    summary.push(`- ${s.description}${s.specification ? ` ${s.specification}` : ''} S/${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
             if (formState.printer_services_additional && formState.printer_services_additional.length > 0) {
                 formState.printer_services_additional.forEach(s => {
-                    summary.push(`- ${s.description}${s.specification ? ` (${s.specification})` : ''} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                    if (shouldFilterRevision && isRevision(s.description)) return;
+                    summary.push(`- ${s.description}${s.specification ? ` ${s.specification}` : ''} S/${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
 
@@ -635,7 +689,7 @@ function DetalleDiagnostico() {
 
             if (initialServices.length > 0) {
                 initialServices.forEach(s => {
-                    const spec = s.specification ? ` (${s.specification})` : '';
+                    const spec = s.specification ? ` ${s.specification}` : '';
                     summary.push(`• ${s.service}${spec}`);
                 });
             }
@@ -656,7 +710,7 @@ function DetalleDiagnostico() {
                         else if (reparableStatus === 'NO') statusInfo = ' - NO PRENDE';
                     }
 
-                    summary.push(`• ${displayDesc}${statusInfo} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                    summary.push(`• ${displayDesc}${statusInfo} S/${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
 
@@ -669,14 +723,14 @@ function DetalleDiagnostico() {
 
             if (initialServices.length > 0) {
                 initialServices.forEach(s => {
-                    const spec = s.specification ? ` (${s.specification})` : '';
+                    const spec = s.specification ? ` ${s.specification}` : '';
                     summary.push(`• ${s.service}${spec}`);
                 });
             }
 
             if (additionalServices.length > 0) {
                 additionalServices.forEach(s => {
-                    summary.push(`• ${s.description} - S/ ${parseFloat(s.amount).toFixed(2)}`);
+                    summary.push(`• ${s.description} S/${parseFloat(s.amount).toFixed(2)}`);
                 });
             }
         }
@@ -694,6 +748,8 @@ function DetalleDiagnostico() {
         // Ensure "Observaciones" starts with Electronics Obs if applicable, otherwise blank
         if (report.area === 'ELECTRONICA') {
             setReparacionFinal(formState.elec_obs || '');
+        } else if (report.area === 'IMPRESORA' || report.tipoEquipo === 'Impresora') {
+            setReparacionFinal(formState.printer_observaciones || '');
         } else {
             setReparacionFinal('');
         }
@@ -1958,7 +2014,12 @@ function DetalleDiagnostico() {
                             <label className="block text-sm font-medium mb-1">Observaciones</label>
                             <textarea
                                 value={reparacionFinal}
-                                onChange={(e) => setReparacionFinal(e.target.value)}
+                                onChange={(e) => {
+                                    setReparacionFinal(e.target.value);
+                                    if (report.area === 'IMPRESORA' || report.tipoEquipo === 'Impresora') {
+                                        setFormState(prev => ({ ...prev, printer_observaciones: e.target.value }));
+                                    }
+                                }}
                                 rows="4"
                                 className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                                 placeholder="Describe las observaciones del equipo."
@@ -1981,7 +2042,10 @@ function DetalleDiagnostico() {
                                     <label className="block text-sm font-medium mb-1">Pasar a la Siguiente Área</label>
                                     <Select
                                         options={nextAreaOptions}
-                                        onChange={(option) => setNextArea(option.value)}
+                                        onChange={(option) => {
+                                            setNextArea(option.value);
+                                            setTecnicoSiguiente(null);
+                                        }}
                                         placeholder="Selecciona la siguiente área..."
                                         styles={selectStyles(theme)}
                                         menuPortalTarget={document.body}
@@ -1990,7 +2054,7 @@ function DetalleDiagnostico() {
                                 </div>
                                 {nextArea && nextArea !== 'TERMINADO' && (
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Asignar a:</label>
+                                        <label className="block text-sm font-medium mb-1">Asignar a: <span className="text-red-500">*</span></label>
                                         <Select
                                             options={techniciansForNextArea}
                                             value={tecnicoSiguiente}
@@ -2007,9 +2071,25 @@ function DetalleDiagnostico() {
                         )}
                         <div className="flex justify-end space-x-2">
                             <button type="button" onClick={handleCloseCompletionModal} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg" disabled={isSaving}>Cancelar</button>
-                            <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center" disabled={isSaving}>
-                                {isSaving ? 'Guardando...' : 'Guardar y Pasar'}
-                            </button>
+                            {(() => {
+                                const isStandardFlow = !(report.tipoEquipo === 'Impresora' || report.area === 'IMPRESORA');
+                                const isExpandedTransfer = nextArea && nextArea !== 'TERMINADO';
+                                const isFormValid = !isStandardFlow || (
+                                    ubicacionFisica &&
+                                    nextArea &&
+                                    (!isExpandedTransfer || tecnicoSiguiente)
+                                );
+
+                                return (
+                                    <button
+                                        type="submit"
+                                        className={`font-bold py-2 px-4 rounded-lg flex items-center ${isFormValid ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}`}
+                                        disabled={!isFormValid || isSaving}
+                                    >
+                                        {isSaving ? 'Guardando...' : 'Guardar y Pasar'}
+                                    </button>
+                                );
+                            })()}
                         </div>
                     </form>
                 </Modal>
