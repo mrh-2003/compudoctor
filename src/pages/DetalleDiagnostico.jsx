@@ -332,7 +332,8 @@ function DetalleDiagnostico() {
         }
 
         const auxEquipo = currentReport.tipoEquipo === 'Otros' ? currentReport.otherDescription : currentReport.tipoEquipo;
-        return finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + currentReport.marca + ' ' + currentReport.modelo + ' - SERIE: ' + currentReport.serie;
+        return finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + currentReport.marca + ' ' + currentReport.modelo + (currentReport.serie ? ' - SERIE: ' + currentReport.serie : '');
+
     }, []);
 
     useEffect(() => {
@@ -690,7 +691,7 @@ function DetalleDiagnostico() {
             if (initialServices.length > 0) {
                 initialServices.forEach(s => {
                     const spec = s.specification ? ` ${s.specification}` : '';
-                    summary.push(`• ${s.service}${spec}`);
+                    summary.push(`• ${s.service}${spec} S/${parseFloat(s.amount || 0).toFixed(2)}`);
                 });
             }
 
@@ -724,7 +725,7 @@ function DetalleDiagnostico() {
             if (initialServices.length > 0) {
                 initialServices.forEach(s => {
                     const spec = s.specification ? ` ${s.specification}` : '';
-                    summary.push(`• ${s.service}${spec}`);
+                    summary.push(`• ${s.service}${spec} S/${parseFloat(s.amount || 0).toFixed(2)}`);
                 });
             }
 
