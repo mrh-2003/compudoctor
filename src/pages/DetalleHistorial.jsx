@@ -512,6 +512,10 @@ function DetalleHistorial() {
         const finalObsHtml = (() => {
             const allObs = [];
 
+            if (hw?.otros_especif && hw.otros_especif.trim()) {
+                allObs.push(hw.otros_especif);
+            }
+
             if (report.diagnosticoPorArea) {
                 Object.values(report.diagnosticoPorArea).flat()
                     .filter(e => e.estado === 'TERMINADO')
