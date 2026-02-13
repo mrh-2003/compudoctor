@@ -1350,7 +1350,7 @@ function Diagnostico() {
         if (!item.service) {
           newErrors[`service-${index}`] = "Debe seleccionar un servicio.";
         }
-        if (item.service !== 'Reparación' && item.service !== 'Garantía' && (!item.amount || parseFloat(item.amount) <= 0)) {
+        if (item.service !== 'Reparación' && item.service !== 'Garantía' && item.service !== 'Revisión' && (!item.amount || parseFloat(item.amount) <= 0)) {
           newErrors[`amount-${index}`] = "El monto es obligatorio y debe ser mayor a 0.";
         }
         if (item.service === 'Otros' && !item.description) {
@@ -2112,7 +2112,7 @@ function Diagnostico() {
                 onClick={() => {
                   const amount = newServiceSelection.amount;
 
-                  if (newServiceSelection.service && newServiceSelection.service !== 'Reparación' && newServiceSelection.service !== 'Garantía' && (!amount || amount <= 0)) {
+                  if (newServiceSelection.service && newServiceSelection.service !== 'Reparación' && newServiceSelection.service !== 'Garantía' && newServiceSelection.service !== 'Revisión' && (!amount || amount <= 0)) {
                     toast.error("El monto debe ser mayor a 0 para este servicio.");
                     return;
                   }
