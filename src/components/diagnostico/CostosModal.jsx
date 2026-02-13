@@ -14,19 +14,10 @@ function CostosModal({ report, onClose, onUpdate }) {
     const [paymentBatch, setPaymentBatch] = useState([]);
     const [discount, setDiscount] = useState(report.descuento || 0);
 
-    // State for Payment Vouchers (Comprobantes de Pago)
-    const [comprobantesPago, setComprobantesPago] = useState(report.comprobantesPago || (report.comprobante ? [{ ...report.comprobante, id: Date.now() }] : []));
-    const [newComprobante, setNewComprobante] = useState({
-        tipo: 'BOLETA ELECTRONICA',
-        numero: '',
-        monto: ''
-    });
-
     // Helper to gather all cost items with unique IDs
     const getAllCostItems = () => {
         const items = [];
 
-        // Check if Revision Check is strictly 'NO' in ANY area history
         // Check if Revision Check is strictly 'NO' in ANY area history
         let shouldChargeRevision = true;
         let shouldChargeReparacion = true; // Default is YES, charge repair
@@ -57,7 +48,7 @@ function CostosModal({ report, onClose, onUpdate }) {
                     shouldChargeReparacion = false;
                 }
             }
-        } 
+        }
         const hasReparacionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
 
         let initialDiagnosticCost = parseFloat(report.diagnostico);
@@ -87,7 +78,7 @@ function CostosModal({ report, onClose, onUpdate }) {
                 // If Revision is disabled and service name contains "Revisión", set amount to 0
                 if ((!shouldChargeRevision && isRevision) || (!shouldChargeReparacion && isReparacion)) {
                     amount = 0;
-                } else{
+                } else {
                     items.push({
                         id: `main-${idx}`,
                         label: s.service + (s.specification ? ` [${s.specification}]` : ''),
@@ -97,8 +88,6 @@ function CostosModal({ report, onClose, onUpdate }) {
                 }
             });
         }
-
-
 
         // 3. Legacy Additional Services (Global)
         if (report.additionalServices) {
@@ -153,7 +142,6 @@ function CostosModal({ report, onClose, onUpdate }) {
     const costItems = getAllCostItems();
 
     // Map of IDs that have IGV applied
-    // Assuming report.igvApplicableIds is an array of strings. If undefined, default to empty.
     const [igvMap, setIgvMap] = useState(() => {
         const map = {};
         if (report.igvApplicableIds) {
@@ -219,60 +207,6 @@ function CostosModal({ report, onClose, onUpdate }) {
             console.error("Error updating IGV", error);
             toast.error("Error al actualizar IGV");
             setIgvMap(igvMap); // Revert
-        }
-    };
-
-    const handleAddComprobante = async () => {
-        if (!newComprobante.numero) {
-            toast.error("Ingrese el número de comprobante");
-            return;
-        }
-
-        /* 
-        // Optional: Require amount? User said "igual que los comprobantes de compra" which I added amount to.
-        if (!newComprobante.monto) {
-             toast.error("Ingrese el monto del comprobante");
-             return;
-        }
-        */
-
-        const updatedList = [...comprobantesPago, { ...newComprobante, id: Date.now() }];
-
-        setIsSubmitting(true);
-        try {
-            await updateDiagnosticReport(report.id, {
-                comprobantesPago: updatedList,
-                // Keep backward compatibility if needed, or just switch to new field
-                comprobante: updatedList.length > 0 ? updatedList[0] : null
-            });
-            setComprobantesPago(updatedList);
-            setNewComprobante({ tipo: 'BOLETA ELECTRONICA', numero: '', monto: '' });
-            toast.success("Comprobante agregado");
-            if (onUpdate) onUpdate();
-        } catch (error) {
-            console.error(error);
-            toast.error("Error al guardar comprobante");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleRemoveComprobante = async (id) => {
-        const updatedList = comprobantesPago.filter(c => c.id !== id);
-        setIsSubmitting(true);
-        try {
-            await updateDiagnosticReport(report.id, {
-                comprobantesPago: updatedList,
-                comprobante: updatedList.length > 0 ? updatedList[0] : null
-            });
-            setComprobantesPago(updatedList);
-            toast.success("Comprobante eliminado");
-            if (onUpdate) onUpdate();
-        } catch (error) {
-            console.error(error);
-            toast.error("Error al eliminar comprobante");
-        } finally {
-            setIsSubmitting(false);
         }
     };
 
@@ -646,96 +580,7 @@ function CostosModal({ report, onClose, onUpdate }) {
                     )}
                 </div>
 
-                {/* Voucher Section (Multiple) */}
-                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                        Comprobantes de Pago (Emitidos al Cliente)
-                    </h3>
 
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg mb-4">
-                        <div className="flex flex-col md:flex-row gap-4 items-end">
-                            <div className="w-full md:w-1/3">
-                                <label className="block text-sm font-medium mb-1">Tipo de Comprobante</label>
-                                <select
-                                    value={newComprobante.tipo}
-                                    onChange={(e) => setNewComprobante(prev => ({ ...prev, tipo: e.target.value }))}
-                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                    disabled={isSubmitting}
-                                >
-                                    <option value="BOLETA FISICA">BOLETA FISICA</option>
-                                    <option value="BOLETA ELECTRONICA">BOLETA ELECTRONICA</option>
-                                    <option value="FACTURA ELECTRONICA">FACTURA ELECTRONICA</option>
-                                </select>
-                            </div>
-                            <div className="w-full md:w-1/3">
-                                <label className="block text-sm font-medium mb-1">Número</label>
-                                <input
-                                    type="text"
-                                    value={newComprobante.numero}
-                                    onChange={(e) => setNewComprobante(prev => ({ ...prev, numero: e.target.value }))}
-                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                    placeholder="Ejem: B001-000123"
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-                            <div className="w-full md:w-1/4">
-                                <label className="block text-sm font-medium mb-1">Monto (S/)</label>
-                                <input
-                                    type="number"
-                                    value={newComprobante.monto}
-                                    onChange={(e) => setNewComprobante(prev => ({ ...prev, monto: e.target.value }))}
-                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                                    placeholder="0.00"
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-                            <div className="w-full md:w-auto">
-                                <button
-                                    onClick={handleAddComprobante}
-                                    disabled={isSubmitting}
-                                    className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-2 px-3 rounded-md flex items-center justify-center gap-2 h-[42px]"
-                                    title="Agregar Comprobante"
-                                >
-                                    <FaPlus />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* List of Vouchers */}
-                    {comprobantesPago.length > 0 && (
-                        <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                            <table className="min-w-full text-sm">
-                                <thead className="bg-gray-100 dark:bg-gray-700">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left">Tipo</th>
-                                        <th className="px-4 py-2 text-left">Número</th>
-                                        <th className="px-4 py-2 text-right">Monto</th>
-                                        <th className="px-4 py-2 w-10"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
-                                    {comprobantesPago.map((comp) => (
-                                        <tr key={comp.id}>
-                                            <td className="px-4 py-2">{comp.tipo}</td>
-                                            <td className="px-4 py-2">{comp.numero}</td>
-                                            <td className="px-4 py-2 text-right">{comp.monto ? `S/ ${parseFloat(comp.monto).toFixed(2)}` : '-'}</td>
-                                            <td className="px-4 py-2 text-center">
-                                                <button
-                                                    onClick={() => handleRemoveComprobante(comp.id)}
-                                                    className="text-red-500 hover:text-red-700"
-                                                    disabled={isSubmitting}
-                                                >
-                                                    <FaTrash size={14} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
 
                 <div className="mt-6 flex justify-end">
                     <button onClick={onClose} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">

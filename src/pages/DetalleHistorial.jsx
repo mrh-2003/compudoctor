@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { getDiagnosticReportById, updateDiagnosticReport } from '../services/diagnosticService';
+import { getPurchases } from '../services/comprasService';
 import { FaArrowLeft, FaCheckCircle, FaTrash, FaPlus, FaPrint } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -70,6 +71,25 @@ function DetalleHistorial() {
     // Estados para documentos de venta/compra
     const [deliveryDocuments, setDeliveryDocuments] = useState([]);
     const [newDoc, setNewDoc] = useState({ type: DOC_TYPES[0], description: '', number: '', amount: '' });
+    const [relatedPurchases, setRelatedPurchases] = useState([]);
+
+    useEffect(() => {
+        if (report?.reportNumber) {
+            const loadPurchases = async () => {
+                try {
+                    const allPurchases = await getPurchases();
+                    // Filter purchases where any item matches the report number
+                    const filtered = allPurchases.filter(p =>
+                        p.items && p.items.some(item => String(item.techReportNum) === String(report.reportNumber))
+                    );
+                    setRelatedPurchases(filtered);
+                } catch (error) {
+                    console.error("Error loading related purchases:", error);
+                }
+            };
+            loadPurchases();
+        }
+    }, [report?.reportNumber]);
 
     useEffect(() => {
         if (reportId) {
@@ -742,7 +762,9 @@ function DetalleHistorial() {
                     .bottom-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
                     .list-box { border: 1px solid #000; padding: 5px; border-radius: 4px; }
                     .list-title { font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 3px; font-size: 8pt; text-align:center; background:#eee; }
-                    .list-item { font-size: 7.5pt; display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; padding: 1px 0; }
+                    .list-item { font-size: 7.5pt; display: flex; justify-content: space-between; gap: 5px; border-bottom: 1px dashed #eee; padding: 1px 0; }
+                    .list-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                    .list-item strong { white-space: nowrap; }
                 </style>
             </head>
             <body>
@@ -971,10 +993,10 @@ function DetalleHistorial() {
                     
                     <div class="list-box">
                         <div class="list-title">COMPROBANTES EMITIDOS</div>
-                        ${(report.comprobantesPago || []).map(d => `
+                        ${relatedPurchases.map(p => `
                             <div class="list-item">
-                                <span>${d.tipo} - ${d.numero}</span>
-                                <strong>S/ ${(parseFloat(d.monto) || 0).toFixed(2)}</strong>
+                                <span>${p.tipoComprobante} ${p.provider ? `(${p.provider})` : ''} - ${p.purchaseCompNum || ''}</span>
+                                <strong>S/ ${(parseFloat(p.total) || 0).toFixed(2)}</strong>
                             </div>
                         `).join('')}
                     </div>
@@ -1242,24 +1264,28 @@ function DetalleHistorial() {
                 </div>
             )}
 
-            {(report.comprobantesPago && report.comprobantesPago.length > 0) && (
+            {relatedPurchases.length > 0 && (
                 <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
-                    <h2 className="text-xl font-semibold text-blue-600 mb-3">Comprobantes de Pago Emitidos</h2>
+                    <h2 className="text-xl font-semibold text-blue-600 mb-3">Comprobantes de Compra (Repuestos/Insumos)</h2>
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm text-left">
                             <thead className="bg-gray-50 dark:bg-gray-700">
                                 <tr>
+                                    <th className="px-4 py-2">Fecha</th>
+                                    <th className="px-4 py-2">Proveedor</th>
                                     <th className="px-4 py-2">Tipo</th>
                                     <th className="px-4 py-2">N° Comprobante</th>
-                                    <th className="px-4 py-2">Monto</th>
+                                    <th className="px-4 py-2 text-right">Total Compra</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                                {report.comprobantesPago.map((doc, index) => (
+                                {relatedPurchases.map((p, index) => (
                                     <tr key={index}>
-                                        <td className="px-4 py-2">{doc.tipo}</td>
-                                        <td className="px-4 py-2">{doc.numero}</td>
-                                        <td className="px-4 py-2">{doc.monto ? `S/ ${parseFloat(doc.monto).toFixed(2)}` : '-'}</td>
+                                        <td className="px-4 py-2">{p.date}</td>
+                                        <td className="px-4 py-2">{p.provider}</td>
+                                        <td className="px-4 py-2">{p.tipoComprobante}</td>
+                                        <td className="px-4 py-2">{p.purchaseCompNum}</td>
+                                        <td className="px-4 py-2 font-bold text-right">S/ {parseFloat(p.total || 0).toFixed(2)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -1279,7 +1305,7 @@ function DetalleHistorial() {
                 ) : (
                     <p className="text-gray-500">No hay historial de intervenciones para este informe.</p>
                 )}
-            </div> 
+            </div>
             {isDeliveryModalOpen && (
                 <Modal onClose={handleCloseDeliveryModal}>
                     <form onSubmit={handleDeliverEquipment} className="space-y-4 p-4">
