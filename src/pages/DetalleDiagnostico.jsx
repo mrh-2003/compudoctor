@@ -484,7 +484,12 @@ function DetalleDiagnostico() {
     };
 
     const handleAddLocalService = () => {
-        if (!selectedServiceOption || !nuevoServicio.amount) return;
+        // En ELECTRONICA permitimos monto 0, en otras áreas debe ser > 0 (truthy)
+        const isValidAmount = report?.area === 'ELECTRONICA'
+            ? (nuevoServicio.amount !== '' && nuevoServicio.amount !== null && nuevoServicio.amount !== undefined)
+            : nuevoServicio.amount;
+
+        if (!selectedServiceOption || !isValidAmount) return;
 
         // For TesteoManual, we don't enable fields in formState like others
         if (selectedServiceOption.value === 'TesteoManual') {
