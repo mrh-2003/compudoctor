@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { getDiagnosticReportById, updateDiagnosticReport } from '../services/diagnosticService';
 import { getPurchases } from '../services/comprasService';
+import { getSales } from '../services/salesService';
 import { FaArrowLeft, FaCheckCircle, FaTrash, FaPlus, FaPrint } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -68,10 +69,8 @@ function DetalleHistorial() {
     const backPath = location.pathname.includes('bandeja-tecnico') ? '/bandeja-tecnico' : '/ver-estado';
     const [observacionEntrega, setObservacionEntrega] = useState('');
 
-    // Estados para documentos de venta/compra
-    const [deliveryDocuments, setDeliveryDocuments] = useState([]);
-    const [newDoc, setNewDoc] = useState({ type: DOC_TYPES[0], description: '', number: '', amount: '' });
     const [relatedPurchases, setRelatedPurchases] = useState([]);
+    const [relatedSales, setRelatedSales] = useState([]);
 
     useEffect(() => {
         if (report?.reportNumber) {
@@ -87,7 +86,21 @@ function DetalleHistorial() {
                     console.error("Error loading related purchases:", error);
                 }
             };
+            const loadSales = async () => {
+                try {
+                    const allSales = await getSales();
+                    // Filter sales where techReportNum matches (top level or items)
+                    const filtered = allSales.filter(s =>
+                        String(s.techReportNum) === String(report.reportNumber) ||
+                        (s.items && s.items.some(item => String(item.techReportNum) === String(report.reportNumber)))
+                    );
+                    setRelatedSales(filtered);
+                } catch (error) {
+                    console.error("Error loading related sales:", error);
+                }
+            }
             loadPurchases();
+            loadSales();
         }
     }, [report?.reportNumber]);
 
@@ -110,28 +123,12 @@ function DetalleHistorial() {
     };
 
     const handleOpenDeliveryModal = () => {
-        setDeliveryDocuments([]);
-        setNewDoc({ type: DOC_TYPES[0], description: '', number: '', amount: '' });
         setIsDeliveryModalOpen(true);
     };
 
     const handleCloseDeliveryModal = () => {
         setIsDeliveryModalOpen(false);
         setObservacionEntrega('');
-        setDeliveryDocuments([]);
-    };
-
-    const handleAddDocument = () => {
-        if (!newDoc.type || !newDoc.description || !newDoc.number || !newDoc.amount) {
-            toast.error('Por favor complete todos los campos del documento.');
-            return;
-        }
-        setDeliveryDocuments([...deliveryDocuments, { ...newDoc, id: Date.now() }]);
-        setNewDoc({ type: DOC_TYPES[0], description: '', number: '', amount: '' });
-    };
-
-    const handleRemoveDocument = (id) => {
-        setDeliveryDocuments(deliveryDocuments.filter(doc => doc.id !== id));
     };
 
     const handleDeliverEquipment = async (e) => {
@@ -141,19 +138,12 @@ function DetalleHistorial() {
             const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
             const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-            // Validación para Administradores (rol ADMIN)
-            if (currentUser?.rol === 'ADMIN' && deliveryDocuments.length === 0) {
-                toast.error('Para los administradores es obligatorio registrar al menos un comprobante.');
-                return;
-            }
-
             const updatedData = {
                 estado: 'ENTREGADO',
                 fechaEntrega: formattedDate,
                 horaEntrega: formattedTime,
                 tecnicoEntrega: currentUser?.nombre || 'N/A',
-                observacionEntrega: observacionEntrega || '',
-                documentosVentaCompra: deliveryDocuments
+                observacionEntrega: observacionEntrega || ''
             };
 
             if (currentUser?.uid) {
@@ -1003,14 +993,15 @@ function DetalleHistorial() {
 
                     <div class="list-box">
                         <div class="list-title">DOCUMENTOS ADJUNTOS</div>
-                        ${(report.documentosVentaCompra || []).map(d => `
+                        ${relatedSales.map(s => `
                             <div class="list-item">
-                                <span>${d.type} - ${d.number}</span>
-                                <strong>S/ ${(parseFloat(d.amount) || 0).toFixed(2)}</strong>
+                                <span>${s.tipoComprobante || ''} - ${s.saleCompNum || ''}</span>
+                                <strong>S/ ${(parseFloat(s.total) || 0).toFixed(2)}</strong>
                             </div>
                         `).join('')}
                     </div>
                 </div>
+
 
 
 
@@ -1210,26 +1201,28 @@ function DetalleHistorial() {
                 </div>
             )}
 
-            {(report.documentosVentaCompra && report.documentosVentaCompra.length > 0) && (
+            {relatedSales.length > 0 && (
                 <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
-                    <h2 className="text-xl font-semibold text-green-600 mb-3">Comprobantes de Compra Registrados</h2>
+                    <h2 className="text-xl font-semibold text-green-600 mb-3">Comprobantes de Venta Registrados</h2>
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm text-left">
                             <thead className="bg-gray-50 dark:bg-gray-700">
                                 <tr>
+                                    <th className="px-4 py-2">Fecha</th>
+                                    <th className="px-4 py-2">Cliente</th>
                                     <th className="px-4 py-2">Tipo</th>
-                                    <th className="px-4 py-2">Descripción</th>
                                     <th className="px-4 py-2">N° Comprobante</th>
-                                    <th className="px-4 py-2">Monto</th>
+                                    <th className="px-4 py-2 text-right">Total Venta</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                                {report.documentosVentaCompra.map((doc, index) => (
+                                {relatedSales.map((s, index) => (
                                     <tr key={index}>
-                                        <td className="px-4 py-2">{doc.type}</td>
-                                        <td className="px-4 py-2">{doc.description}</td>
-                                        <td className="px-4 py-2">{doc.number}</td>
-                                        <td className="px-4 py-2">{doc.amount ? `S/ ${parseFloat(doc.amount).toFixed(2)}` : '-'}</td>
+                                        <td className="px-4 py-2">{s.date}</td>
+                                        <td className="px-4 py-2">{s.clientName}</td>
+                                        <td className="px-4 py-2">{s.tipoComprobante}</td>
+                                        <td className="px-4 py-2 font-bold">{s.saleCompNum}</td>
+                                        <td className="px-4 py-2 font-bold text-right">S/ {parseFloat(s.total || 0).toFixed(2)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -1327,85 +1320,7 @@ function DetalleHistorial() {
                             ></textarea>
                         </div>
 
-                        {/* Sección de Documentos */}
-                        <div className="border-t pt-4 dark:border-gray-600">
-                            <h3 className="text-sm font-bold mb-2">Comprobantes de Compra {currentUser?.rol === 'ADMIN' && <span className="text-red-500">*</span>}</h3>
 
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2">
-                                <select
-                                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm md:col-span-1"
-                                    value={newDoc.type}
-                                    onChange={(e) => setNewDoc({ ...newDoc, type: e.target.value })}
-                                >
-                                    {DOC_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
-                                </select>
-                                <input
-                                    type="text"
-                                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm md:col-span-2"
-                                    placeholder="Descripción"
-                                    value={newDoc.description}
-                                    onChange={(e) => setNewDoc({ ...newDoc, description: e.target.value })}
-                                />
-                                <input
-                                    type="text"
-                                    className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm md:col-span-1"
-                                    placeholder="N° Comprobante"
-                                    value={newDoc.number}
-                                    onChange={(e) => setNewDoc({ ...newDoc, number: e.target.value })}
-                                />
-                                <div className="flex gap-2 md:col-span-1">
-                                    <input
-                                        type="number"
-                                        className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm w-full"
-                                        placeholder="Monto"
-                                        value={newDoc.amount}
-                                        onChange={(e) => setNewDoc({ ...newDoc, amount: e.target.value })}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleAddDocument}
-                                        className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-md flex items-center justify-center shrink-0"
-                                    >
-                                        <FaPlus />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {deliveryDocuments.length > 0 && (
-                                <div className="bg-gray-50 dark:bg-gray-800 border rounded-md max-h-40 overflow-y-auto mt-2">
-                                    <table className="min-w-full text-xs text-left">
-                                        <thead className="bg-gray-200 dark:bg-gray-700 sticky top-0">
-                                            <tr>
-                                                <th className="px-2 py-1">Tipo</th>
-                                                <th className="px-2 py-1">Desc.</th>
-                                                <th className="px-2 py-1">N°</th>
-                                                <th className="px-2 py-1">Monto</th>
-                                                <th className="px-2 py-1"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                                            {deliveryDocuments.map(doc => (
-                                                <tr key={doc.id}>
-                                                    <td className="px-2 py-1">{doc.type}</td>
-                                                    <td className="px-2 py-1">{doc.description}</td>
-                                                    <td className="px-2 py-1">{doc.number}</td>
-                                                    <td className="px-2 py-1">{doc.amount ? `S/ ${parseFloat(doc.amount).toFixed(2)}` : '-'}</td>
-                                                    <td className="px-2 py-1 text-center">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleRemoveDocument(doc.id)}
-                                                            className="text-red-500 hover:text-red-700"
-                                                        >
-                                                            <FaTrash size={12} />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
                         <div className="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 p-3 rounded-md text-sm">
                             <p className="font-semibold mb-2">Información de Entrega:</p>
                             <ul className="space-y-1">
@@ -1418,10 +1333,10 @@ function DetalleHistorial() {
                             <button type="button" onClick={handleCloseDeliveryModal} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
                             <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Confirmar Entrega</button>
                         </div>
-                    </form>
-                </Modal>
+                    </form >
+                </Modal >
             )}
-        </div>
+        </div >
     );
 }
 
