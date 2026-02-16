@@ -846,8 +846,7 @@ function DetalleHistorial() {
                                         ${formatItem(elec.elec_otro, 'OTRO COMPONENTE', 'Esp', `${txt(elec.elec_otro_especif || '-')}`)}
                                         
                                         <div style="margin-top:8px; font-size:8pt; border:1px solid #ddd; padding:3px; background:#fcfcfc;">
-                                             <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-                                                <span><strong>Reparable:</strong> ${elec.elec_otro_reparable || '-'}</span>
+                                             <div style="display:flex; justify-content:space-between; margin-bottom:2px;"> 
                                                 <span><strong>Código:</strong> ${txt(elec.elec_codigo)}</span>
                                                 <span><strong>Etapa:</strong> ${txt(elec.elec_etapa)}</span>
                                              </div>
