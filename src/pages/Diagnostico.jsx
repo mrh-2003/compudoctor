@@ -1229,11 +1229,24 @@ function Diagnostico() {
     const nameKey = name;
     const idKey = `${name}Id`;
 
-    setFormData((prev) => ({
-      ...prev,
-      [nameKey]: selectedOption ? selectedOption.label : "",
-      [idKey]: selectedOption ? selectedOption.value : "",
-    }));
+    setFormData((prev) => {
+      const updates = {
+        [nameKey]: selectedOption ? selectedOption.label : "",
+        [idKey]: selectedOption ? selectedOption.value : "",
+      };
+
+      if (name === 'tecnicoResponsable' && prev.estado === 'TERMINADO') {
+        const newId = selectedOption ? selectedOption.value : "";
+        if (prev.tecnicoResponsableId !== newId) {
+          updates.estado = 'PENDIENTE';
+        }
+      }
+
+      return {
+        ...prev,
+        ...updates
+      };
+    });
   };
 
   const handleEquipoChange = (e) => {
@@ -1531,19 +1544,24 @@ function Diagnostico() {
           const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
           baseData.tecnicoActual = baseData.tecnicoResponsable;
           baseData.tecnicoActualId = baseData.tecnicoResponsableId;
+          const existingAreaHistory = (baseData.diagnosticoPorArea && baseData.diagnosticoPorArea[baseData.area]) || [];
+
           baseData.diagnosticoPorArea = {
             ...(baseData.diagnosticoPorArea || {}),
-            [baseData.area]: [{
-              reparacion: '',
-              tecnico: baseData.tecnicoResponsable,
-              tecnicoId: baseData.tecnicoResponsableId,
-              ubicacionFisica: '',
-              fecha_inicio: formattedDate,
-              hora_inicio: formattedTime,
-              fecha_fin: '',
-              hora_fin: '',
-              estado: 'ASIGNADO',
-            }],
+            [baseData.area]: [
+              ...existingAreaHistory,
+              {
+                reparacion: '',
+                tecnico: baseData.tecnicoResponsable,
+                tecnicoId: baseData.tecnicoResponsableId,
+                ubicacionFisica: '',
+                fecha_inicio: formattedDate,
+                hora_inicio: formattedTime,
+                fecha_fin: '',
+                hora_fin: '',
+                estado: 'ASIGNADO',
+              }
+            ],
           }
         }
 
