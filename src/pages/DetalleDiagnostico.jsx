@@ -256,7 +256,7 @@ function DetalleDiagnostico() {
         }
     }, [reportId]);
 
-    const generateTesteoServiceSummary = useCallback((currentReport, cobraRevisionValue, cobraReparacionValue) => {
+    const generateTesteoServiceSummary = useCallback((currentReport, cobraRevisionValue, cobraReparacionValue, addedServices = []) => {
         if (!currentReport) return '';
         let finalSummary = [];
 
@@ -331,6 +331,13 @@ function DetalleDiagnostico() {
             }
         }
 
+        // 3. Current Added Services
+        if (addedServices && addedServices.length > 0) {
+            addedServices.forEach(s => {
+                finalSummary.push(`- ${s.description}${s.specification ? ` ${s.specification}` : ''} S/${parseFloat(s.amount || 0).toFixed(2)}`);
+            });
+        }
+
         const auxEquipo = currentReport.tipoEquipo === 'Otros' ? currentReport.otherDescription : currentReport.tipoEquipo;
         return finalSummary.join('\n').trim() + '\n' + auxEquipo + ' ' + currentReport.marca + ' ' + currentReport.modelo + (currentReport.serie ? ' - SERIE: ' + currentReport.serie : '');
 
@@ -375,7 +382,7 @@ function DetalleDiagnostico() {
                     }
 
                     // --- AUTO-FILL TESTEO FINAL SERVICE SUMMARY ---
-                    initialFormState.testeo_servicio_final = generateTesteoServiceSummary(fetchedReport, initialFormState.cobra_revision, initialFormState.cobra_reparacion);
+                    initialFormState.testeo_servicio_final = generateTesteoServiceSummary(fetchedReport, initialFormState.cobra_revision, initialFormState.cobra_reparacion, initialFormState.addedServices);
                 }
 
                 // AUTO-FILL PRINTER SERVICES REALIZED (FIRST TIME)
@@ -427,13 +434,13 @@ function DetalleDiagnostico() {
     // NEW EFFECT: Watch for cobra_revision changes in TESTEO to update summary text
     useEffect(() => {
         if (report && report.area === 'TESTEO') {
-            const newSummary = generateTesteoServiceSummary(report, formState.cobra_revision, formState.cobra_reparacion);
+            const newSummary = generateTesteoServiceSummary(report, formState.cobra_revision, formState.cobra_reparacion, formState.addedServices);
             setFormState(prev => {
                 if (prev.testeo_servicio_final === newSummary) return prev;
                 return { ...prev, testeo_servicio_final: newSummary };
             });
         }
-    }, [formState.cobra_revision, formState.cobra_reparacion, report, generateTesteoServiceSummary]);
+    }, [formState.cobra_revision, formState.cobra_reparacion, formState.addedServices, report, generateTesteoServiceSummary]);
 
     const handleFormChange = (e) => {
         if (!isAllowedToEdit || isReportFinalized) return;
