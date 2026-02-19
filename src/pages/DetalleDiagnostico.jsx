@@ -316,15 +316,6 @@ function DetalleDiagnostico() {
                     });
                 }
             });
-
-            if (lastElecEntry && !reparationLineHandled) {
-                if (lastElecEntry.elec_codigo) {
-                    finalSummary.push(`CÓDIGO: ${lastElecEntry.elec_codigo}`);
-                }
-                if (lastElecEntry.elec_etapa) {
-                    finalSummary.push(`ETAPA: ${lastElecEntry.elec_etapa}`);
-                }
-            }
         }
 
         // 3. Current Added Services
@@ -528,7 +519,11 @@ function DetalleDiagnostico() {
             }).filter(Boolean);
 
             if (detailsParts.length > 0) {
-                finalDescription += ` ${detailsParts.join(' ')}`;
+                if (['otros', 'sw_otros', 'elec_otro'].includes(selectedServiceOptionPtr.value)) {
+                    finalDescription = detailsParts.join(' ');
+                } else {
+                    finalDescription += ` ${detailsParts.join(' ')}`;
+                }
             }
 
             // HERE is where we sync to formState (Summary)
@@ -562,7 +557,11 @@ function DetalleDiagnostico() {
                     return;
                 }
                 if (nuevoServicioPtr.specification) {
-                    finalDescription = `${selectedServiceOptionPtr.label} ${nuevoServicioPtr.specification}`;
+                    if (selectedServiceOptionPtr.value === 'Otros') {
+                        finalDescription = nuevoServicioPtr.specification;
+                    } else {
+                        finalDescription = `${selectedServiceOptionPtr.label} ${nuevoServicioPtr.specification}`;
+                    }
                 }
                 if (selectedServiceOptionPtr.value === 'Otros') isOther = true;
             }
