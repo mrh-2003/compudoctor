@@ -1346,7 +1346,8 @@ function DetalleDiagnostico() {
         });
 
         switch (report.area) {
-            case 'HARDWARE':
+            case 'HARDWARE':;
+                console.log("entry 2")
                 return (
                     <div className="space-y-4">
                         <h2 className="text-2xl font-bold text-red-500">ÁREA DE HARDWARE</h2>
@@ -2223,7 +2224,7 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                             <input
                                                 type="text"
                                                 value={nuevoServicio.description || ''}
-                                                onChange={(e) => {
+                                                onChange={(e) => { 
                                                     const val = e.target.value;
                                                     setNuevoServicio(prev => ({ ...prev, description: val }));
                                                     // Identify as "Others" logically for handleAddLocalService to work without a Select option
