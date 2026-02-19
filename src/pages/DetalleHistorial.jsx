@@ -476,6 +476,23 @@ function DetalleHistorial() {
             `;
         };
 
+        const formatRepotenRow = (checked, mainLabel, fields) => {
+            const itemsHtml = fields.map(f => `
+                <div class="repoten-field-item">
+                    <span class="repoten-field-label">${f.lbl}:</span>
+                    <span class="repoten-field-value">${txt(f.val)}</span>
+                </div>
+            `).join('');
+
+            return `
+                <div class="repoten-row">
+                    <div class="repoten-check">${checkbox(checked)}</div>
+                    <div class="repoten-main-label">${mainLabel}</div>
+                    <div class="repoten-fields">${itemsHtml}</div>
+                </div>
+            `;
+        };
+
         // Helper for Testeo rows
         const formatTestRow = (label, statusValue, obs) => {
             const isSi = statusValue === 'SI';
@@ -755,6 +772,15 @@ function DetalleHistorial() {
                     .list-item { font-size: 7.5pt; display: flex; justify-content: space-between; gap: 5px; border-bottom: 1px dashed #eee; padding: 1px 0; }
                     .list-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                     .list-item strong { white-space: nowrap; }
+
+                    /* Repoten fields row breakdown - NEW STRUCTURE */
+                    .repoten-row { display: flex; align-items: center; margin-bottom: 2px; font-size: 8pt; }
+                    .repoten-check { font-size: 11pt; margin-right: 3px; min-width: 14px; }
+                    .repoten-main-label { font-weight: bold; width: 50px; font-size: 7.5pt; flex-shrink: 0; }
+                    .repoten-fields { display: flex; gap: 4px; flex-grow: 1; overflow: hidden; }
+                    .repoten-field-item { display: flex; align-items: flex-end; flex: 1; min-width: 0; }
+                    .repoten-field-label { font-size: 7pt; font-weight: bold; margin-right: 2px; color: #444; }
+                    .repoten-field-value { border-bottom: 1px solid #999; flex-grow: 1; font-size: 7.5pt; min-height: 12px; padding-left: 2px; white-space: nowrap; overflow: hidden; }
                 </style>
             </head>
             <body>
@@ -797,11 +823,11 @@ function DetalleHistorial() {
                                         
                                         <div class="repoten-box">
                                             <div class="repoten-title">Repotenciación</div>
-                                            ${formatItem(hw.repoten_ssd, 'SSD', '', `GB: ${txt(hw.repoten_ssd_gb)} Ser: ${txt(hw.repoten_ssd_serie)} Cod: ${txt(hw.repoten_ssd_codigo)}`)}
-                                            ${formatItem(hw.repoten_nvme, 'NVME', '', `GB: ${txt(hw.repoten_nvme_gb)} Ser: ${txt(hw.repoten_nvme_serie)} Cod: ${txt(hw.repoten_nvme_codigo)}`)}
-                                            ${formatItem(hw.repoten_m2, 'M2 SATA', '', `GB: ${txt(hw.repoten_m2_gb)} Ser: ${txt(hw.repoten_m2_serie)} Cod: ${txt(hw.repoten_m2_codigo)}`)}
-                                            ${formatItem(hw.repoten_hdd, 'HDD', '', `GB: ${txt(hw.repoten_hdd_gb)} Ser: ${txt(hw.repoten_hdd_serie)} Cod: ${txt(hw.repoten_hdd_codigo)}`)}
-                                            ${formatItem(hw.repoten_ram, 'RAM', '', `Cap: ${txt(hw.repoten_ram_cap)} Cod: ${txt(hw.repoten_ram_cod)}`)}
+                                            ${formatRepotenRow(hw.repoten_ssd, 'SSD', [{ lbl: 'GB', val: hw.repoten_ssd_gb }, { lbl: 'Ser', val: hw.repoten_ssd_serie }, { lbl: 'Cod', val: hw.repoten_ssd_codigo }])}
+                                            ${formatRepotenRow(hw.repoten_nvme, 'NVME', [{ lbl: 'GB', val: hw.repoten_nvme_gb }, { lbl: 'Ser', val: hw.repoten_nvme_serie }, { lbl: 'Cod', val: hw.repoten_nvme_codigo }])}
+                                            ${formatRepotenRow(hw.repoten_m2, 'M2 SATA', [{ lbl: 'GB', val: hw.repoten_m2_gb }, { lbl: 'Ser', val: hw.repoten_m2_serie }, { lbl: 'Cod', val: hw.repoten_m2_codigo }])}
+                                            ${formatRepotenRow(hw.repoten_hdd, 'HDD', [{ lbl: 'GB', val: hw.repoten_hdd_gb }, { lbl: 'Ser', val: hw.repoten_hdd_serie }, { lbl: 'Cod', val: hw.repoten_hdd_codigo }])}
+                                            ${formatRepotenRow(hw.repoten_ram, 'RAM', [{ lbl: 'Cap', val: hw.repoten_ram_cap }, { lbl: 'Cod', val: hw.repoten_ram_cod }])}
                                         </div>
                                     </div>
                                     
