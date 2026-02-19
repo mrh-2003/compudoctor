@@ -129,13 +129,9 @@ function DetalleDiagnostico() {
     const [isSaving, setIsSaving] = useState(false);
 
     // const [editableAdditionalServices, setEditableAdditionalServices] = useState([]); // Removed global state
-    const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0, specification: '' });
     const [nuevoServicioPrinterRealizado, setNuevoServicioPrinterRealizado] = useState({ description: '', amount: 0, specification: '' });
     const [nuevoServicioPrinterAdicional, setNuevoServicioPrinterAdicional] = useState({ description: '', amount: 0, specification: '' });
 
-    const [selectedServiceOption, setSelectedServiceOption] = useState(null); // Local selection state
-    const [selectedPrinterServiceRealizado, setSelectedPrinterServiceRealizado] = useState(null);
-    const [selectedPrinterServiceAdicional, setSelectedPrinterServiceAdicional] = useState(null);
 
     // New State for "Add Service" logic
     const [enabledFields, setEnabledFields] = useState([]);
@@ -490,37 +486,34 @@ function DetalleDiagnostico() {
         }
     };
 
-    const handleAddLocalService = () => {
+    const handleAddLocalService = useCallback((nuevoServicioPtr, selectedServiceOptionPtr) => {
         // En ELECTRONICA permitimos monto 0, en otras áreas debe ser > 0 (truthy)
         const isValidAmount = report?.area === 'ELECTRONICA'
-            ? (nuevoServicio.amount !== '' && nuevoServicio.amount !== null && nuevoServicio.amount !== undefined)
-            : nuevoServicio.amount;
+            ? (nuevoServicioPtr.amount !== '' && nuevoServicioPtr.amount !== null && nuevoServicioPtr.amount !== undefined)
+            : nuevoServicioPtr.amount;
 
-        if (!selectedServiceOption || !isValidAmount) return;
+        if (!selectedServiceOptionPtr || !isValidAmount) return;
 
         // For TesteoManual, we don't enable fields in formState like others
-        if (selectedServiceOption.value === 'TesteoManual') {
+        if (selectedServiceOptionPtr.value === 'TesteoManual') {
             // Pass through
-        } else if (selectedServiceOption.value) {
+        } else if (selectedServiceOptionPtr.value) {
             setEnabledFields(prev => {
-                if (!prev.includes(selectedServiceOption.value)) {
-                    return [...prev, selectedServiceOption.value];
+                if (!prev.includes(selectedServiceOptionPtr.value)) {
+                    return [...prev, selectedServiceOptionPtr.value];
                 }
                 return prev;
             });
-
-            // Removed pre-check block here, moving it to post-commit inside logic below
-
         }
 
-        const amountVal = parseFloat(nuevoServicio.amount);
-        let finalDescription = selectedServiceOption.label;
+        const amountVal = parseFloat(nuevoServicioPtr.amount);
+        let finalDescription = selectedServiceOptionPtr.label;
         let finalSpec = '';
         let isOther = false;
 
         // Dynamic Description Building based on Mapped Fields - USING TEMP VALUES
-        const mapping = SERVICE_FIELD_MAPPING[selectedServiceOption.value];
-        const tempValues = nuevoServicio.dynamicValues || {};
+        const mapping = SERVICE_FIELD_MAPPING[selectedServiceOptionPtr.value];
+        const tempValues = nuevoServicioPtr.dynamicValues || {};
 
         if (mapping) {
             const detailsParts = mapping.map(field => {
@@ -550,11 +543,11 @@ function DetalleDiagnostico() {
 
                 // 2. Turn on the main checkbox if applicable (e.g. ELECTRONICA parts)
                 if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area)) {
-                    updates[selectedServiceOption.value] = true;
+                    updates[selectedServiceOptionPtr.value] = true;
                     // Ensure reparable defaults if needed when turning on
-                    if (report.area === 'ELECTRONICA' && ['elec_video', 'elec_placa', 'elec_otro'].includes(selectedServiceOption.value)) {
-                        if (!prev[`${selectedServiceOption.value}_reparable`]) {
-                            updates[`${selectedServiceOption.value}_reparable`] = 'SI';
+                    if (report.area === 'ELECTRONICA' && ['elec_video', 'elec_placa', 'elec_otro'].includes(selectedServiceOptionPtr.value)) {
+                        if (!prev[`${selectedServiceOptionPtr.value}_reparable`]) {
+                            updates[`${selectedServiceOptionPtr.value}_reparable`] = 'SI';
                         }
                     }
                 }
@@ -563,22 +556,22 @@ function DetalleDiagnostico() {
         } else {
             // Fallback for manual spec input (e.g. 'Otros' generic or unmapped fields)
             const areasWithSpec = ['ELECTRONICA', 'HARDWARE', 'SOFTWARE'];
-            if (selectedServiceOption.value === 'Otros' || (areasWithSpec.includes(report.area) && report.area !== 'TESTEO')) {
-                if (!nuevoServicio.specification && selectedServiceOption.value === 'Otros') {
+            if (selectedServiceOptionPtr.value === 'Otros' || (areasWithSpec.includes(report.area) && report.area !== 'TESTEO')) {
+                if (!nuevoServicioPtr.specification && selectedServiceOptionPtr.value === 'Otros') {
                     toast.error("Debe especificar el servicio.");
                     return;
                 }
-                if (nuevoServicio.specification) {
-                    finalDescription = `${selectedServiceOption.label} ${nuevoServicio.specification}`;
+                if (nuevoServicioPtr.specification) {
+                    finalDescription = `${selectedServiceOptionPtr.label} ${nuevoServicioPtr.specification}`;
                 }
-                if (selectedServiceOption.value === 'Otros') isOther = true;
+                if (selectedServiceOptionPtr.value === 'Otros') isOther = true;
             }
         }
 
 
         const serviceToAdd = {
             id: Date.now(),
-            serviceKey: selectedServiceOption.value,
+            serviceKey: selectedServiceOptionPtr.value,
             description: finalDescription,
             amount: amountVal,
             specification: finalSpec,
@@ -594,22 +587,19 @@ function DetalleDiagnostico() {
             // Auto-check checkbox for Unmapped services (like Mant. Hardware, Reconstruccion)
             // or ensure it is checked for others
             if (['ELECTRONICA', 'HARDWARE', 'SOFTWARE'].includes(report.area)) {
-                newState[selectedServiceOption.value] = true;
+                newState[selectedServiceOptionPtr.value] = true;
 
                 // Extra safety for specific Hardware unmapped ones if value key matches form key
                 if (report.area === 'HARDWARE') {
-                    if (selectedServiceOption.value === 'mant_hardware') newState.mant_hardware = true;
-                    if (selectedServiceOption.value === 'reconstruccion') newState.reconstruccion = true;
-                    if (selectedServiceOption.value === 'adapt_parlantes') newState.adapt_parlantes = true;
+                    if (selectedServiceOptionPtr.value === 'mant_hardware') newState.mant_hardware = true;
+                    if (selectedServiceOptionPtr.value === 'reconstruccion') newState.reconstruccion = true;
+                    if (selectedServiceOptionPtr.value === 'adapt_parlantes') newState.adapt_parlantes = true;
                 }
             }
             return newState;
         });
 
-        // Reset inputs
-        setNuevoServicio({ description: '', amount: 0, specification: '' });
-        setSelectedServiceOption(null);
-    };
+    }, [report, setFormState, setEnabledFields]);
 
     const handleAddPrinterService = (type) => {
         // type: 'REALIZADOS' or 'ADICIONALES'
@@ -1346,8 +1336,8 @@ function DetalleDiagnostico() {
         });
 
         switch (report.area) {
-            case 'HARDWARE':;
-                console.log("entry 2")
+            case 'HARDWARE': ;
+
                 return (
                     <div className="space-y-4">
                         <h2 className="text-2xl font-bold text-red-500">ÁREA DE HARDWARE</h2>
@@ -1924,12 +1914,18 @@ function DetalleDiagnostico() {
                 <>
                     <div className="bg-white dark:bg-gray-800 p-6 mt-6 rounded-lg shadow-md border dark:border-gray-700">
                         {renderAreaForm()}
-                        {report.tipoEquipo !== 'Impresora' && renderAdditionalServicesSection(
-                            report, isAllowedToEdit, isReportFinalized,
-                            formState, setFormState, nuevoServicio, setNuevoServicio,
-                            handleAddLocalService, handleRemoveLocalService,
-                            selectStyles, theme, getConfigForArea,
-                            setSelectedServiceOption, selectedServiceOption
+                        {report.tipoEquipo !== 'Impresora' && (
+                            <AdditionalServicesSection
+                                report={report}
+                                isAllowedToEdit={isAllowedToEdit}
+                                isReportFinalized={isReportFinalized}
+                                formState={formState}
+                                onAddService={handleAddLocalService}
+                                onRemoveService={handleRemoveLocalService}
+                                selectStyles={selectStyles}
+                                theme={theme}
+                                getConfigForArea={getConfigForArea}
+                            />
                         )}
                     </div>
 
@@ -2114,7 +2110,19 @@ function DetalleDiagnostico() {
     );
 }
 
-const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinalized, formState, setFormState, nuevoServicio, setNuevoServicio, handleAddLocalService, handleRemoveLocalService, selectStyles, theme, getConfigForArea, setSelectedServiceOption, selectedServiceOption) => {
+const AdditionalServicesSection = React.memo(({
+    report,
+    isAllowedToEdit,
+    isReportFinalized,
+    formState,
+    onAddService,
+    onRemoveService,
+    selectStyles,
+    theme,
+    getConfigForArea
+}) => {
+    const [nuevoServicio, setNuevoServicio] = useState({ description: '', amount: 0, specification: '' });
+    const [selectedServiceOption, setSelectedServiceOption] = useState(null);
 
     // Helper to render dynamic inputs based on selected service
     const renderDynamicInputs = () => {
@@ -2224,7 +2232,7 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                             <input
                                                 type="text"
                                                 value={nuevoServicio.description || ''}
-                                                onChange={(e) => { 
+                                                onChange={(e) => {
                                                     const val = e.target.value;
                                                     setNuevoServicio(prev => ({ ...prev, description: val }));
                                                     // Identify as "Others" logically for handleAddLocalService to work without a Select option
@@ -2279,7 +2287,12 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
 
                                     <div className="w-full md:w-auto">
                                         <button
-                                            onClick={handleAddLocalService}
+                                            onClick={() => {
+                                                onAddService(nuevoServicio, selectedServiceOption);
+                                                // Reset inputs
+                                                setNuevoServicio({ description: '', amount: 0, specification: '' });
+                                                setSelectedServiceOption(null);
+                                            }}
                                             disabled={!selectedServiceOption || nuevoServicio.amount === ''}
                                             className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-6 rounded-lg h-[38px] flex items-center justify-center"
                                         >
@@ -2343,7 +2356,7 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
                                                         </span>
                                                         {(isAllowedToEdit && !isReportFinalized) && (
                                                             <button
-                                                                onClick={() => handleRemoveLocalService(originalIndex)}
+                                                                onClick={() => onRemoveService(originalIndex)}
                                                                 className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                                                                 title="Eliminar servicio"
                                                             >
@@ -2372,7 +2385,7 @@ const renderAdditionalServicesSection = (report, isAllowedToEdit, isReportFinali
             })()}
         </div>
     );
-};
+});
 
 // Helper to get configuration of fields per area
 const getConfigForArea = (area) => {
