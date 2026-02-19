@@ -471,7 +471,7 @@ function DetalleHistorial() {
                 <div class="item-row">
                     <div class="item-check">${checkbox(checked)}</div>
                     <div class="item-label">${label}</div>
-                    ${detailLabel ? `<div class="item-detail"><span class="detail-label">${detailLabel}:</span> <span class="detail-value">${txt(detailValue)}</span></div>` : ''}
+                    ${(detailLabel || detailValue) ? `<div class="item-detail">${detailLabel ? `<span class="detail-label">${detailLabel}:</span>` : ''} <span class="detail-value">${txt(detailValue)}</span></div>` : ''}
                 </div>
             `;
         };
@@ -797,10 +797,11 @@ function DetalleHistorial() {
                                         
                                         <div class="repoten-box">
                                             <div class="repoten-title">Repotenciación</div>
-                                            ${formatItem(hw.repoten_ssd, 'SSD', 'GB/Ser/Cod', `${txt(hw.repoten_ssd_gb)} ${txt(hw.repoten_ssd_serie)} ${txt(hw.repoten_ssd_codigo)}`)}
-                                            ${formatItem(hw.repoten_nvme, 'NVME', 'GB/Ser/Cod', `${txt(hw.repoten_nvme_gb)} ${txt(hw.repoten_nvme_serie)} ${txt(hw.repoten_nvme_codigo)}`)}
-                                            ${formatItem(hw.repoten_m2, 'M2 SATA', 'GB/Ser/Cod', `${txt(hw.repoten_m2_gb)} ${txt(hw.repoten_m2_serie)} ${txt(hw.repoten_m2_codigo)}`)}
-                                            ${formatItem(hw.repoten_ram, 'RAM', 'Cap/Cod', `${txt(hw.repoten_ram_cap)} ${txt(hw.repoten_ram_cod)}`)}
+                                            ${formatItem(hw.repoten_ssd, 'SSD', '', `GB: ${txt(hw.repoten_ssd_gb)} Ser: ${txt(hw.repoten_ssd_serie)} Cod: ${txt(hw.repoten_ssd_codigo)}`)}
+                                            ${formatItem(hw.repoten_nvme, 'NVME', '', `GB: ${txt(hw.repoten_nvme_gb)} Ser: ${txt(hw.repoten_nvme_serie)} Cod: ${txt(hw.repoten_nvme_codigo)}`)}
+                                            ${formatItem(hw.repoten_m2, 'M2 SATA', '', `GB: ${txt(hw.repoten_m2_gb)} Ser: ${txt(hw.repoten_m2_serie)} Cod: ${txt(hw.repoten_m2_codigo)}`)}
+                                            ${formatItem(hw.repoten_hdd, 'HDD', '', `GB: ${txt(hw.repoten_hdd_gb)} Ser: ${txt(hw.repoten_hdd_serie)} Cod: ${txt(hw.repoten_hdd_codigo)}`)}
+                                            ${formatItem(hw.repoten_ram, 'RAM', '', `Cap: ${txt(hw.repoten_ram_cap)} Cod: ${txt(hw.repoten_ram_cod)}`)}
                                         </div>
                                     </div>
                                     

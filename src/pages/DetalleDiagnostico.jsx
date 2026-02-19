@@ -478,10 +478,8 @@ function DetalleDiagnostico() {
     };
 
     const handleAddLocalService = useCallback((nuevoServicioPtr, selectedServiceOptionPtr) => {
-        // En ELECTRONICA permitimos monto 0, en otras áreas debe ser > 0 (truthy)
-        const isValidAmount = report?.area === 'ELECTRONICA'
-            ? (nuevoServicioPtr.amount !== '' && nuevoServicioPtr.amount !== null && nuevoServicioPtr.amount !== undefined)
-            : nuevoServicioPtr.amount;
+        // Permitimos monto 0 en cualquier área
+        const isValidAmount = (nuevoServicioPtr.amount !== '' && nuevoServicioPtr.amount !== null && nuevoServicioPtr.amount !== undefined);
 
         if (!selectedServiceOptionPtr || !isValidAmount) return;
 
@@ -609,7 +607,9 @@ function DetalleDiagnostico() {
         const setNewService = isRealizado ? setNuevoServicioPrinterRealizado : setNuevoServicioPrinterAdicional;
         const listKey = isRealizado ? 'printer_services_realized' : 'printer_services_additional';
 
-        if (!currentSelection || !currentNewService.amount) return;
+        const isValidAmount = (currentNewService.amount !== '' && currentNewService.amount !== null && currentNewService.amount !== undefined);
+
+        if (!currentSelection || !isValidAmount) return;
 
         const amountVal = parseFloat(currentNewService.amount);
         let finalDescription = currentSelection.label;
