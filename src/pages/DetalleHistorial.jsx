@@ -774,9 +774,9 @@ function DetalleHistorial() {
                     .list-item strong { white-space: nowrap; }
 
                     /* Repoten fields row breakdown - NEW STRUCTURE */
-                    .repoten-row { display: flex; align-items: center; margin-bottom: 2px; font-size: 8pt; }
+                    .repoten-row { display: flex; align-items: center; margin-bottom: 2px; font-size: 8pt; white-space: nowrap; }
                     .repoten-check { font-size: 11pt; margin-right: 3px; min-width: 14px; }
-                    .repoten-main-label { font-weight: bold; width: 50px; font-size: 7.5pt; flex-shrink: 0; }
+                    .repoten-main-label { font-weight: bold; width: 85px; font-size: 7.5pt; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; }
                     .repoten-fields { display: flex; gap: 4px; flex-grow: 1; overflow: hidden; }
                     .repoten-field-item { display: flex; align-items: flex-end; flex: 1; min-width: 0; }
                     .repoten-field-label { font-size: 7pt; font-weight: bold; margin-right: 2px; color: #444; }
@@ -814,11 +814,11 @@ function DetalleHistorial() {
                                         ${formatItem(hw.reconstruccion, 'Reconstrucción')}
                                         ${formatItem(hw.adapt_parlantes, 'Adapt. Parlantes')}
                                         ${formatItem(hw.cambio_teclado, 'Cambio Teclado', 'Cód', hw.cambio_teclado_codigo)}
-                                        ${formatItem(hw.cambio_pantalla, 'Cambio Pantalla', 'Det', `${txt(hw.cambio_pantalla_codigo)} ${txt(hw.cambio_pantalla_resolucion)}`)}
+                                        ${formatRepotenRow(hw.cambio_pantalla, 'Cambio Pantalla', [{ lbl: 'Cod', val: hw.cambio_pantalla_codigo }, { lbl: 'Res', val: hw.cambio_pantalla_resolucion }, { lbl: 'Hz', val: hw.cambio_pantalla_hz }])}
                                         ${formatItem(hw.cambio_carcasa, 'Cambio Carcasa', 'Obs', hw.cambio_carcasa_obs)}
-                                        ${formatItem(hw.cambio_placa, 'Cambio Placa', 'Det', `${txt(hw.cambio_placa_codigo)} ${txt(hw.cambio_placa_especif)}`)}
-                                        ${formatItem(hw.cambio_fuente, 'Cambio Fuente', 'Det', `${txt(hw.cambio_fuente_codigo)} ${txt(hw.cambio_fuente_especif)}`)}
-                                        ${formatItem(hw.cambio_video, 'Cambio T. Video', 'Det', `${txt(hw.cambio_video_codigo)} ${txt(hw.cambio_video_especif)}`)}
+                                        ${formatRepotenRow(hw.cambio_placa, 'Cambio Placa', [{ lbl: 'Cod', val: hw.cambio_placa_codigo }, { lbl: 'Esp', val: hw.cambio_placa_especif }])}
+                                        ${formatRepotenRow(hw.cambio_fuente, 'Cambio Fuente', [{ lbl: 'Cod', val: hw.cambio_fuente_codigo }, { lbl: 'Esp', val: hw.cambio_fuente_especif }])}
+                                        ${formatRepotenRow(hw.cambio_video, 'Cambio T. Video', [{ lbl: 'Cod', val: hw.cambio_video_codigo }, { lbl: 'Esp', val: hw.cambio_video_especif }])}
                                         ${formatItem(hw.otros, 'Otros', 'Esp', hw.otros_especif)}
                                         
                                         <div class="repoten-box">
