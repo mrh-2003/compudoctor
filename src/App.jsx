@@ -23,6 +23,7 @@ import InventarioEntrada from './pages/Reportes/InventarioEntrada';
 import Categorias from './pages/Inventario/Categorias';
 import EstadosFuncionales from './pages/Inventario/EstadosFuncionales';
 import UnidadesMedida from './pages/Inventario/UnidadesMedida';
+import Maestros from './pages/Inventario/Maestros';
 import Historial from './pages/Historial';
 import Ventas from './pages/Ventas';
 import DetalleVenta from './pages/DetalleVenta';
@@ -96,6 +97,11 @@ function App() {
                     <Route path="inventario/unidades-medida" element={
                         <ProtectedRoute permissionId="inventario">
                             <UnidadesMedida />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="inventario/maestros" element={
+                        <ProtectedRoute permissionId="inventario">
+                            <Maestros />
                         </ProtectedRoute>
                     } />
 

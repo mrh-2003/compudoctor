@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   getInventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem,
-  getCategories, getFunctionalStates, getUnitsMeasure
+  getCategories, getFunctionalStates, getUnitsMeasure, getCustomFields
 } from '../services/inventoryService';
-import { FaEdit, FaTrash, FaPlus, FaSearch, FaFileExcel } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSearch, FaFileExcel, FaFilter } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import Modal from '../components/common/Modal';
 import Select from 'react-select';
@@ -35,6 +35,11 @@ function Inventario() {
   const [categories, setCategories] = useState([]);
   const [functionalStates, setFunctionalStates] = useState([]);
   const [units, setUnits] = useState([]);
+  const [customFields, setCustomFields] = useState([]);
+
+  // Filters State
+  const [activeFilters, setActiveFilters] = useState({});
+  const [showFilters, setShowFilters] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -66,16 +71,18 @@ function Inventario() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [invData, catData, funcData, unitData] = await Promise.all([
+      const [invData, catData, funcData, unitData, customData] = await Promise.all([
         getInventoryItems(),
         getCategories(),
         getFunctionalStates(),
-        getUnitsMeasure()
+        getUnitsMeasure(),
+        getCustomFields()
       ]);
       setItems(invData);
       setCategories(catData);
       setFunctionalStates(funcData);
       setUnits(unitData);
+      setCustomFields(customData);
     } catch (error) {
       console.error(error);
       toast.error('Error al cargar el inventario');
@@ -85,13 +92,28 @@ function Inventario() {
   };
 
   const filteredItems = useMemo(() => {
-    return items.filter(item =>
-      item.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.marca.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.modelo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.numero_serie.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [items, searchTerm]);
+    return items.filter(item => {
+      // 1. Text search
+      const textMatch =
+        item.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.marca?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.modelo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.numero_serie?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      if (!textMatch) return false;
+
+      // 2. Custom Filters
+      for (const [key, value] of Object.entries(activeFilters)) {
+        if (value && value !== '') {
+          // Si el item no tiene esa llave o no coincide
+          if (String(item[key] || '') !== String(value)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+  }, [items, searchTerm, activeFilters]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -283,6 +305,12 @@ function Inventario() {
             />
           </div>
           <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`px-4 py-2 rounded flex items-center gap-2 whitespace-nowrap border transition-colors ${showFilters ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:border-gray-600'}`}
+          >
+            <FaFilter /> Filtros
+          </button>
+          <button
             onClick={exportToExcel}
             disabled={isExporting}
             className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-4 py-2 rounded flex items-center gap-2 whitespace-nowrap"
@@ -297,6 +325,44 @@ function Inventario() {
           </button>
         </div>
       </div>
+
+      {showFilters && customFields.filter(f => f.esFiltro).length > 0 && (
+        <div className="mb-6 p-4 bg-gray-50 border rounded-lg dark:bg-gray-800 dark:border-gray-700 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 transition-all">
+          {customFields.filter(f => f.esFiltro).map(f => (
+            <div key={f.id} className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{f.nombre}</label>
+              {f.tipo === 'select' ? (
+                <select
+                  className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  value={activeFilters[f.nombre] || ''}
+                  onChange={e => setActiveFilters({ ...activeFilters, [f.nombre]: e.target.value })}
+                >
+                  <option value="">Todos</option>
+                  {f.opciones.map((opt, idx) => (
+                    <option key={idx} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  placeholder={`Filtrar ${f.nombre}...`}
+                  value={activeFilters[f.nombre] || ''}
+                  onChange={e => setActiveFilters({ ...activeFilters, [f.nombre]: e.target.value })}
+                />
+              )}
+            </div>
+          ))}
+          <div className="flex items-end">
+            <button
+              onClick={() => setActiveFilters({})}
+              className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded dark:bg-red-900 dark:text-red-200"
+            >
+              Limpiar Filtros
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -511,6 +577,29 @@ function Inventario() {
                   className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
               </div>
+
+              {/* Campos Dinámicos (Maestro de Maestros) */}
+              {customFields.map(f => (
+                <div key={f.id}>
+                  <label className="block text-sm font-medium mb-1">{f.nombre}</label>
+                  {f.tipo === 'select' ? (
+                    <Select
+                      options={f.opciones.map(o => ({ label: o, value: o }))}
+                      value={currentItem[f.nombre] ? { label: currentItem[f.nombre], value: currentItem[f.nombre] } : null}
+                      onChange={(opt) => setCurrentItem({ ...currentItem, [f.nombre]: opt?.value || '' })}
+                      classNamePrefix="react-select"
+                      placeholder="Seleccione..."
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={currentItem[f.nombre] || ''}
+                      onChange={(e) => setCurrentItem({ ...currentItem, [f.nombre]: e.target.value })}
+                      className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                  )}
+                </div>
+              ))}
 
               <div className="col-span-1 md:col-span-2 flex justify-end gap-2 mt-4">
                 <button

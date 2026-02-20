@@ -6,6 +6,7 @@ const INVENTORY_COLLECTION = 'inventory_items';
 const CATEGORIES_COLLECTION = 'inv_categories';
 const FUNCTIONAL_STATES_COLLECTION = 'inv_functional_states';
 const UNITS_MEASURE_COLLECTION = 'inv_units_measure';
+const CUSTOM_FIELDS_COLLECTION = 'inv_custom_fields';
 
 // --- Generic Master CRUD Helpers ---
 
@@ -45,6 +46,11 @@ export const getUnitsMeasure = () => getMasterItems(UNITS_MEASURE_COLLECTION);
 export const addUnitMeasure = (item) => addMasterItem(UNITS_MEASURE_COLLECTION, item);
 export const updateUnitMeasure = (id, item) => updateMasterItem(UNITS_MEASURE_COLLECTION, id, item);
 export const deleteUnitMeasure = (id) => deleteMasterItem(UNITS_MEASURE_COLLECTION, id);
+
+export const getCustomFields = () => getMasterItems(CUSTOM_FIELDS_COLLECTION);
+export const addCustomField = (item) => addMasterItem(CUSTOM_FIELDS_COLLECTION, item);
+export const updateCustomField = (id, item) => updateMasterItem(CUSTOM_FIELDS_COLLECTION, id, item);
+export const deleteCustomField = (id) => deleteMasterItem(CUSTOM_FIELDS_COLLECTION, id);
 
 // --- Inventory Items CRUD ---
 

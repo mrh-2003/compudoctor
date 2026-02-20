@@ -58,6 +58,7 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
                 { name: 'Categorías', path: '/inventario/categorias' },
                 { name: 'Estados Funcionales', path: '/inventario/estados-funcionales' },
                 { name: 'Unidades de Medida', path: '/inventario/unidades-medida' },
+                { name: 'Maestros', path: '/inventario/maestros' },
             ]
         },
         {
