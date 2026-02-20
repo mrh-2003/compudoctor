@@ -224,7 +224,12 @@ const TiemposResolucion = () => {
             const result = { name: areaData.name };
             allTechs.forEach(tech => {
                 const stats = areaData[tech];
-                result[tech] = stats.count > 0 ? Number((stats.total / stats.count).toFixed(2)) : 0;
+                if (stats.count > 0) {
+                    const val = Number((stats.total / stats.count).toFixed(2));
+                    result[tech] = val > 0 ? val : 0.01;
+                } else {
+                    result[tech] = null;
+                }
             });
             return result;
         });
@@ -246,10 +251,13 @@ const TiemposResolucion = () => {
 
         return Object.values(aggregated)
             .filter(d => d.count > 0)
-            .map(d => ({
-                name: d.name,
-                Tiempo: Number((d.total / d.count).toFixed(2))
-            }));
+            .map(d => {
+                const val = Number((d.total / d.count).toFixed(2));
+                return {
+                    name: d.name,
+                    Tiempo: val > 0 ? val : 0.01
+                };
+            });
     }, [baseData, allTechs, selectedArea]);
 
     const last10Reports = useMemo(() => {
@@ -399,7 +407,14 @@ const TiemposResolucion = () => {
                             <LineChart data={selectedArea ? chartDataArea : chartDataDefault} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'dark' && !isExportingProcess ? '#4B5563' : '#e5e7eb'} />
                                 <XAxis dataKey="name" tick={{ fill: axisTextColor }} stroke={isExportingProcess ? '#000000' : (theme === 'dark' ? '#E5E7EB' : '#374151')} />
-                                <YAxis tick={{ fill: axisTextColor }} stroke={isExportingProcess ? '#000000' : (theme === 'dark' ? '#E5E7EB' : '#374151')} unit={timeUnit === 'hours' ? "h" : "m"} />
+                                <YAxis
+                                    tick={{ fill: axisTextColor }}
+                                    stroke={isExportingProcess ? '#000000' : (theme === 'dark' ? '#E5E7EB' : '#374151')}
+                                    unit={timeUnit === 'hours' ? "h" : "m"}
+                                    scale="log"
+                                    domain={['auto', 'auto']}
+                                    allowDataOverflow
+                                />
                                 <Tooltip
                                     contentStyle={{
                                         borderRadius: '8px',
@@ -411,10 +426,10 @@ const TiemposResolucion = () => {
                                 />
                                 <Legend wrapperStyle={{ color: axisTextColor, paddingTop: '20px' }} />
                                 {selectedArea ? (
-                                    <Line type="monotone" dataKey="Tiempo" stroke="#3b82f6" strokeWidth={3} activeDot={{ r: 8 }} isAnimationActive={!isExportingProcess} />
+                                    <Line type="monotone" dataKey="Tiempo" stroke="#3b82f6" strokeWidth={3} activeDot={{ r: 8 }} isAnimationActive={!isExportingProcess} connectNulls />
                                 ) : (
                                     allTechs.filter(tech => !selectedTech || interventions.find(i => i.techId === selectedTech && i.techName === tech)).map((tech, idx) => (
-                                        <Line key={tech} type="monotone" dataKey={tech} stroke={COLORS[idx % COLORS.length]} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} isAnimationActive={!isExportingProcess} />
+                                        <Line key={tech} type="monotone" dataKey={tech} stroke={COLORS[idx % COLORS.length]} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} isAnimationActive={!isExportingProcess} connectNulls />
                                     ))
                                 )}
                             </LineChart>
@@ -480,7 +495,7 @@ const TiemposResolucion = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="max-h-60 overflow-y-auto">
+                                    <div className={`overflow-y-auto ${isExportingProcess ? '' : 'max-h-60'}`}>
                                         <table className="min-w-full divide-y" style={{ divideColor: getTbodyStyle().divideColor }}>
                                             <thead style={getTheadStyle()}>
                                                 <tr>
@@ -550,7 +565,7 @@ const TiemposResolucion = () => {
                                     <span>{formatDuration(responsibleReports.avg, timeUnit)}</span>
                                 </div>
                             </div>
-                            <div className="overflow-x-auto max-h-96 border rounded-lg overflow-hidden" style={getTableWrapperStyle()}>
+                            <div className={`overflow-x-auto border rounded-lg overflow-hidden ${isExportingProcess ? '' : 'max-h-96'}`} style={getTableWrapperStyle()}>
                                 <table className="min-w-full divide-y" style={{ divideColor: getTbodyStyle().divideColor }}>
                                     <thead style={getTheadStyle()}>
                                         <tr>
