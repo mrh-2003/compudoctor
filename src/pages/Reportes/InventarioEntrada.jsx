@@ -49,6 +49,10 @@ function InventarioEntrada() {
     const exportToPDF = async () => {
         if (chartRef.current === null) return;
         setIsExporting(true);
+
+        // Esperar a que el estado isExporting apague la animación y cambie los colores a negro
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         try {
             const element = chartRef.current;
 
@@ -112,8 +116,8 @@ function InventarioEntrada() {
                 </button>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md" ref={chartRef}>
-                <h2 className="text-xl font-semibold mb-4 text-center text-gray-700 dark:text-gray-200">Distribución por Tipo de Equipo</h2>
+            <div className={`p-6 rounded-lg shadow-md ${isExporting ? 'bg-white text-black' : 'bg-white dark:bg-gray-800'}`} ref={chartRef}>
+                <h2 className={`text-xl font-semibold mb-4 text-center ${isExporting ? 'text-black' : 'text-gray-700 dark:text-gray-200'}`}>Distribución por Tipo de Equipo</h2>
                 {/* Reduced height from 400px to 350px */}
                 <div className="h-[350px] w-full mb-8">
                     <ResponsiveContainer width="100%" height="100%">
@@ -127,6 +131,7 @@ function InventarioEntrada() {
                                 outerRadius={120}
                                 fill="#8884d8"
                                 dataKey="value"
+                                isAnimationActive={!isExporting}
                             >
                                 {data.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -138,12 +143,12 @@ function InventarioEntrada() {
                     </ResponsiveContainer>
                 </div>
 
-                <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200 border-t pt-4 dark:border-gray-700">Detalle por Marcas</h3>
+                <h3 className={`text-lg font-semibold mb-4 border-t pt-4 ${isExporting ? 'text-black border-gray-300' : 'text-gray-700 dark:text-gray-200 dark:border-gray-700'}`}>Detalle por Marcas</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {Object.entries(brandData).map(([type, brands]) => (
-                        <div key={type} className="border rounded p-4 dark:border-gray-700">
-                            <h4 className="font-bold text-gray-800 dark:text-white mb-2">{type}</h4>
-                            <ul className="text-sm text-gray-600 dark:text-gray-300">
+                        <div key={type} className={`border rounded p-4 ${isExporting ? 'border-gray-300' : 'dark:border-gray-700'}`}>
+                            <h4 className={`font-bold mb-2 ${isExporting ? 'text-black' : 'text-gray-800 dark:text-white'}`}>{type}</h4>
+                            <ul className={`text-sm ${isExporting ? 'text-black' : 'text-gray-600 dark:text-gray-300'}`}>
                                 {Object.entries(brands).sort((a, b) => b[1] - a[1]).map(([brand, count]) => (
                                     <li key={brand} className="flex justify-between">
                                         <span>{brand}</span>
