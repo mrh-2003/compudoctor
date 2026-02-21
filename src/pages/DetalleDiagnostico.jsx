@@ -530,7 +530,11 @@ function DetalleDiagnostico() {
                 // 1. Commit the dynamic values (specs, obs, etc)
                 mapping.forEach(field => {
                     if (tempValues[field.name]) {
-                        updates[field.name] = tempValues[field.name];
+                        if (report.area === 'HARDWARE' && field.name === 'otros_especif' && prev[field.name]) {
+                            updates[field.name] = `${prev[field.name]} - ${tempValues[field.name]}`;
+                        } else {
+                            updates[field.name] = tempValues[field.name];
+                        }
                     }
                 });
 
