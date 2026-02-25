@@ -131,6 +131,8 @@ function DetalleDiagnostico() {
     // const [editableAdditionalServices, setEditableAdditionalServices] = useState([]); // Removed global state
     const [nuevoServicioPrinterRealizado, setNuevoServicioPrinterRealizado] = useState({ description: '', amount: 0, specification: '' });
     const [nuevoServicioPrinterAdicional, setNuevoServicioPrinterAdicional] = useState({ description: '', amount: 0, specification: '' });
+    const [selectedPrinterServiceRealizado, setSelectedPrinterServiceRealizado] = useState(null);
+    const [selectedPrinterServiceAdicional, setSelectedPrinterServiceAdicional] = useState(null);
 
 
     // New State for "Add Service" logic
@@ -528,9 +530,19 @@ function DetalleDiagnostico() {
             setFormState(prev => {
                 const updates = { ...prev };
                 // 1. Commit the dynamic values (specs, obs, etc)
+                const appendFields = [
+                    'otros_especif',
+                    'repoten_ssd_gb', 'repoten_ssd_serie', 'repoten_ssd_codigo',
+                    'repoten_nvme_gb', 'repoten_nvme_serie', 'repoten_nvme_codigo',
+                    'repoten_m2_gb', 'repoten_m2_serie', 'repoten_m2_codigo',
+                    'repoten_hdd_gb', 'repoten_hdd_serie', 'repoten_hdd_codigo',
+                    'repoten_ram_cap', 'repoten_ram_cod',
+                    'diseno_spec', 'ingenieria_spec', 'formateo_obs'
+                ];
+
                 mapping.forEach(field => {
                     if (tempValues[field.name]) {
-                        if (report.area === 'HARDWARE' && field.name === 'otros_especif' && prev[field.name]) {
+                        if (appendFields.includes(field.name) && prev[field.name]) {
                             updates[field.name] = `${prev[field.name]} - ${tempValues[field.name]}`;
                         } else {
                             updates[field.name] = tempValues[field.name];

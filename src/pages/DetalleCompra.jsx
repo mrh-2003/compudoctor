@@ -122,6 +122,7 @@ function DetalleCompra() {
     const handleSave = async () => {
         if (!header.provider) return toast.error("Proveedor requerido");
         if (!header.tipoComprobante) return toast.error("Tipo de comprobante requerido");
+        if (!header.purchaseCompNum?.trim()) return toast.error("El N° de Comprobante de Compra es obligatorio");
 
         const purchaseData = {
             ...header,
@@ -207,7 +208,7 @@ function DetalleCompra() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold mb-1 dark:text-gray-300">N° Comprobante Compra</label>
+                        <label className="block text-xs font-bold mb-1 dark:text-gray-300">N° Comprobante Compra <span className="text-red-500">*</span></label>
                         <input
                             type="text"
                             value={header.purchaseCompNum}

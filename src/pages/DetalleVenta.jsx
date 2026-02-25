@@ -273,6 +273,7 @@ function DetalleVenta() {
     const handleSave = async () => {
         if (!header.clientName) return toast.error("Nombre de cliente requerido");
         if (!header.tipoComprobante) return toast.error("Tipo de comprobante requerido");
+        if (!header.saleCompNum?.trim()) return toast.error("El N° de Comprobante de Venta es obligatorio");
 
         const saleData = {
             ...header,
@@ -353,7 +354,7 @@ function DetalleVenta() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold mb-1">N° Comprobante Venta</label>
+                        <label className="block text-xs font-bold mb-1">N° Comprobante Venta <span className="text-red-500">*</span></label>
                         <input
                             type="text"
                             value={header.saleCompNum}
