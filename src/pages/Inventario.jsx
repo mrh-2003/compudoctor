@@ -60,7 +60,8 @@ function Inventario() {
       ubicacion: '',
       costo_compra: 0,
       costo_venta: 0,
-      fecha_ingreso: new Date().toISOString().split('T')[0]
+      fecha_ingreso: new Date().toISOString().split('T')[0],
+      observaciones: ''
     };
   }
 
@@ -600,6 +601,18 @@ function Inventario() {
                   )}
                 </div>
               ))}
+
+              {/* Observaciones */}
+              <div className="col-span-1 md:col-span-2 mt-2">
+                <label className="block text-sm font-medium mb-1">Observaciones</label>
+                <textarea
+                  value={currentItem.observaciones || ''}
+                  onChange={(e) => setCurrentItem({ ...currentItem, observaciones: e.target.value })}
+                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  rows="3"
+                  placeholder="Detalles adicionales o comentarios..."
+                ></textarea>
+              </div>
 
               <div className="col-span-1 md:col-span-2 flex justify-end gap-2 mt-4">
                 <button
