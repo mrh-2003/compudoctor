@@ -31,7 +31,7 @@ export const createSale = async (saleData) => {
 
 export const getSales = async (filters = {}) => {
     try {
-        let q = query(collection(db, COLLECTION_NAME), orderBy('date', 'desc'));
+        let q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'));
 
         if (filters.tipoComprobante) {
             q = query(q, where('tipoComprobante', '==', filters.tipoComprobante));

@@ -90,12 +90,7 @@ function Ventas() {
             });
         }
 
-        // Sort descending by creation date
-        return result.sort((a, b) => {
-            const timeA = a.createdAt?.seconds ? a.createdAt.seconds : new Date(a.date || 0).getTime() / 1000;
-            const timeB = b.createdAt?.seconds ? b.createdAt.seconds : new Date(b.date || 0).getTime() / 1000;
-            return timeB - timeA;
-        });
+        return result;
 
     }, [sales, dateRange, searchTerm, filterTipo]);
 
