@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllDiagnosticReportsByTechnician, startDiagnosticReport } from '../services/diagnosticService';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaTasks, FaChevronLeft, FaChevronRight, FaEye } from 'react-icons/fa';
+import { FaTasks, FaChevronLeft, FaChevronRight, FaEye, FaExclamationTriangle } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+import Modal from '../components/common/Modal';
 
 const STATUS_COLORS = {
     'ASIGNADO': 'bg-gray-500',
@@ -17,6 +18,7 @@ function BandejaTecnico() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [alertModalOpen, setAlertModalOpen] = useState(false);
     const pageSize = 10;
     const navigate = useNavigate();
 
@@ -39,8 +41,13 @@ function BandejaTecnico() {
         setIsLoading(false);
     };
 
-    const handleStartTask = async (e, reportId, currentStatus, isActualTech) => {
+    const handleStartTask = async (e, reportId, currentStatus, isActualTech, area) => {
         e.preventDefault(); // Prevent default Link behavior
+
+        if (!area) {
+            setAlertModalOpen(true);
+            return;
+        }
 
         if (currentStatus === 'ASIGNADO' && isActualTech) {
             const started = await startDiagnosticReport(reportId);
@@ -175,7 +182,7 @@ function BandejaTecnico() {
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-4">
                                         <a href={`/bandeja-tecnico/${report.id}`}
-                                            onClick={(e) => handleStartTask(e, report.id, report.estado, report.tecnicoActualId === currentUser.uid)}
+                                            onClick={(e) => handleStartTask(e, report.id, report.estado, report.tecnicoActualId === currentUser.uid, report.area)}
                                             className="text-blue-500 hover:text-blue-700"
                                             title="Ver y Atender"
                                         >
@@ -219,6 +226,23 @@ function BandejaTecnico() {
                     </button>
                 </div>
             </div>
+
+            {alertModalOpen && (
+                <Modal onClose={() => setAlertModalOpen(false)} title="Atención" maxWidth="max-w-md">
+                    <div className="p-6 text-center">
+                        <FaExclamationTriangle className="mx-auto text-yellow-500 text-5xl mb-4" />
+                        <p className="text-lg text-gray-700 dark:text-gray-300">
+                            Para poder ingresar, primero se debe seleccionar el <strong>Área</strong>.
+                        </p>
+                        <button
+                            onClick={() => setAlertModalOpen(false)}
+                            className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200"
+                        >
+                            Entendido
+                        </button>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 }
