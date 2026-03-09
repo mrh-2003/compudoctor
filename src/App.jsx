@@ -19,6 +19,7 @@ import ProductividadTecnicos from './pages/Reportes/ProductividadTecnicos';
 import TopServicios from './pages/Reportes/TopServicios';
 import IngresosCostos from './pages/Reportes/IngresosCostos';
 import TiemposResolucion from './pages/Reportes/TiemposResolucion';
+import ResumenServicios from './pages/Reportes/ResumenServicios';
 import InventarioEntrada from './pages/Reportes/InventarioEntrada';
 import Categorias from './pages/Inventario/Categorias';
 import EstadosFuncionales from './pages/Inventario/EstadosFuncionales';
@@ -134,6 +135,11 @@ function App() {
                     <Route path="reportes/tiempos-resolucion" element={
                         <ProtectedRoute permissionId="reportes">
                             <TiemposResolucion />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="reportes/resumen-servicios" element={
+                        <ProtectedRoute permissionId="reportes">
+                            <ResumenServicios />
                         </ProtectedRoute>
                     } />
                     <Route path="reportes/inventario-entrada" element={

@@ -930,7 +930,7 @@ function DetalleHistorial() {
                         <div style="padding:4px; border-top:1px solid #000; font-size:8pt; background:#f0f0f0;">
                             <div><strong>TRABAJO FINAL:</strong> ${txt(testeo.testeo_servicio_final)}</div>
                         </div>
-                    ` : '<div style="text-align:center; padding:5px; color:#777;">Pendiente de Testeo</div>'}
+                    ` : (report.tipoEquipo === 'Impresora' ? '<div style="text-align:center; padding:5px; color:#777;">Sin Intervención Registrada</div>' : '<div style="text-align:center; padding:5px; color:#777;">Pendiente de Testeo</div>')}
                     </div>
                  </div>
 

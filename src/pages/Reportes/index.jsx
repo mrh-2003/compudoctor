@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaMoneyBillWave, FaUserCog, FaChartPie, FaChartLine, FaClock, FaBoxes } from 'react-icons/fa';
+import { FaMoneyBillWave, FaUserCog, FaChartPie, FaChartLine, FaClock, FaBoxes, FaChartBar } from 'react-icons/fa';
 
 function ReportesIndex() {
     const reports = [
@@ -45,6 +45,13 @@ function ReportesIndex() {
             icon: <FaBoxes className="text-4xl text-teal-500" />,
             link: '/reportes/inventario-entrada',
             color: 'border-l-4 border-teal-500'
+        },
+        {
+            title: 'Promedio Servicios',
+            description: 'Promedios por hora de servicios realizados por área y técnico.',
+            icon: <FaChartBar className="text-4xl text-pink-500" />,
+            link: '/reportes/resumen-servicios',
+            color: 'border-l-4 border-pink-500'
         }
     ];
 
