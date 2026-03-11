@@ -5,6 +5,125 @@ import { FaFileExcel, FaPhone, FaArrowLeft, FaMoneyBillWave } from 'react-icons/
 import { Link } from 'react-router-dom';
 import CostosModal from '../../components/diagnostico/CostosModal';
 
+const calculateReportTotal = (report) => {
+    // 1. Check Flags for Charging Logic
+    let shouldChargeRevision = true;
+    let shouldChargeReparacion = true;
+
+    if (report.diagnosticoPorArea) {
+        const areasToCheck = ['IMPRESORA', 'HARDWARE', 'SOFTWARE', 'ELECTRONICA', 'TESTEO'];
+
+        for (const area of areasToCheck) {
+            if (report.diagnosticoPorArea[area]) {
+                const history = report.diagnosticoPorArea[area];
+                const entryWithDecision = [...history].reverse().find(h => h.printer_cobra_revision || h.cobra_revision);
+
+                if (entryWithDecision) {
+                    const decision = entryWithDecision.printer_cobra_revision || entryWithDecision.cobra_revision;
+                    if (decision === 'NO') {
+                        shouldChargeRevision = false;
+                    }
+                }
+            }
+        }
+
+        if (report.diagnosticoPorArea['TESTEO']) {
+            const testeoHistory = report.diagnosticoPorArea['TESTEO'];
+            const repairEntry = [...testeoHistory].reverse().find(h => h.cobra_reparacion);
+            if (repairEntry && repairEntry.cobra_reparacion === 'NO') {
+                shouldChargeReparacion = false;
+            }
+        }
+    }
+
+    const hasReparacionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+    let initialDiagnosticCost = parseFloat(report.diagnostico) || 0;
+
+    if (hasReparacionServiceInList && shouldChargeReparacion) {
+        initialDiagnosticCost = 0;
+    }
+
+    // 2. Prepare IGV Map
+    const igvMap = {};
+    if (report.igvApplicableIds) {
+        report.igvApplicableIds.forEach(id => igvMap[id] = true);
+    }
+
+    const getAmountWithIgv = (id, amount) => {
+        const base = parseFloat(amount) || 0;
+        const hasIgv = !!igvMap[id];
+        return base + (hasIgv ? base * 0.18 : 0);
+    };
+
+    let total = 0;
+
+    // 3. Sum Items matching CostosModal IDs
+
+    // Diagnostic
+    if (shouldChargeRevision && initialDiagnosticCost > 0) {
+        total += getAmountWithIgv('diag-1', initialDiagnosticCost);
+    }
+
+    // Services List
+    if (report.servicesList) {
+        report.servicesList.forEach((s, idx) => {
+            let amount = parseFloat(s.amount) || 0;
+            const isRevision = s.service && s.service.toUpperCase().includes('REVISIÓN');
+            const isReparacion = s.service && s.service.toUpperCase().includes('REPARACIÓN');
+
+            if ((!shouldChargeRevision && isRevision) || (!shouldChargeReparacion && isReparacion)) {
+                amount = 0;
+            } else {
+                total += getAmountWithIgv(`main-${idx}`, amount);
+            }
+        });
+    }
+
+    // Legacy Additional
+    if (report.additionalServices) {
+        report.additionalServices.forEach((s, idx) => {
+            total += getAmountWithIgv(s.id || `legacy-${idx}`, s.amount);
+        });
+    }
+
+    // Area Additional (New)
+    if (report.diagnosticoPorArea) {
+        const seenServiceIds = new Set();
+
+        Object.entries(report.diagnosticoPorArea).forEach(([area, entries]) => {
+            entries.forEach((entry, entryIdx) => {
+                const processServiceList = (list, listName) => {
+                    if (list) {
+                        list.forEach((s, sIdx) => {
+                            if (s.id && seenServiceIds.has(s.id)) return;
+                            if (s.id) seenServiceIds.add(s.id);
+
+                            const id = s.id || `area-${area}-${entryIdx}-${listName}-${sIdx}`;
+                            total += getAmountWithIgv(id, s.amount);
+                        });
+                    }
+                };
+
+                processServiceList(entry.addedServices, 'added');
+                processServiceList(entry.printer_services_additional, 'printer-add');
+            });
+        });
+    }
+
+    // 4. Subtract Discount
+    const discount = parseFloat(report.descuento) || 0;
+
+    return total - discount;
+};
+
+const calculateSaldo = (report) => {
+    const total = calculateReportTotal(report);
+    const pagosRealizados = report.pagosRealizado || [];
+    const sumPagos = pagosRealizados.reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
+    const totalPagado = Math.max(sumPagos, parseFloat(report.aCuenta) || 0);
+    return total - totalPagado;
+};
+
 function SaldosPendientes() {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -43,11 +162,13 @@ function SaldosPendientes() {
     };
 
     const pendingReports = useMemo(() => {
-        return reports.filter(r => r.saldo > 0);
+        return reports
+            .map(r => ({ ...r, calculatedSaldo: calculateSaldo(r) }))
+            .filter(r => r.calculatedSaldo > 0.01);
     }, [reports]);
 
     const totalPending = useMemo(() => {
-        return pendingReports.reduce((sum, r) => sum + (parseFloat(r.saldo) || 0), 0);
+        return pendingReports.reduce((sum, r) => sum + (parseFloat(r.calculatedSaldo) || 0), 0);
     }, [pendingReports]);
 
     const exportToExcel = () => {
@@ -55,7 +176,7 @@ function SaldosPendientes() {
             'Cliente': r.clientName,
             'Teléfono': r.telefono,
             'N° Informe': r.reportNumber,
-            'Saldo Pendiente': r.saldo
+            'Saldo Pendiente': parseFloat(r.calculatedSaldo).toFixed(2)
         }));
 
         const ws = XLSX.utils.json_to_sheet(dataToExport);
@@ -107,7 +228,7 @@ function SaldosPendientes() {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{report.telefono}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{report.reportNumber}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{report.motivoIngreso}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600 dark:text-red-400">S/ {parseFloat(report.saldo).toFixed(2)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600 dark:text-red-400">S/ {parseFloat(report.calculatedSaldo).toFixed(2)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                     <div className="flex items-center justify-center space-x-4">
                                         <button
