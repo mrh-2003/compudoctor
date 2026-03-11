@@ -2149,11 +2149,15 @@ const AdditionalServicesSection = React.memo(({
             return (
                 <div className="w-full md:w-auto flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {mappedFields.map((field) => {
+                        const isHardwareCodeSerie = report.area === 'HARDWARE' && (field.label.includes('Código') || field.label.includes('Cód.') || field.label.includes('Serie'));
                         const currentVal = nuevoServicio.dynamicValues?.[field.name] || '';
                         if (field.type === 'radio') {
                             return (
                                 <div key={field.name} className="flex flex-col">
-                                    <label className="text-xs font-bold text-gray-500 mb-1">{field.label}</label>
+                                    <label className="text-xs font-bold text-gray-500 mb-1">
+                                        {field.label}
+                                        {isHardwareCodeSerie && <span className="text-red-500 ml-1">*</span>}
+                                    </label>
                                     <div className="flex items-center gap-2">
                                         {field.options.map(opt => (
                                             <label key={opt} className="flex items-center text-xs gap-1 cursor-pointer">
@@ -2176,7 +2180,10 @@ const AdditionalServicesSection = React.memo(({
                         }
                         return (
                             <div key={field.name} className="flex flex-col min-w-[120px]">
-                                <label className="text-xs font-bold text-gray-500 mb-1">{field.label}</label>
+                                <label className="text-xs font-bold text-gray-500 mb-1">
+                                    {field.label}
+                                    {isHardwareCodeSerie && <span className="text-red-500 ml-1">*</span>}
+                                </label>
                                 <input
                                     type="text"
                                     value={currentVal}
@@ -2303,6 +2310,22 @@ const AdditionalServicesSection = React.memo(({
                                     <div className="w-full md:w-auto">
                                         <button
                                             onClick={() => {
+                                                if (report.area === 'HARDWARE' && selectedServiceOption && selectedServiceOption.value) {
+                                                    const mappedFields = SERVICE_FIELD_MAPPING[selectedServiceOption.value];
+                                                    if (mappedFields) {
+                                                        for (const field of mappedFields) {
+                                                            const isCodeSerie = field.label.includes('Código') || field.label.includes('Cód.') || field.label.includes('Serie');
+                                                            if (isCodeSerie) {
+                                                                const val = nuevoServicio.dynamicValues?.[field.name];
+                                                                if (!val || val.trim() === '') {
+                                                                    toast.error(`El campo ${field.label} es obligatorio para ${selectedServiceOption.label}.`);
+                                                                    return;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
                                                 onAddService(nuevoServicio, selectedServiceOption);
                                                 // Reset inputs
                                                 setNuevoServicio({ description: '', amount: 0, specification: '' });
