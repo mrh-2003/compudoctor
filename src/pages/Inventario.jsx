@@ -376,14 +376,15 @@ function Inventario() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Costos</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ubicación</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Observaciones</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {loading ? (
-              <tr><td colSpan="8" className="p-4 text-center">Cargando inventario...</td></tr>
+              <tr><td colSpan="9" className="p-4 text-center">Cargando inventario...</td></tr>
             ) : filteredItems.length === 0 ? (
-              <tr><td colSpan="8" className="p-4 text-center">No se encontraron items.</td></tr>
+              <tr><td colSpan="9" className="p-4 text-center">No se encontraron items.</td></tr>
             ) : (
               filteredItems.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -405,6 +406,9 @@ function Inventario() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.ubicacion}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                     {item.estado} / {item.estado_funcional}
+                  </td>
+                  <td className="px-6 py-4 whitespace-normal break-words min-w-[200px] text-sm text-gray-500 dark:text-gray-300">
+                    {item.observaciones || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button onClick={() => handleEdit(item)} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 mr-4"><FaEdit /></button>
