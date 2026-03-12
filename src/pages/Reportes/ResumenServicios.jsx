@@ -8,6 +8,7 @@ import { FaFilePdf, FaArrowLeft, FaEye } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { ThemeContext } from '../../context/ThemeContext';
 import Modal from '../../components/common/Modal';
+import ReadOnlyAreaHistory from '../../components/common/ReadOnlyAreaHistory';
 
 const COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#6366f1', '#84cc16'];
 
@@ -167,11 +168,8 @@ const ResumenServicios = () => {
                                 if (entry.backup) servicesList.push({ description: 'Backup de info' });
                             }
 
-                            // Build team string if multiple
+                            // Sólo mostrar técnico responsable
                             let techName = entry.tecnico || 'Desconocido';
-                            if (entry.tec_apoyo) {
-                                techName += ` / ${entry.tec_apoyo}`;
-                            }
 
                             data.push({
                                 reportId: report.id,
@@ -181,12 +179,14 @@ const ResumenServicios = () => {
                                 techName: techName,
                                 start,
                                 end,
-                                startDateStr: `${entry.fecha_inicio}`,
-                                endDateStr: `${entry.fecha_fin}`,
+                                startDateStr: `${entry.fecha_inicio} ${entry.hora_inicio}`,
+                                endDateStr: `${entry.fecha_fin} ${entry.hora_fin}`,
                                 duration: durationValue,
                                 equipo: report.tipoEquipo || 'N/A',
                                 modeloMarca: `${report.marca || ''} ${report.modelo || ''}`.trim() || 'N/A',
-                                servicesList
+                                servicesList,
+                                entry: entry,
+                                report: report
                             });
                         }
                     }
@@ -206,8 +206,15 @@ const ResumenServicios = () => {
         if (selectedArea) data = data.filter(i => i.area === selectedArea);
         if (selectedTech) data = data.filter(i => i.techName.includes(selectedTech));
 
-        // Sort by report
-        return data.sort((a, b) => a.reportNumber - b.reportNumber);
+        // Sort by report and then by start date
+        return data.sort((a, b) => {
+            const numA = parseInt(a.reportNumber, 10) || 0;
+            const numB = parseInt(b.reportNumber, 10) || 0;
+            if (numA !== numB) return numB - numA; // Changed to descending: numB - numA
+            
+            // Si son del mismo informe, ordenar por fecha de inicio (ascendente para que se vea la ruta cronológica)
+            return (a.start || 0) - (b.start || 0);
+        });
     }, [interventions, selectedReport, selectedArea, selectedTech]);
 
     // Format chart data: Group by Area, show bars per Technician
@@ -434,28 +441,17 @@ const ResumenServicios = () => {
 
             {/* Modal para detalles de servicio */}
             {isModalOpen && modalData && (
-                <Modal onClose={() => setIsModalOpen(false)} title={`Detalle de Servicios - Área: ${modalData.area}`} maxWidth="max-w-2xl">
-                    <div className="p-6">
+                <Modal onClose={() => setIsModalOpen(false)} title={`Detalle de Servicios - Área: ${modalData.area}`} maxWidth="max-w-4xl">
+                    <div className="p-6 overflow-y-auto max-h-[80vh]">
                         <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border dark:border-gray-600 mb-4">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                                 <div><span className="font-bold">Informe:</span> {modalData.reportNumber}</div>
                                 <div><span className="font-bold">Técnico:</span> {modalData.techName}</div>
-                                <div><span className="font-bold">Unidad de Tiempo:</span> {formatDuration(modalData.duration, timeUnit)}</div>
+                                <div><span className="font-bold">Tiempo transcurrido:</span> {formatDuration(modalData.duration, timeUnit)}</div>
                             </div>
                         </div>
 
-                        <h4 className="font-bold text-lg mb-3">Servicios Realizados (Final)</h4>
-                        {modalData.servicesList && modalData.servicesList.length > 0 ? (
-                            <ul className="list-disc pl-5 space-y-2">
-                                {modalData.servicesList.map((srv, idx) => (
-                                    <li key={idx} className="text-gray-800 dark:text-gray-200">
-                                        {srv.description} {srv.specification ? `(${srv.specification})` : ''}
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-gray-500 italic">No se especificaron servicios detallados adicionales para esta intervención.</p>
-                        )}
+                        <ReadOnlyAreaHistory entry={modalData.entry} areaName={modalData.area} report={modalData.report} />
 
                         <div className="mt-6 flex justify-end">
                             <button

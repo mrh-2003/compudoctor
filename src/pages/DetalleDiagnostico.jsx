@@ -1288,6 +1288,37 @@ function DetalleDiagnostico() {
                         </div>
                     )}
 
+                    {/* Total Impresora */}
+                    <div className="flex justify-end items-center mt-4 pt-4 border-t-2 border-dashed border-gray-300 dark:border-gray-600">
+                        <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg flex items-center gap-4">
+                            <span className="font-bold text-gray-700 dark:text-gray-300 text-base">TOTAL:</span>
+                            <span className="font-bold text-xl text-black dark:text-white">
+                                S/ {(() => {
+                                    const realized = formState.printer_services_realized || [];
+                                    const additional = formState.printer_services_additional || [];
+                                    
+                                    let sumRealized = 0;
+                                    realized.forEach(s => {
+                                        if (formState.printer_cobra_revision === 'NO' && s.description && s.description.toUpperCase().includes('REVISIÓN')) {
+                                            return;
+                                        }
+                                        sumRealized += parseFloat(s.amount) || 0;
+                                    });
+
+                                    let sumAdditional = 0;
+                                    additional.forEach(s => {
+                                        if (formState.printer_cobra_revision === 'NO' && s.description && s.description.toUpperCase().includes('REVISIÓN')) {
+                                            return;
+                                        }
+                                        sumAdditional += parseFloat(s.amount) || 0;
+                                    });
+
+                                    return (sumRealized + sumAdditional).toFixed(2);
+                                })()}
+                            </span>
+                        </div>
+                    </div>
+
                 </div>
             );
         }
