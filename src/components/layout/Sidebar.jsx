@@ -71,7 +71,6 @@ function Sidebar({ isMinimized, isMobileOpen, toggleMinimize, closeMobileMenu })
                 { name: 'Productividad', path: '/reportes/productividad-tecnicos' },
                 { name: 'Top Servicios', path: '/reportes/top-servicios' },
                 { name: 'Ingresos', path: '/reportes/ingresos-costos' },
-                { name: 'Tiempos Resolución', path: '/reportes/tiempos-resolucion' },
                 { name: 'Promedio Servicios', path: '/reportes/resumen-servicios' },
                 { name: 'Inventario', path: '/reportes/inventario-entrada' },
             ],

@@ -1116,6 +1116,15 @@ function DetalleDiagnostico() {
                             ))}
                             {(!list || list.length === 0) && <li className="text-xs text-gray-500 italic">No hay servicios registrados.</li>}
                         </ul>
+                        
+                        {type === 'ADICIONALES' && list && list.length > 0 && (
+                            <div className="flex justify-end items-center mb-4 pt-2 border-t border-gray-300 dark:border-gray-600">
+                                <span className="font-bold text-sm text-gray-700 dark:text-gray-300 mr-2">TOTAL S.A:</span>
+                                <span className="font-bold text-sm text-black dark:text-white">
+                                    S/ {list.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0).toFixed(2)}
+                                </span>
+                            </div>
+                        )}
 
                         {/* Adder */}
                         {(!isReportFinalized && isAllowedToEdit && type === 'ADICIONALES') && (

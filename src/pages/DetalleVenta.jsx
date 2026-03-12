@@ -692,7 +692,11 @@ function DetalleVenta() {
                                                             <li key={inv.id} className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-sm border-b dark:border-gray-700"
                                                                 onClick={() => selectInventoryItem(item.id, inv)}>
                                                                 <div className="font-bold">{inv.descripcion}</div>
-                                                                <div className="text-xs text-blue-600 dark:text-blue-400">Stock disponible: {availableStock}</div>
+                                                                <div className="text-xs text-gray-500 dark:text-gray-400 pt-1">
+                                                                    {inv.marca && <span className="mr-2 border-r pr-2 border-gray-300 dark:border-gray-600">Marca: <span className="font-semibold">{inv.marca}</span></span>}
+                                                                    {inv.modelo && <span>Modelo: <span className="font-semibold">{inv.modelo}</span></span>}
+                                                                </div>
+                                                                <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">Stock disponible: {availableStock}</div>
                                                             </li>
                                                         );
                                                     })}

@@ -718,6 +718,10 @@ function Diagnostico() {
         break;
     }
 
+    if (itemId === 'otros') {
+      isCheckDisabled = isFormLocked;
+    }
+
     return { isAvailable, isCheckDisabled, isDetailRequired, isDetailDisabled };
   };
 
@@ -1055,7 +1059,7 @@ function Diagnostico() {
       return;
     }
 
-    if (lastService && (!lastService.service || (lastService.service !== 'Revisión' && lastService.service !== 'Reparación' && (!lastService.amount || parseFloat(lastService.amount) <= 0)))) {
+    if (lastService && (!lastService.service || (lastService.service !== 'Revisión' && lastService.service !== 'Reparación' && (lastService.amount === undefined || lastService.amount === "" || isNaN(parseFloat(lastService.amount)) || parseFloat(lastService.amount) < 0)))) {
       toast.error("Por favor, completa el servicio y el monto actual antes de añadir otro.");
       return;
     }
@@ -1161,13 +1165,14 @@ function Diagnostico() {
 
       setFormData(prev => {
         const newItems = prev.items.map(item => {
+          let updatedItem = { ...item, checked: false, detalles: "" }; // Reset checks and detalles
           if (value === 'TARJETA_VIDEO' && item.id === 'tarjetaVideo') {
-            return { ...item, checked: true };
+            return { ...updatedItem, checked: true };
           }
           if ((value === 'PLACA_MADRE_LAPTOP' || value === 'PLACA_MADRE_PC') && item.id === 'placaMadre') {
-            return { ...item, checked: true };
+            return { ...updatedItem, checked: true };
           }
-          return item;
+          return updatedItem;
         });
         return { ...prev, items: newItems };
       });
@@ -1308,8 +1313,8 @@ function Diagnostico() {
     if (isFormLocked) return;
     const amount = parseFloat(newService.amount);
 
-    if (!newService.description || !amount || amount <= 0) {
-      toast.error("Debe ingresar la descripción y un monto mayor a 0 antes de agregar un servicio adicional.");
+    if (!newService.description || isNaN(amount) || amount < 0) {
+      toast.error("Debe ingresar la descripción y un monto mayor o igual a 0 antes de agregar un servicio adicional.");
       return;
     }
 
@@ -1363,14 +1368,14 @@ function Diagnostico() {
         if (!item.service) {
           newErrors[`service-${index}`] = "Debe seleccionar un servicio.";
         }
-        if (item.service !== 'Reparación' && item.service !== 'Garantía' && item.service !== 'Revisión' && (!item.amount || parseFloat(item.amount) <= 0)) {
-          newErrors[`amount-${index}`] = "El monto es obligatorio y debe ser mayor a 0.";
+        if (item.service !== 'Reparación' && item.service !== 'Garantía' && item.service !== 'Revisión' && (item.amount === undefined || item.amount === "" || isNaN(parseFloat(item.amount)) || parseFloat(item.amount) < 0)) {
+          newErrors[`amount-${index}`] = "El monto es obligatorio y no puede ser negativo.";
         }
         if (item.service === 'Otros' && !item.description) {
           newErrors[`description-${index}`] = "Debe especificar la descripción del servicio 'Otros'.";
         }
-        if (item.service === 'Reparación' && (!item.amount || parseFloat(item.amount) <= 0)) {
-          newErrors[`amount-${index}`] = "El monto de la reparación es obligatorio y debe ser mayor a 0.";
+        if (item.service === 'Reparación' && (item.amount === undefined || item.amount === "" || isNaN(parseFloat(item.amount)) || parseFloat(item.amount) < 0)) {
+          newErrors[`amount-${index}`] = "El monto de la reparación es obligatorio y no puede ser negativo.";
         }
       });
     }
@@ -1442,7 +1447,7 @@ function Diagnostico() {
 
     const hasWarrantyService = servicesList.some(s => s.service === 'Garantía');
 
-    if (formData.montoServicio <= 0 && !hasRepairService && !hasWarrantyService) {
+    if (formData.montoServicio < 0 && !hasRepairService && !hasWarrantyService) {
       newErrors.montoServicio = "Monto inválido.";
     }
 
@@ -2130,8 +2135,8 @@ function Diagnostico() {
                 onClick={() => {
                   const amount = newServiceSelection.amount;
 
-                  if (newServiceSelection.service && newServiceSelection.service !== 'Reparación' && newServiceSelection.service !== 'Garantía' && newServiceSelection.service !== 'Revisión' && (!amount || amount <= 0)) {
-                    toast.error("El monto debe ser mayor a 0 para este servicio.");
+                  if (newServiceSelection.service && newServiceSelection.service !== 'Reparación' && newServiceSelection.service !== 'Garantía' && newServiceSelection.service !== 'Revisión' && (amount === undefined || amount === "" || isNaN(amount) || amount < 0)) {
+                    toast.error("El monto debe ser mayor o igual a 0 para este servicio.");
                     return;
                   }
 
