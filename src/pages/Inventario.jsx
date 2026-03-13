@@ -3,7 +3,16 @@ import {
   getInventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem,
   getCategories, getFunctionalStates, getUnitsMeasure, getCustomFields
 } from '../services/inventoryService';
-import { FaEdit, FaTrash, FaPlus, FaSearch, FaFileExcel, FaFilter } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSearch, FaFileExcel, FaFilter, FaMinus, FaArrowDown, FaArrowUp } from 'react-icons/fa';
+import { getAllClients } from '../services/clientService';
+import { createSale, getSales } from '../services/salesService';
+import { createPurchase, getPurchases } from '../services/comprasService';
+
+const TIPOS_COMPROBANTE = [
+    "BOLETA FISICA",
+    "FACTURA ELECTRONICA",
+    "BOLETA ELECTRONICA"
+];
 import toast from 'react-hot-toast';
 import Modal from '../components/common/Modal';
 import Select from 'react-select';
@@ -46,6 +55,24 @@ function Inventario() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState(initialItemState());
 
+  // New Modals State
+  const [isDecreaseOpen, setIsDecreaseOpen] = useState(false);
+  const [isIncreaseOpen, setIsIncreaseOpen] = useState(false);
+  const [isViewSalesOpen, setIsViewSalesOpen] = useState(false);
+  const [isViewPurchasesOpen, setIsViewPurchasesOpen] = useState(false);
+  const [activeItem, setActiveItem] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [historyData, setHistoryData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const [decreaseData, setDecreaseData] = useState({
+    cantidad: 1, descripcion: '', tipoComprobante: 'BOLETA FISICA', numeroFactura: '', clienteObj: null, nombreCliente: '', documentoCliente: ''
+  });
+  
+  const [increaseData, setIncreaseData] = useState({
+    cantidad: 1, boleta: '', proveedor: '', observacion: ''
+  });
+
   function initialItemState() {
     return {
       categoria: '',
@@ -72,18 +99,20 @@ function Inventario() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [invData, catData, funcData, unitData, customData] = await Promise.all([
+      const [invData, catData, funcData, unitData, customData, clientsData] = await Promise.all([
         getInventoryItems(),
         getCategories(),
         getFunctionalStates(),
         getUnitsMeasure(),
-        getCustomFields()
+        getCustomFields(),
+        getAllClients()
       ]);
       setItems(invData);
       setCategories(catData);
       setFunctionalStates(funcData);
       setUnits(unitData);
       setCustomFields(customData);
+      setClients(clientsData || []);
     } catch (error) {
       console.error(error);
       toast.error('Error al cargar el inventario');
@@ -146,6 +175,109 @@ function Inventario() {
     setCurrentItem(item);
     setIsEditing(true);
     setIsModalOpen(true);
+  };
+
+  const openDecrease = (item) => {
+    setActiveItem(item);
+    setDecreaseData({ cantidad: 1, descripcion: '', tipoComprobante: 'BOLETA FISICA', numeroFactura: '', clienteObj: null, nombreCliente: '', documentoCliente: '' });
+    setIsDecreaseOpen(true);
+  };
+
+  const openIncrease = (item) => {
+    setActiveItem(item);
+    setIncreaseData({ cantidad: 1, boleta: '', proveedor: '', observacion: '' });
+    setIsIncreaseOpen(true);
+  };
+
+  const handleDecreaseSubmit = async (e) => {
+    e.preventDefault();
+    if (decreaseData.cantidad <= 0 || decreaseData.cantidad > activeItem.cantidad) {
+      return toast.error('Cantidad inválida');
+    }
+    setIsSaving(true);
+    try {
+      const sale = {
+        inventarioId: activeItem.id,
+        productoNombre: activeItem.descripcion,
+        cantidad: decreaseData.cantidad,
+        descripcion: decreaseData.descripcion,
+        tipoComprobante: decreaseData.tipoComprobante,
+        numeroFactura: decreaseData.numeroFactura,
+        clienteId: decreaseData.clienteObj ? decreaseData.clienteObj.value : null,
+        nombreCliente: decreaseData.clienteObj ? decreaseData.clienteObj.nombre : decreaseData.nombreCliente,
+        documentoCliente: decreaseData.clienteObj ? decreaseData.clienteObj.documento : decreaseData.documentoCliente,
+        fecha: new Date().toISOString()
+      };
+      await createSale(sale);
+      await updateInventoryItem(activeItem.id, { ...activeItem, cantidad: activeItem.cantidad - decreaseData.cantidad });
+      toast.success('Stock disminuido correctamente');
+      setIsDecreaseOpen(false);
+      loadData();
+    } catch (error) {
+      toast.error('Error al disminuir stock');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleIncreaseSubmit = async (e) => {
+    e.preventDefault();
+    if (increaseData.cantidad <= 0) {
+      return toast.error('Cantidad inválida');
+    }
+    setIsSaving(true);
+    try {
+      const purchase = {
+        inventarioId: activeItem.id,
+        productoNombre: activeItem.descripcion,
+        cantidad: increaseData.cantidad,
+        boleta: increaseData.boleta,
+        proveedor: increaseData.proveedor,
+        observacion: increaseData.observacion,
+        fecha: new Date().toISOString()
+      };
+      await createPurchase(purchase);
+      await updateInventoryItem(activeItem.id, { ...activeItem, cantidad: activeItem.cantidad + increaseData.cantidad });
+      toast.success('Stock aumentado correctamente');
+      setIsIncreaseOpen(false);
+      loadData();
+    } catch (error) {
+      toast.error('Error al aumentar stock');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openViewSales = async (item) => {
+    setActiveItem(item);
+    setIsViewSalesOpen(true);
+    setLoadingHistory(true);
+    setHistoryData([]);
+    try {
+      const allSales = await getSales();
+      const itemSales = allSales.filter(v => v.inventarioId === item.id);
+      setHistoryData(itemSales);
+    } catch (error) {
+      toast.error('Error al cargar ventas');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const openViewPurchases = async (item) => {
+    setActiveItem(item);
+    setIsViewPurchasesOpen(true);
+    setLoadingHistory(true);
+    setHistoryData([]);
+    try {
+      const allPurchases = await getPurchases();
+      const itemPurchases = allPurchases.filter(c => c.inventarioId === item.id);
+      setHistoryData(itemPurchases);
+    } catch (error) {
+      toast.error('Error al cargar compras');
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const [confirmation, setConfirmation] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
@@ -395,9 +527,17 @@ function Inventario() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.categoria}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.marca} {item.modelo}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.cantidad > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {item.cantidad} {item.unidad_medida}
-                    </span>
+                    <div className="flex items-center gap-2">
+                       <button onClick={() => openDecrease(item)} disabled={item.cantidad <= 0} className={`p-1 rounded ${item.cantidad > 0 ? 'text-red-600 hover:bg-red-100' : 'text-gray-400 cursor-not-allowed'}`} title="Disminuir (Venta)">
+                         <FaMinus size={12} />
+                       </button>
+                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.cantidad > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                         {item.cantidad} {item.unidad_medida}
+                       </span>
+                       <button onClick={() => openIncrease(item)} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Aumentar (Compra)">
+                         <FaPlus size={12} />
+                       </button>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                     <div>C: S/ {parseFloat(item.costo_compra || 0).toFixed(2)}</div>
@@ -411,8 +551,10 @@ function Inventario() {
                     {item.observaciones || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button onClick={() => handleEdit(item)} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 mr-4"><FaEdit /></button>
-                    <button onClick={() => handleDeleteRequest(item)} className="text-red-600 hover:text-red-900 dark:text-red-400"><FaTrash /></button>
+                    <button onClick={() => openViewSales(item)} className="text-orange-500 hover:text-orange-700 dark:text-orange-400 mr-4" title="Ver Ventas de este Item"><FaArrowDown /></button>
+                    <button onClick={() => openViewPurchases(item)} className="text-teal-500 hover:text-teal-700 dark:text-teal-400 mr-4" title="Ver Compras de este Item"><FaArrowUp /></button>
+                    <button onClick={() => handleEdit(item)} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 mr-4" title="Editar"><FaEdit /></button>
+                    <button onClick={() => handleDeleteRequest(item)} className="text-red-600 hover:text-red-900 dark:text-red-400" title="Eliminar"><FaTrash /></button>
                   </td>
                 </tr>
               ))
@@ -647,6 +789,188 @@ function Inventario() {
           onConfirm={confirmation.onConfirm}
           onCancel={() => setConfirmation({ isOpen: false })}
         />
+      )}
+
+      {isDecreaseOpen && (
+        <Modal onClose={() => !isSaving && setIsDecreaseOpen(false)} maxWidth="max-w-2xl">
+          <div className="p-4 md:p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Disminuir Stock (Venta)</h2>
+            <p className="mb-4 text-sm text-gray-500">
+              Producto: <span className="font-bold">{activeItem?.descripcion}</span> | Stock Actual: <span className="font-bold">{activeItem?.cantidad}</span>
+            </p>
+            <form onSubmit={handleDecreaseSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Cantidad *</label>
+                <input type="number" min="1" max={activeItem?.cantidad || 1} required value={decreaseData.cantidad} onChange={e => setDecreaseData({...decreaseData, cantidad: Number(e.target.value)})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Descripción</label>
+                <textarea value={decreaseData.descripcion} onChange={e => setDecreaseData({...decreaseData, descripcion: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" rows="2"></textarea>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Tipo de Factura</label>
+                  <select value={decreaseData.tipoComprobante} onChange={e => setDecreaseData({...decreaseData, tipoComprobante: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    {TIPOS_COMPROBANTE.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">N° de Factura</label>
+                  <input type="text" value={decreaseData.numeroFactura} onChange={e => setDecreaseData({...decreaseData, numeroFactura: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Buscar Cliente</label>
+                <Select
+                  options={clients.map(c => ({ 
+                    value: c.id, 
+                    label: `${c.tipoPersona === 'JURIDICA' ? c.razonSocial : c.nombre + ' ' + (c.apellido||'')} - ${c.ruc || c.documento || ''}`,
+                    nombre: c.tipoPersona === 'JURIDICA' ? c.razonSocial : c.nombre + ' ' + (c.apellido||''),
+                    documento: c.ruc || c.documento || ''
+                  }))}
+                  value={decreaseData.clienteObj}
+                  onChange={opt => setDecreaseData({...decreaseData, clienteObj: opt, nombreCliente: '', documentoCliente: ''})}
+                  placeholder="Seleccione cliente..."
+                  classNamePrefix="react-select"
+                  isClearable
+                />
+              </div>
+              {!decreaseData.clienteObj && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Nombre</label>
+                    <input type="text" value={decreaseData.nombreCliente} onChange={e => setDecreaseData({...decreaseData, nombreCliente: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Documento</label>
+                    <input type="text" value={decreaseData.documentoCliente} onChange={e => setDecreaseData({...decreaseData, documentoCliente: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 mt-4">
+                <button type="button" onClick={() => setIsDecreaseOpen(false)} disabled={isSaving} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancelar</button>
+                <button type="submit" disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">{isSaving ? 'Guardando...' : 'Confirmar'}</button>
+              </div>
+            </form>
+          </div>
+        </Modal>
+      )}
+
+      {isIncreaseOpen && (
+        <Modal onClose={() => !isSaving && setIsIncreaseOpen(false)} maxWidth="max-w-2xl">
+          <div className="p-4 md:p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Aumentar Stock (Compra)</h2>
+            <p className="mb-4 text-sm text-gray-500">Producto: <span className="font-bold">{activeItem?.descripcion}</span></p>
+            <form onSubmit={handleIncreaseSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Cantidad *</label>
+                <input type="number" min="1" required value={increaseData.cantidad} onChange={e => setIncreaseData({...increaseData, cantidad: Number(e.target.value)})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Boleta/Factura</label>
+                  <input type="text" value={increaseData.boleta} onChange={e => setIncreaseData({...increaseData, boleta: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Proveedor</label>
+                  <input type="text" value={increaseData.proveedor} onChange={e => setIncreaseData({...increaseData, proveedor: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Observación</label>
+                <textarea value={increaseData.observacion} onChange={e => setIncreaseData({...increaseData, observacion: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" rows="3"></textarea>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button type="button" onClick={() => setIsIncreaseOpen(false)} disabled={isSaving} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancelar</button>
+                <button type="submit" disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">{isSaving ? 'Guardando...' : 'Confirmar'}</button>
+              </div>
+            </form>
+          </div>
+        </Modal>
+      )}
+
+      {isViewSalesOpen && (
+        <Modal onClose={() => setIsViewSalesOpen(false)} maxWidth="max-w-6xl">
+          <div className="p-4 md:p-6 max-h-[90vh] overflow-y-auto w-full">
+            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Historial de Ventas</h2>
+            <p className="mb-4 text-sm text-gray-500">Producto: <span className="font-bold">{activeItem?.descripcion}</span></p>
+            {loadingHistory ? <p>Cargando...</p> : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fecha y Hora</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cant</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cliente</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Documento</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Tipo Comp.</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">N° Factura</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Descripción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-gray-900 dark:text-gray-100">
+                    {historyData.length === 0 ? <tr><td colSpan="7" className="text-center py-4">No hay ventas registradas</td></tr> :
+                      historyData.map((d, i) => (
+                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{new Date(d.fecha || d.createdAt?.toDate?.() || Date.now()).toLocaleString()}</td>
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{d.cantidad}</td>
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{d.nombreCliente || d.clienteId || '-'}</td>
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{d.documentoCliente || '-'}</td>
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{d.tipoComprobante || '-'}</td>
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{d.numeroFactura || '-'}</td>
+                          <td className="px-4 py-2 text-sm max-w-xs">{d.descripcion || '-'}</td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setIsViewSalesOpen(false)} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cerrar</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {isViewPurchasesOpen && (
+        <Modal onClose={() => setIsViewPurchasesOpen(false)} maxWidth="max-w-5xl">
+          <div className="p-4 md:p-6 max-h-[90vh] overflow-y-auto w-full">
+            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Historial de Compras</h2>
+            <p className="mb-4 text-sm text-gray-500">Producto: <span className="font-bold">{activeItem?.descripcion}</span></p>
+            {loadingHistory ? <p>Cargando...</p> : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fecha y Hora</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cant</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Proveedor</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Boleta/Factura</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Observación</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-gray-900 dark:text-gray-100">
+                    {historyData.length === 0 ? <tr><td colSpan="5" className="text-center py-4">No hay compras registradas</td></tr> :
+                      historyData.map((d, i) => (
+                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{new Date(d.fecha || d.createdAt?.toDate?.() || Date.now()).toLocaleString()}</td>
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{d.cantidad}</td>
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{d.proveedor || '-'}</td>
+                          <td className="px-4 py-2 text-sm whitespace-nowrap">{d.boleta || '-'}</td>
+                          <td className="px-4 py-2 text-sm max-w-xs">{d.observacion || '-'}</td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setIsViewPurchasesOpen(false)} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cerrar</button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
