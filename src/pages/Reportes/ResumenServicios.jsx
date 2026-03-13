@@ -20,12 +20,13 @@ const parseInterventionDate = (dateStr, timeStr) => {
 };
 
 const formatDuration = (value, unit) => {
-    if (isNaN(value) || value === null) return unit === 'hours' ? '0.00H' : '0M';
-    if (unit === 'hours') {
-        return `${value.toFixed(2)}H`;
-    } else {
-        return `${Math.round(value)}M`;
-    }
+    if (isNaN(value) || value === null) return '00:00';
+    
+    let totalMinutes = unit === 'hours' ? Math.round(value * 60) : Math.round(value);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 };
 
 const ResumenServicios = () => {
