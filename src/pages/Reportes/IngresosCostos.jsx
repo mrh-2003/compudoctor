@@ -8,19 +8,26 @@ import { FaFilePdf, FaArrowLeft } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { ThemeContext } from '../../context/ThemeContext';
 
+const OTHER_EQUIPMENT_OPTIONS = {
+    "TARJETA_VIDEO": "Tarjeta de Video",
+    "PLACA_MADRE_LAPTOP": "Placa Madre Laptop",
+    "PLACA_MADRE_PC": "Placa Madre PC",
+    "OTRO_DESCRIPCION": "Otro"
+};
+
 function IngresosCostos() {
     const { theme } = useContext(ThemeContext);
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
     const [isExporting, setIsExporting] = useState(false);
+    const [diagFilter, setDiagFilter] = useState('ALL'); // ALL, CON_DIAG, SIN_DIAG
     const chartRef = useRef(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const data = await getAllDiagnosticReports();
-                // Se pasa la data tal cual; el parseo se hará por pago
                 setReports(data);
             } catch (error) {
                 console.error("Error fetching reports:", error);
@@ -31,8 +38,8 @@ function IngresosCostos() {
         fetchData();
     }, []);
 
-    const { data: chartData, servicesSummary, diagReports } = useMemo(() => {
-        if (!selectedMonth) return { data: [], servicesSummary: {}, diagReports: [] };
+    const { data: chartData, tableReports, summaryTotals } = useMemo(() => {
+        if (!selectedMonth) return { data: [], tableReports: [], summaryTotals: { totalPagado: 0 } };
 
         const [year, month] = selectedMonth.split('-').map(Number);
         const daysInMonth = new Date(year, month, 0).getDate();
@@ -42,8 +49,8 @@ function IngresosCostos() {
             ingresoDiagnostico: 0
         }));
 
-        const servicesSummary = {};
-        const diagReports = [];
+        const tableReportsData = [];
+        let globalTotalPagado = 0;
 
         const analyzeReport = (report) => {
             let shouldChargeRevision = true;
@@ -71,6 +78,8 @@ function IngresosCostos() {
             }
 
             const hasReparacionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REPARACIÓN'));
+            const hasRevisionServiceInList = report.servicesList?.some(s => s.service && s.service.toUpperCase().includes('REVISIÓN'));
+            
             let initialDiagnosticCost = parseFloat(report.diagnostico) || 0;
 
             if (hasReparacionServiceInList && shouldChargeReparacion) {
@@ -109,7 +118,13 @@ function IngresosCostos() {
                         totalServices += finalAmount;
                         if (finalAmount > 0) {
                             const descName = (s.service === 'Otros' || s.service === 'OTROS') ? (s.specification || 'Otros') : s.service;
-                            servicesDetails.push({ type: 'Servicio Base', area: report.area || 'GENERAL', description: descName, amount: finalAmount });
+                            servicesDetails.push({ 
+                                type: 'Servicio Base', 
+                                isLegacy: true,
+                                area: 'INFORME TECNICO', 
+                                description: descName + (s.specification && s.service !== 'Otros' && s.service !== 'OTROS' ? ` - ${s.specification}` : ''), 
+                                amount: finalAmount 
+                            });
                         }
                     }
                 });
@@ -121,7 +136,13 @@ function IngresosCostos() {
                     totalServices += finalAmount;
                     if (finalAmount > 0) {
                         const descName = (s.description === 'Otros' || s.description === 'OTROS') ? (s.specification || 'Otros') : (s.description || s.service || 'Extra');
-                        servicesDetails.push({ type: 'Adicional', area: report.area || 'GENERAL', description: descName, amount: finalAmount });
+                        servicesDetails.push({ 
+                            type: 'Adicional', 
+                            isLegacy: true, 
+                            area: 'INFORME TECNICO', 
+                            description: descName + (s.specification && descName !== s.specification ? ` - ${s.specification}` : ''), 
+                            amount: finalAmount 
+                        });
                     }
                 });
             }
@@ -141,7 +162,15 @@ function IngresosCostos() {
                                     if (finalAmount > 0) {
                                         let descName = s.description || s.service || 'Extra';
                                         if (descName === 'Otros' || descName === 'OTROS') descName = s.specification || 'Otros';
-                                        servicesDetails.push({ type: 'Adicional', area: area, description: descName, amount: finalAmount });
+                                        const finalDesc = descName + (s.specification && descName !== s.specification ? ` - ${s.specification}` : '');
+
+                                        servicesDetails.push({ 
+                                            type: 'Adicional', 
+                                            isLegacy: false,
+                                            area: area, 
+                                            description: finalDesc, 
+                                            amount: finalAmount 
+                                        });
                                     }
                                 });
                             }
@@ -154,14 +183,18 @@ function IngresosCostos() {
             }
 
             const discount = parseFloat(report.descuento) || 0;
-            // Subtract discount from the total (we can do it broadly)
             const totalFinal = diagCharged + totalServices - discount;
 
             return {
                 totalFinal: totalFinal > 0 ? totalFinal : 0,
                 diagCharged,
                 servicesDetails,
-                reportNumber: report.reportNumber
+                reportNumber: report.reportNumber,
+                discount,
+                hasRevision: hasRevisionServiceInList,
+                hasReparacion: hasReparacionServiceInList,
+                shouldChargeRevision,
+                shouldChargeReparacion
             };
         };
 
@@ -196,16 +229,12 @@ function IngresosCostos() {
             const analysis = analyzeReport(report);
 
             let pagos = [];
-
-            // Si tiene el array de pagos nuevo desde el modal de CostosModal
             if (report.pagosRealizado && report.pagosRealizado.length > 0) {
                 pagos = [...report.pagosRealizado];
             } else {
-                // Inferir cobros legacy (aCuenta) o por marcaje Pagado
                 const aCuenta = parseFloat(report.aCuenta) || 0;
                 const total = parseFloat(report.total) || analysis.totalFinal;
                 const isPaid = report.isPaid || report.estado === 'ENTREGADO';
-
                 const minPagoDetectado = isPaid ? (total > 0 ? total : aCuenta) : aCuenta;
 
                 if (minPagoDetectado > 0) {
@@ -214,53 +243,127 @@ function IngresosCostos() {
                 }
             }
 
-            let reportServicesSummaryAdded = false;
+            let pagosEnEsteMesTotal = 0;
+            let pagosEnEsteMesData = [];
 
             pagos.forEach(pago => {
                 const parseDate = parseDateHelper(pago.fecha);
                 if (parseDate && parseDate.getFullYear() === year && parseDate.getMonth() === month - 1) {
-                    const day = parseDate.getDate();
-                    const stats = dailyStats[day - 1];
                     const monto = parseFloat(pago.monto) || 0;
-
                     if (monto > 0) {
-                        stats.ingresoTotal += monto;
-
-                        // Solo sumar diagnóstico y listas de servicios la primera vez que choca un pago en este mes de este reporte
-                        if (!reportServicesSummaryAdded) {
-                            if (analysis.diagCharged > 0) {
-                                stats.ingresoDiagnostico += analysis.diagCharged;
-                                diagReports.push({ reportNumber: analysis.reportNumber, diagCharged: analysis.diagCharged, date: parseDate });
-                            }
-
-                            analysis.servicesDetails.forEach(s => {
-                                const key = `${s.area}|${s.type}|${s.description}`;
-                                if (!servicesSummary[key]) {
-                                    servicesSummary[key] = { area: s.area, type: s.type, description: s.description, amount: 0 };
-                                }
-                                servicesSummary[key].amount += s.amount;
-                            });
-
-                            reportServicesSummaryAdded = true;
-                        }
+                        pagosEnEsteMesTotal += monto;
+                        pagosEnEsteMesData.push(pago);
                     }
                 }
             });
+
+            if (pagosEnEsteMesTotal > 0) {
+                globalTotalPagado += pagosEnEsteMesTotal;
+                const isDiagnosticoCobrado = (analysis.diagCharged > 0);
+
+                // Agregar datos a los gráficos
+                pagosEnEsteMesData.forEach(pago => {
+                    const pDate = parseDateHelper(pago.fecha);
+                    const day = pDate.getDate();
+                    const monto = parseFloat(pago.monto) || 0;
+                    
+                    dailyStats[day - 1].ingresoTotal += monto;
+
+                    if (analysis.diagCharged > 0 && analysis.totalFinal > 0) {
+                         const diagProp = analysis.diagCharged * (monto / analysis.totalFinal);
+                         dailyStats[day - 1].ingresoDiagnostico += diagProp;
+                    } else if (analysis.diagCharged > 0 && analysis.totalFinal === 0) {
+                         dailyStats[day - 1].ingresoDiagnostico += monto;
+                    }
+                });
+
+                // Preparar filas de tabla
+                let obsParts = [];
+                if (analysis.discount > 0) {
+                    obsParts.push(`SE REALIZÓ S/ ${analysis.discount.toFixed(2)} DE DSCTO`);
+                }
+                if (analysis.hasRevision && !analysis.shouldChargeRevision) {
+                    obsParts.push("NO SE COBRA REVISIÓN");
+                }
+                if (analysis.hasReparacion && !analysis.shouldChargeReparacion) {
+                    obsParts.push("SE COBRA DIAGNOSTICO");
+                }
+
+                const reportRows = [];
+                
+                analysis.servicesDetails.forEach(s => {
+                    reportRows.push({
+                        area: s.area,
+                        description: s.description,
+                    });
+                });
+
+                if (analysis.diagCharged > 0) {
+                    reportRows.push({
+                        area: 'INFORME TECNICO',
+                        description: 'Cobro de Diagnóstico',
+                    });
+                }
+                
+                if (reportRows.length === 0) {
+                     reportRows.push({
+                        area: 'INFORME TECNICO',
+                        description: 'Servicio / Abono Genérico',
+                    });
+                }
+
+                let tipoEquipoDisplay = report.tipoEquipo;
+                if (tipoEquipoDisplay === 'Otros') {
+                    if (report.otherComponentType === 'OTRO_DESCRIPCION') {
+                        tipoEquipoDisplay = report.otherDescription || 'Otros';
+                    } else if (report.otherComponentType) {
+                        tipoEquipoDisplay = OTHER_EQUIPMENT_OPTIONS[report.otherComponentType] || 'Otros';
+                    }
+                }
+
+                tableReportsData.push({
+                    reportNumber: analysis.reportNumber,
+                    tipoEquipo: tipoEquipoDisplay,
+                    marcaModelo: `${report.marca || ''} ${report.modelo || ''}`.trim() || '-',
+                    observacion: obsParts.length > 0 ? obsParts.join(' | ') : '',
+                    totalCobradoMes: pagosEnEsteMesTotal,
+                    rows: reportRows,
+                    isDiagnosticoCobrado
+                });
+            }
         });
 
-        // Parse nulls for log chart
         const processedChartData = dailyStats.map(d => ({
             ...d,
-            // Use undefined for zeroes so Recharts LogAxis correctly skips them and doesn't crash
             ingresoTotal: d.ingresoTotal > 0 ? d.ingresoTotal : undefined,
             ingresoDiagnostico: d.ingresoDiagnostico > 0 ? d.ingresoDiagnostico : undefined,
-            // Fallbacks for tooltip
             _rawTotal: d.ingresoTotal,
             _rawDiag: d.ingresoDiagnostico
         }));
 
-        return { data: processedChartData, servicesSummary: Object.values(servicesSummary), diagReports };
-    }, [reports, selectedMonth]);
+        const filteredTable = tableReportsData.filter(r => {
+            if (diagFilter === 'CON_DIAG') return r.isDiagnosticoCobrado;
+            if (diagFilter === 'SIN_DIAG') return !r.isDiagnosticoCobrado;
+            return true;
+        }).sort((a, b) => {
+            // Manejar reportNumbers que puedan ser string (con P o G) o numéricos
+            const aStr = String(a.reportNumber);
+            const bStr = String(b.reportNumber);
+            
+            const matchA = aStr.match(/([a-zA-Z]*)(\d+)/) || [null, '', aStr];
+            const matchB = bStr.match(/([a-zA-Z]*)(\d+)/) || [null, '', bStr];
+
+            const prefixA = matchA[1] || '';
+            const prefixB = matchB[1] || '';
+            const numA = parseInt(matchA[2], 10) || 0;
+            const numB = parseInt(matchB[2], 10) || 0;
+
+            if (prefixA !== prefixB) return prefixB.localeCompare(prefixA);
+            return numB - numA;
+        });
+
+        return { data: processedChartData, tableReports: filteredTable, summaryTotals: { totalPagado: globalTotalPagado } };
+    }, [reports, selectedMonth, diagFilter]);
 
     const exportToPDF = async () => {
         if (chartRef.current === null) return;
@@ -269,8 +372,6 @@ function IngresosCostos() {
         setTimeout(async () => {
             try {
                 const element = chartRef.current;
-
-                // Forzamos fondo blanco estricto en el contenedor del gráfico durante la captura
                 const originalBg = element.style.backgroundColor;
                 element.style.backgroundColor = '#ffffff';
 
@@ -278,23 +379,21 @@ function IngresosCostos() {
                     cacheBust: true,
                     backgroundColor: '#ffffff',
                     width: element.offsetWidth,
-                    pixelRatio: 2 // Alta calidad
+                    pixelRatio: 2
                 });
 
                 element.style.backgroundColor = originalBg;
 
                 const imgData = canvas;
-                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdf = new jsPDF('l', 'mm', 'a4'); 
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 let cursorY = 15;
 
-                // Título Reporte
                 pdf.setFontSize(16);
                 pdf.setTextColor(0, 0, 0);
                 pdf.text(`Ingresos y Costos - ${selectedMonth}`, pdfWidth / 2, cursorY, { align: 'center' });
                 cursorY += 10;
 
-                // Gráfico
                 const margin = 14;
                 const contentWidth = pdfWidth - (margin * 2);
                 const img = new Image();
@@ -305,60 +404,34 @@ function IngresosCostos() {
                 pdf.addImage(imgData, 'PNG', margin, cursorY, contentWidth, imgHeight);
                 cursorY += imgHeight + 10;
 
-                // Tabla 1: Resumen por Servicios
                 pdf.setFontSize(12);
-                pdf.text("Resumen por Servicios (Base y Adicionales)", margin, cursorY);
+                pdf.text("RESUMEN POR SERVICIOS (BASE Y ADICIONALES)", margin, cursorY);
                 cursorY += 5;
 
-                const table1Body = servicesSummary
-                    .sort((a, b) => a.area.localeCompare(b.area))
-                    .map(s => [
-                        s.area,
-                        s.type,
-                        s.description,
-                        `S/ ${s.amount.toFixed(2)}`
-                    ]);
+                const tableBody = [];
+                tableReports.forEach(report => {
+                    report.rows.forEach((row, rowIndex) => {
+                        const isFirstRow = rowIndex === 0;
+                        const rowData = [
+                            isFirstRow ? { content: report.reportNumber, rowSpan: report.rows.length, styles: { fontStyle: 'bold', valign: 'middle', halign: 'center' } } : '',
+                            row.area,
+                            isFirstRow ? { content: report.tipoEquipo, rowSpan: report.rows.length, styles: { valign: 'middle' } } : '',
+                            isFirstRow ? { content: report.marcaModelo, rowSpan: report.rows.length, styles: { valign: 'middle' } } : '',
+                            row.description,
+                            isFirstRow ? { content: `S/ ${report.totalCobradoMes.toFixed(2)}`, rowSpan: report.rows.length, styles: { fontStyle: 'bold', valign: 'middle', halign: 'right' } } : '',
+                            isFirstRow ? { content: report.observacion, rowSpan: report.rows.length, styles: { fontSize: 8, valign: 'middle' } } : ''
+                        ];
+                        tableBody.push(rowData);
+                    });
+                });
 
                 autoTable(pdf, {
                     startY: cursorY,
-                    head: [['Área', 'Tipo', 'Descripción', 'Total Cobrado (S/)']],
-                    body: table1Body.length > 0 ? table1Body : [['-', '-', 'Ningún servicio registrado este mes', '-']],
+                    head: [['Informe', 'Área / Registro', 'Tipo Equipo', 'Marca/Modelo', 'Descripción', 'Total Cobrado (Mes)', 'Observación']],
+                    body: tableBody.length > 0 ? tableBody : [['-', '-', '-', '-', 'Ningún servicio registrado', '-', '-']],
                     theme: 'grid',
                     headStyles: { fillColor: [243, 244, 246], textColor: [55, 65, 81], fontStyle: 'bold' },
                     styles: { textColor: [17, 24, 39], fontSize: 9 },
-                    margin: { left: margin, right: margin },
-                    didDrawPage: (data) => {
-                        // En caso de salto de página manual de la tabla, ajustamos
-                        cursorY = data.cursor.y;
-                    }
-                });
-
-                cursorY = (pdf.lastAutoTable ? pdf.lastAutoTable.finalY : cursorY + 20) + 15;
-
-                // Tabla 2: Informes con Cobro de Diagnóstico
-                // Chequear si cabe el titulo en la página, sino saltamos
-                if (cursorY + 15 > pdf.internal.pageSize.getHeight()) {
-                    pdf.addPage();
-                    cursorY = 20;
-                }
-
-                pdf.setFontSize(12);
-                pdf.text("Informes con Cobro de Diagnóstico", margin, cursorY);
-                cursorY += 5;
-
-                const table2Body = diagReports.map(d => [
-                    d.reportNumber,
-                    d.date.toLocaleDateString(),
-                    `S/ ${d.diagCharged.toFixed(2)}`
-                ]);
-
-                autoTable(pdf, {
-                    startY: cursorY,
-                    head: [['N° Informe', 'Fecha', 'Diagnóstico Cobrado (S/)']],
-                    body: table2Body.length > 0 ? table2Body : [['-', '-', 'Ningún cobro de diagnóstico']],
-                    theme: 'grid',
-                    headStyles: { fillColor: [243, 244, 246], textColor: [55, 65, 81], fontStyle: 'bold' },
-                    styles: { textColor: [17, 24, 39], fontSize: 9, halign: 'center' },
                     margin: { left: margin, right: margin }
                 });
 
@@ -375,22 +448,38 @@ function IngresosCostos() {
 
     return (
         <div className="p-6">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <Link to="/reportes" className="text-gray-500 hover:text-gray-700"><FaArrowLeft /></Link>
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Ingresos</h1>
+                    <Link to="/reportes" className="text-gray-500 hover:text-gray-700 dark:text-gray-400"><FaArrowLeft /></Link>
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Ingresos (Por Mes de Cobro)</h1>
                 </div>
-                <div className="flex items-center gap-4">
-                    <input
-                        type="month"
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                    />
+                <div className="flex flex-col md:flex-row items-center gap-4 border p-2 rounded-lg dark:border-gray-700">
+                    <div className="flex flex-col items-center gap-1 md:items-start md:mr-2">
+                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Filtro Diagnóstico:</label>
+                         <select
+                            value={diagFilter}
+                            onChange={(e) => setDiagFilter(e.target.value)}
+                            className="p-1.5 text-sm border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                         >
+                            <option value="ALL">Todos los Informes</option>
+                            <option value="CON_DIAG">Con Cobro de Diagnóstico</option>
+                            <option value="SIN_DIAG">Sin Cobro de Diagnóstico</option>
+                         </select>
+                    </div>
+                    <div className="flex flex-col items-center gap-1 md:items-start">
+                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Mes a Evaluar:</label>
+                        <input
+                            type="month"
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            className="p-1.5 text-sm border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                        />
+                    </div>
+                    
                     <button
                         onClick={exportToPDF}
                         disabled={isExporting}
-                        className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white px-4 py-2 rounded flex items-center gap-2"
+                        className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white px-4 py-2 mt-4 md:mt-0 rounded flex items-center gap-2 h-10"
                     >
                         <FaFilePdf /> {isExporting ? 'Exportando...' : 'Exportar PDF'}
                     </button>
@@ -399,12 +488,10 @@ function IngresosCostos() {
 
             <div className={`p-8 rounded-xl shadow-lg border transition-colors duration-300 ${isExporting ? 'bg-white !important border-gray-100' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
 
-                {/* Zona estricta del gráfico para la foto */}
                 <div ref={chartRef} className={`${isExporting ? 'bg-white' : ''} p-2 rounded-lg`}>
                     <h2 className={`text-xl font-bold mb-6 text-center uppercase tracking-wide transition-colors`} style={{ color: isExporting ? '#000' : (theme === 'dark' ? '#F3F4F6' : '#1F2937') }}>
-                        Evolución Diaria de Ingresos (Logarítmico)
+                        Evolución Diaria de Cobros (Logarítmico)
                     </h2>
-                    {/* Reduced height from 500px to 350px */}
                     <div className="h-[350px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart
@@ -420,7 +507,6 @@ function IngresosCostos() {
                                 />
                                 <Tooltip
                                     formatter={(value, name, props) => {
-                                        // Use exact 0 value from raw instead of undefined
                                         const rawVal = name === 'Ingreso Total' ? props.payload._rawTotal : props.payload._rawDiag;
                                         return [`S/ ${(rawVal || value || 0).toFixed(2)}`, name];
                                     }}
@@ -439,75 +525,39 @@ function IngresosCostos() {
                 </div>
 
                 <div className="mt-12 border-t pt-8 dark:border-gray-700" style={{ borderColor: isExporting ? '#e5e7eb' : undefined }}>
-                    <h3
-                        className={`text-lg font-bold mb-4 border-b pb-2 transition-colors`}
-                        style={{
-                            color: isExporting ? '#000' : (theme === 'dark' ? '#F3F4F6' : '#1F2937'),
-                            borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb')
-                        }}
-                    >
-                        Resumen por Servicios (Base y Adicionales)
-                    </h3>
-                    <div className={`${isExporting ? 'overflow-hidden' : 'overflow-x-auto'} border rounded-lg`} style={{ borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead style={{ backgroundColor: isExporting ? '#f3f4f6' : (theme === 'dark' ? '#374151' : '#f3f4f6') }}>
-                                <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-extra-bold uppercase tracking-wider border-r"
-                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Área</th>
-                                    <th className="px-6 py-4 text-left text-xs font-extra-bold uppercase tracking-wider border-r"
-                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Tipo</th>
-                                    <th className="px-6 py-4 text-left text-xs font-extra-bold uppercase tracking-wider border-r"
-                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Descripción</th>
-                                    <th className="px-6 py-4 text-right text-xs font-extra-bold uppercase tracking-wider"
-                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563') }}>Total Cobrado (S/)</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y"
-                                style={{
-                                    backgroundColor: isExporting ? '#ffffff' : (theme === 'dark' ? '#1f2937' : '#ffffff'),
-                                    divideColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb')
-                                }}>
-                                {servicesSummary.length === 0 ? (
-                                    <tr><td colSpan="4" className="px-6 py-4 text-center text-gray-500">Ningún servicio con costo registrado este mes.</td></tr>
-                                ) : (
-                                    servicesSummary.sort((a, b) => a.area.localeCompare(b.area)).map((s, idx) => (
-                                        <tr key={idx} className="transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold border-r"
-                                                style={{ color: isExporting ? '#111827' : (theme === 'dark' ? '#ffffff' : '#111827'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>{s.area}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center border-r"
-                                                style={{ color: isExporting ? '#374151' : (theme === 'dark' ? '#d1d5db' : '#374151'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>{s.type}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center border-r"
-                                                style={{ color: isExporting ? '#374151' : (theme === 'dark' ? '#d1d5db' : '#374151'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>{s.description}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold"
-                                                style={{ color: isExporting ? '#374151' : (theme === 'dark' ? '#d1d5db' : '#374151') }}>S/ {s.amount.toFixed(2)}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                         <h3
+                            className={`text-lg font-bold border-b pb-2 transition-colors inline-block`}
+                            style={{
+                                color: isExporting ? '#000' : (theme === 'dark' ? '#F3F4F6' : '#1F2937'),
+                                borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb')
+                            }}
+                         >
+                            RESUMEN POR SERVICIOS (BASE Y ADICIONALES)
+                         </h3>
+                         <div className="text-xl font-black text-green-600 bg-green-50 dark:bg-green-900/30 px-6 py-2 rounded-lg border border-green-200 dark:border-green-800">
+                             Total Pagado a la Fecha: S/ {summaryTotals.totalPagado.toFixed(2)}
+                         </div>
                     </div>
-                </div>
-
-                <div className="mt-8 border-t pt-8 dark:border-gray-700" style={{ borderColor: isExporting ? '#e5e7eb' : undefined }}>
-                    <h3
-                        className={`text-lg font-bold mb-4 border-b pb-2 transition-colors`}
-                        style={{
-                            color: isExporting ? '#000' : (theme === 'dark' ? '#F3F4F6' : '#1F2937'),
-                            borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb')
-                        }}
-                    >
-                        Informes con Cobro de Diagnóstico
-                    </h3>
+                    
                     <div className={`${isExporting ? 'overflow-hidden' : 'overflow-x-auto'} border rounded-lg`} style={{ borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead style={{ backgroundColor: isExporting ? '#f3f4f6' : (theme === 'dark' ? '#374151' : '#f3f4f6') }}>
                                 <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-extra-bold uppercase tracking-wider border-r"
-                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>N° Informe</th>
-                                    <th className="px-6 py-4 text-left text-xs font-extra-bold uppercase tracking-wider border-r"
-                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Fecha</th>
-                                    <th className="px-6 py-4 text-right text-xs font-extra-bold uppercase tracking-wider"
-                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563') }}>Diagnóstico Cobrado (S/)</th>
+                                    <th className="px-5 py-4 text-center text-xs font-extra-bold uppercase tracking-wider border-r"
+                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Informe Técnico</th>
+                                    <th className="px-5 py-4 text-left text-xs font-extra-bold uppercase tracking-wider border-r"
+                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Área / Registro</th>
+                                    <th className="px-5 py-4 text-left text-xs font-extra-bold uppercase tracking-wider border-r"
+                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Tipo de Equipo</th>
+                                    <th className="px-5 py-4 text-left text-xs font-extra-bold uppercase tracking-wider border-r"
+                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Marca/Modelo</th>
+                                    <th className="px-5 py-4 text-left text-xs font-extra-bold uppercase tracking-wider border-r"
+                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Descripción de Servicio</th>
+                                    <th className="px-5 py-4 text-right text-xs font-extra-bold uppercase tracking-wider border-r min-w-[120px]"
+                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#4b5563' : '#e5e7eb') }}>Total Cobrado</th>
+                                    <th className="px-5 py-4 text-left text-xs font-extra-bold uppercase tracking-wider max-w-[200px]"
+                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#e5e7eb' : '#4b5563') }}>Observación</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y"
@@ -515,19 +565,63 @@ function IngresosCostos() {
                                     backgroundColor: isExporting ? '#ffffff' : (theme === 'dark' ? '#1f2937' : '#ffffff'),
                                     divideColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb')
                                 }}>
-                                {diagReports.length === 0 ? (
-                                    <tr><td colSpan="3" className="px-6 py-4 text-center text-gray-500">Ningún informe cobró diagnóstico este mes.</td></tr>
+                                {tableReports.length === 0 ? (
+                                    <tr><td colSpan="7" className="px-6 py-12 text-center text-gray-500 font-bold">Ningún informe cumple con los criterios de pago o filtros este mes.</td></tr>
                                 ) : (
-                                    diagReports.map((d, idx) => (
-                                        <tr key={idx} className="transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold border-r"
-                                                style={{ color: isExporting ? '#111827' : (theme === 'dark' ? '#ffffff' : '#111827'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>{d.reportNumber}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center border-r"
-                                                style={{ color: isExporting ? '#374151' : (theme === 'dark' ? '#d1d5db' : '#374151'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>{d.date.toLocaleDateString()}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold"
-                                                style={{ color: isExporting ? '#374151' : (theme === 'dark' ? '#d1d5db' : '#374151') }}>S/ {d.diagCharged.toFixed(2)}</td>
-                                        </tr>
-                                    ))
+                                    tableReports.map((report, rIdx) => {
+                                        const isEven = rIdx % 2 === 0;
+                                        const rowBgColor = isExporting 
+                                            ? (isEven ? '#ffffff' : '#f9fafb') 
+                                            : (theme === 'dark' 
+                                                ? (isEven ? '#1f2937' : '#111827') 
+                                                : (isEven ? '#ffffff' : '#f9fafb'));
+
+                                        return (
+                                        <React.Fragment key={rIdx}>
+                                            {report.rows.map((row, rowIdx) => (
+                                                <tr key={`${rIdx}-${rowIdx}`} className="transition-colors border-b dark:border-gray-700" style={{ backgroundColor: rowBgColor }}>
+                                                    {rowIdx === 0 && (
+                                                        <td rowSpan={report.rows.length} className="px-5 py-3 whitespace-nowrap text-lg font-black border-r text-center align-middle"
+                                                            style={{ color: isExporting ? '#111827' : (theme === 'dark' ? '#ffffff' : '#111827'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>
+                                                            {report.reportNumber}
+                                                        </td>
+                                                    )}
+                                                    <td className="px-5 py-3 text-sm border-r font-medium"
+                                                        style={{ color: isExporting ? '#4b5563' : (theme === 'dark' ? '#d1d5db' : '#4b5563'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>
+                                                        {row.area}
+                                                    </td>
+                                                    {rowIdx === 0 && (
+                                                        <td rowSpan={report.rows.length} className="px-5 py-3 whitespace-nowrap text-sm border-r align-middle"
+                                                            style={{ color: isExporting ? '#374151' : (theme === 'dark' ? '#d1d5db' : '#374151'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>
+                                                            {report.tipoEquipo}
+                                                        </td>
+                                                    )}
+                                                    {rowIdx === 0 && (
+                                                        <td rowSpan={report.rows.length} className="px-5 py-3 whitespace-nowrap text-sm border-r align-middle"
+                                                            style={{ color: isExporting ? '#374151' : (theme === 'dark' ? '#d1d5db' : '#374151'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>
+                                                            {report.marcaModelo}
+                                                        </td>
+                                                    )}
+                                                    <td className="px-5 py-3 text-sm border-r"
+                                                        style={{ color: isExporting ? '#111827' : (theme === 'dark' ? '#f3f4f6' : '#111827'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>
+                                                        {row.description}
+                                                    </td>
+                                                    {rowIdx === 0 && (
+                                                        <td rowSpan={report.rows.length} className="px-5 py-3 whitespace-nowrap text-base font-bold text-right border-r align-middle"
+                                                            style={{ color: isExporting ? '#059669' : (theme === 'dark' ? '#34d399' : '#059669'), borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>
+                                                            S/ {report.totalCobradoMes.toFixed(2)}
+                                                        </td>
+                                                    )}
+                                                    {rowIdx === 0 && (
+                                                        <td rowSpan={report.rows.length} className="px-5 py-3 text-xs align-middle italic text-rose-500 dark:text-rose-400 font-bold max-w-[200px]"
+                                                            style={{ borderColor: isExporting ? '#e5e7eb' : (theme === 'dark' ? '#374151' : '#e5e7eb') }}>
+                                                            {report.observacion}
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </React.Fragment>
+                                    )})
                                 )}
                             </tbody>
                         </table>
