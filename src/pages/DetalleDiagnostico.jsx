@@ -344,16 +344,21 @@ function DetalleDiagnostico() {
 
                 // Determine if it is first time and hydrate state
                 const historyLength = currentAreaHistory ? currentAreaHistory.length : 0;
-                const isFirstTime = historyLength <= 1; // 1 because startDiagnosticReport creates the first entry
+                
+                // Un área se considera "primera vez" (campos editables) solo si NUNCA ha sido TERMINADA en su historial
+                const hasTerminado = currentAreaHistory ? currentAreaHistory.some(entry => entry.estado === 'TERMINADO') : false;
+                const isFirstTime = !hasTerminado;
+                
                 setIsFirstTimeInArea(isFirstTime);
 
                 const currentEntry = currentAreaHistory && currentAreaHistory[historyLength - 1];
                 let initialFormState = {};
 
-                if (!isFirstTime && historyLength > 1) {
-                    // Hydrate with previous data but keep current metadata (status, times)
-                    const previousEntry = currentAreaHistory[historyLength - 2];
-                    initialFormState = { ...previousEntry, ...currentEntry };
+                if (historyLength > 1) {
+                    // Hydrate con todos los datos previos. Usamos reduce para asegurar que los datos 
+                    // de un estado TERMINADO previo no se pierdan por reasignaciones (ASIGNADO sin datos).
+                    const mergedPrevious = currentAreaHistory.slice(0, historyLength - 1).reduce((acc, curr) => ({ ...acc, ...curr }), {});
+                    initialFormState = { ...mergedPrevious, ...currentEntry };
                 } else {
                     initialFormState = currentEntry || {};
                 }
