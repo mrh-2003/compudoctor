@@ -824,6 +824,10 @@ function DetalleDiagnostico() {
 
             const anySelected = isVideo || isPlaca || isOtro;
 
+            if (isFirstTimeInArea && !anySelected) {
+                return toast.error('Debe marcar Tarjeta de Video, Placa u Otro de forma obligatoria en la primera revisión.');
+            }
+
             if (anySelected) {
                 const checkComponent = (checked, reparableVal, label) => {
                     if (!checked) return true;

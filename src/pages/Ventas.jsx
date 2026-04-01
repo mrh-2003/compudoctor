@@ -149,7 +149,7 @@ function Ventas() {
             ["Búsqueda:", "", "", searchTerm || "-"],
             [""],
             ["RESUMEN:"],
-            ["Total Ventas (Filtrado):", "", "", `S/ ${totalCalculated.toFixed(2)}`],
+            ["Total Ventas (Filtrado):", "", "", `S/ ${totalCalculated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
             [""],
             headers,
             ...values
@@ -232,7 +232,7 @@ function Ventas() {
             <div className="mb-6 bg-gradient-to-r from-blue-600 to-blue-400 p-4 rounded-lg shadow-lg text-white flex justify-between items-center">
                 <div>
                     <h2 className="text-lg font-semibold">Total Ventas (Filtrado)</h2>
-                    <p className="text-3xl font-bold">S/ {totalCalculated.toFixed(2)}</p>
+                    <p className="text-3xl font-bold">S/ {totalCalculated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
                 <div className="text-4xl opacity-50">
                     <FaFileExcel />

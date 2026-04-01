@@ -7,9 +7,10 @@ import { FaPlus, FaEdit, FaTrash, FaEye, FaChevronLeft, FaChevronRight } from 'r
 import { FiPlus } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
-function ClientForm({ client, onSave, onCancel }) {
+function ClientForm({ client, allClients, onSave, onCancel }) {
   const [formData, setFormData] = useState({
     tipoPersona: client?.tipoPersona || 'NATURAL',
+    dni: client?.dni || '',
     nombre: client?.nombre || '', // Nombre de la persona natural o contacto
     apellido: client?.apellido || '', // Apellido de la persona natural o contacto
     telefono: client?.telefono || '', // Teléfono de la persona natural o contacto
@@ -50,6 +51,46 @@ function ClientForm({ client, onSave, onCancel }) {
         }
     }
     
+    // VALIDACIÓN DE DUPLICADOS
+    if (allClients) {
+        if (formData.tipoPersona === 'NATURAL') {
+            const isDuplicate = allClients.some(c => {
+                if (isEditing && c.id === client.id) return false;
+                if (c.tipoPersona === 'NATURAL') {
+                    const sameName = c.nombre?.trim().toLowerCase() === formData.nombre?.trim().toLowerCase();
+                    const sameLastName = c.apellido?.trim().toLowerCase() === formData.apellido?.trim().toLowerCase();
+                    if (sameName && sameLastName) {
+                        const cDni = c.dni?.trim() || '';
+                        const fDni = formData.dni?.trim() || '';
+                        if (cDni === fDni) return true;
+                    }
+                }
+                return false;
+            });
+            if (isDuplicate) {
+                toast.error("Ya existe un cliente con este nombre y apellido (con el mismo DNI o ambos sin DNI).");
+                return;
+            }
+        } else if (formData.tipoPersona === 'JURIDICA') {
+            const isDuplicate = allClients.some(c => {
+                if (isEditing && c.id === client.id) return false;
+                if (c.tipoPersona === 'JURIDICA') {
+                    const sameRS = c.razonSocial?.trim().toLowerCase() === formData.razonSocial?.trim().toLowerCase();
+                    if (sameRS) {
+                        const cRuc = c.ruc?.trim() || '';
+                        const fRuc = formData.ruc?.trim() || '';
+                        if (cRuc === fRuc) return true;
+                    }
+                }
+                return false;
+            });
+            if (isDuplicate) {
+                toast.error("Ya existe una empresa con esta Razón Social (con el mismo RUC o ambos sin RUC).");
+                return;
+            }
+        }
+    }
+
     setIsSaving(true);
     await onSave(formData);
     setIsSaving(false);
@@ -103,6 +144,12 @@ function ClientForm({ client, onSave, onCancel }) {
         </div>
         
         <div className="grid grid-cols-2 gap-4">
+            {formData.tipoPersona === 'NATURAL' && (
+                <div>
+                    <label className="block text-sm font-medium mb-1">DNI (Opcional)</label>
+                    <input type="text" name="dni" value={formData.dni} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" />
+                </div>
+            )}
             <div>
                 <label className="block text-sm font-medium mb-1">{formData.tipoPersona === 'NATURAL' ? 'Teléfono (Obligatorio)' : 'Teléfono de Contacto (Obligatorio)'}</label>
                 <input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" required />
@@ -306,7 +353,7 @@ function Clientes() {
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Tipo</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">RUC / Razón Social</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">RUC/RS o DNI</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Nombre Contacto</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Apellido Contacto</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Teléfono</th>
@@ -319,7 +366,7 @@ function Clientes() {
               <tr key={client.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-6 py-4 whitespace-nowrap">{client.tipoPersona === 'JURIDICA' ? 'Jurídica' : 'Natural'}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                    {client.tipoPersona === 'JURIDICA' ? `${client.ruc} / ${client.razonSocial}` : 'N/A'}
+                    {client.tipoPersona === 'JURIDICA' ? `${client.ruc} / ${client.razonSocial}` : (client.dni ? `DNI: ${client.dni}` : 'N/A')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">{client.nombre}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{client.apellido || 'N/A'}</td>
@@ -366,6 +413,7 @@ function Clientes() {
         <Modal onClose={handleCloseModal}>
           <ClientForm
             client={editingClient}
+            allClients={allClients}
             onSave={handleSaveClient}
             onCancel={handleCloseModal}
           />

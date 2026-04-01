@@ -422,16 +422,6 @@ function VerEstado() {
 
 
             <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
-                <div className="p-4 flex items-center space-x-4 text-sm font-semibold">
-                    <span className="flex items-center">
-                        <span className="h-4 w-4 bg-yellow-100 dark:bg-yellow-800 border dark:border-yellow-600 block rounded-full mr-2"></span>
-                        Servicio con Adicionales
-                    </span>
-                    <span className="flex items-center">
-                        <span className="h-4 w-4 bg-blue-100 dark:bg-blue-800 border dark:border-blue-600 block rounded-full mr-2"></span>
-                        Servicio Común
-                    </span>
-                </div>
                 <table className="min-w-full table-auto">
                     <thead className="bg-gray-50 dark:bg-gray-700">
                         <tr>
