@@ -405,7 +405,7 @@ function VerEstado() {
                         <option value="telefono">Celular</option>
                         <option value="marca">Marca</option>
                         <option value="modelo">Modelo</option>
-                        <option value="tecnicoResponsable">Técnico Resp.</option>
+                        <option value="tecnicoActual">Técnico Asignado</option>
                         <option value="area">Área</option>
                     </select>
                     <input
@@ -434,7 +434,7 @@ function VerEstado() {
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Motivo</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Técnico Recep.</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Técnico Test.</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Técnico Resp.</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Técnico Asignado</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Área</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Estado</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Casilla</th>
@@ -458,7 +458,7 @@ function VerEstado() {
                                 <td className="px-6 py-4 whitespace-nowrap">{report.motivoIngreso}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoRecepcion}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoTesteo}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoResponsable}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{report.tecnicoActual}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{report.area}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${STATUS_COLORS[report.estado]}`}>
