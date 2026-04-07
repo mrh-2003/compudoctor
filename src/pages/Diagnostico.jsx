@@ -11,7 +11,7 @@ import {
   getDiagnosticReportById,
   updateDiagnosticReport,
 } from "../services/diagnosticService";
-import { createClient } from "../services/clientService";
+import { createClient, getAllClients } from "../services/clientService";
 import { getAllUsersDetailed } from "../services/userService";
 import { useAuth } from "../context/AuthContext";
 import { ThemeContext } from "../context/ThemeContext";
@@ -163,6 +163,44 @@ function NewClientForm({ onSave, onCancel }) {
         toast.error(`El campo "${name}" es obligatorio.`);
         return;
       }
+    }
+
+    const allClients = await getAllClients();
+    if (allClients) {
+        if (formData.tipoPersona === 'NATURAL') {
+            const isDuplicate = allClients.some(c => {
+                if (c.tipoPersona === 'NATURAL') {
+                    const sameName = c.nombre?.trim().toLowerCase() === formData.nombre?.trim().toLowerCase();
+                    const sameLastName = c.apellido?.trim().toLowerCase() === formData.apellido?.trim().toLowerCase();
+                    if (sameName && sameLastName) {
+                        const cDni = c.dni?.trim() || '';
+                        const fDni = formData.dni?.trim() || '';
+                        if (cDni === fDni) return true;
+                    }
+                }
+                return false;
+            });
+            if (isDuplicate) {
+                toast.error("Ya existe un cliente con este nombre y apellido (con el mismo DNI o ambos sin DNI).");
+                return;
+            }
+        } else if (formData.tipoPersona === 'JURIDICA') {
+            const isDuplicate = allClients.some(c => {
+                if (c.tipoPersona === 'JURIDICA') {
+                    const sameRS = c.razonSocial?.trim().toLowerCase() === formData.razonSocial?.trim().toLowerCase();
+                    if (sameRS) {
+                        const cRuc = c.ruc?.trim() || '';
+                        const fRuc = formData.ruc?.trim() || '';
+                        if (cRuc === fRuc) return true;
+                    }
+                }
+                return false;
+            });
+            if (isDuplicate) {
+                toast.error("Ya existe una empresa con esta Razón Social (con el mismo RUC o ambos sin RUC).");
+                return;
+            }
+        }
     }
 
     setIsSaving(true);
