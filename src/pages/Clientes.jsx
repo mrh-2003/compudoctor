@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getAllClients, createClient, updateClient, deleteClient } from '../services/clientService'
+import { getAllDiagnosticReportsByClientId } from '../services/diagnosticService'
 import Modal from '../components/common/Modal'
 import { FaPlus, FaEdit, FaTrash, FaEye, FaChevronLeft, FaChevronRight } from 'react-icons/fa'
 import { FiPlus } from 'react-icons/fi'
@@ -259,14 +260,24 @@ function Clientes() {
     }
   }
 
-  const handleDeleteRequest = (client) => {
-    const displayId = client.tipoPersona === 'JURIDICA' ? client.razonSocial : `${client.nombre} ${client.apellido}`;
-    setConfirmation({
-      isOpen: true,
-      title: 'Eliminar Cliente',
-      message: `¿Estás seguro de que quieres eliminar a ${displayId}? Esta acción es irreversible.`,
-      onConfirm: () => handleDeleteClient(client.id),
-    })
+  const handleDeleteRequest = async (client) => {
+    try {
+      const reports = await getAllDiagnosticReportsByClientId(client.id);
+      if (reports && reports.length > 0) {
+        showNotification('No se puede eliminar: El cliente tiene informes técnicos vinculados.', 'error');
+        return;
+      }
+
+      const displayId = client.tipoPersona === 'JURIDICA' ? client.razonSocial : `${client.nombre} ${client.apellido}`;
+      setConfirmation({
+        isOpen: true,
+        title: 'Eliminar Cliente',
+        message: `¿Estás seguro de que quieres eliminar a ${displayId}? Esta acción es irreversible.`,
+        onConfirm: () => handleDeleteClient(client.id),
+      });
+    } catch (error) {
+      showNotification('Error al verificar los informes técnicos del cliente.', 'error');
+    }
   }
 
   const handleDeleteClient = async (clientId) => {
