@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from "../context/AuthContext";
 import { useParams, useNavigate } from 'react-router-dom';
 import { createSale, getSaleById, updateSale } from '../services/salesService';
 import { getAllClientsForSelection, getDiagnosticReportByNumber, getClientById } from '../services/diagnosticService'; // Reusing client fetch
@@ -23,6 +24,8 @@ function DetalleVenta() {
     const { id } = useParams();
     const isEditMode = id && id !== 'nueva';
     const navigate = useNavigate();
+    const { currentUser } = useAuth();
+    const canEdit = currentUser && (currentUser.rol === "SUPERADMIN" || currentUser.rol === "ADMIN");
     const { theme } = useContext(ThemeContext);
 
     const [loading, setLoading] = useState(isEditMode);
@@ -64,6 +67,11 @@ function DetalleVenta() {
     ]);
 
     useEffect(() => {
+        if (!canEdit && !isEditMode) {
+            toast.error("No tienes permisos para crear.");
+            navigate(-1);
+            return;
+        }
         const loadInventory = async () => {
             try {
                 const data = await getInventoryItems();
@@ -482,7 +490,7 @@ function DetalleVenta() {
     return (
         <div className="container mx-auto p-4 md:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
             <div className="flex items-center mb-6 gap-4">
-                <button onClick={() => navigate('/ventas')} className="text-gray-600 dark:text-gray-300 hover:text-blue-500" disabled={isSaving}>
+                <button onClick={() => navigate('/ventas')} className="text-gray-600 dark:text-gray-300 hover:text-blue-500" disabled={isSaving || !canEdit}>
                     <FaArrowLeft size={20} />
                 </button>
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -516,7 +524,7 @@ function DetalleVenta() {
                                 }));
                             }}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         >
                             {TIPOS_COMPROBANTE.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -528,7 +536,7 @@ function DetalleVenta() {
                             value={header.saleCompNum}
                             onChange={e => setHeader({ ...header, saleCompNum: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm font-bold"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         />
                     </div>
                 </div>
@@ -541,7 +549,7 @@ function DetalleVenta() {
                             value={header.date}
                             onChange={e => setHeader({ ...header, date: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         />
                     </div>
 
@@ -601,14 +609,14 @@ function DetalleVenta() {
                                 value={header.techReportNum}
                                 onChange={e => setHeader({ ...header, techReportNum: e.target.value })}
                                 className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
-                                disabled={isSaving}
+                                disabled={isSaving || !canEdit}
                             />
                             <button
                                 onClick={handleSearchReport}
                                 className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded disabled:bg-blue-300"
                                 title="Buscar Informe"
                                 type="button"
-                                disabled={isSaving}
+                                disabled={isSaving || !canEdit}
                             >
                                 <FaSearch />
                             </button>
@@ -621,7 +629,7 @@ function DetalleVenta() {
                             value={header.clientDocType}
                             onChange={e => setHeader({ ...header, clientDocType: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         >
                             {TIPOS_DOC_CLIENTE.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -633,7 +641,7 @@ function DetalleVenta() {
                             value={header.clientDocNum}
                             onChange={e => setHeader({ ...header, clientDocNum: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         />
                     </div>
                     <div className="md:col-span-2">
@@ -643,7 +651,7 @@ function DetalleVenta() {
                             value={header.clientName}
                             onChange={e => setHeader({ ...header, clientName: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         />
                     </div>
                 </div>
@@ -672,7 +680,7 @@ function DetalleVenta() {
                                 <tr key={item.id} className={item.isFromInventory ? "bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-500" : ""}>
                                     <td className="p-1 border text-center relative group">
                                         <input type="number" min="1" className="w-16 p-1 border rounded text-center dark:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-600"
-                                            value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} disabled={isSaving || item.isExistingInventoryItem} />
+                                            value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} disabled={isSaving || !canEdit || item.isExistingInventoryItem} />
                                     </td>
                                     <td className="p-1 border relative">
                                         <input type="text" className={`w-full p-1 border rounded dark:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-600 ${item.isFromInventory ? 'font-bold text-blue-700 dark:text-blue-300' : ''}`}
@@ -680,7 +688,7 @@ function DetalleVenta() {
                                             onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
                                             onFocus={() => { if (item.description && item.description.length > 0 && !item.isExistingInventoryItem) setShowSuggestions(item.id) }}
                                             onBlur={() => setTimeout(() => setShowSuggestions(null), 200)}
-                                            disabled={isSaving || item.isExistingInventoryItem} />
+                                            disabled={isSaving || !canEdit || item.isExistingInventoryItem} />
 
                                         {showSuggestions === item.id && (
                                             <ul className="absolute z-50 left-0 w-max min-w-[250px] bg-white dark:bg-gray-800 border dark:border-gray-600 rounded shadow-lg max-h-48 overflow-y-auto mt-1">
@@ -708,27 +716,29 @@ function DetalleVenta() {
                                     </td>
                                     <td className="p-1 border">
                                         <input type="number" min="0" step="0.01" className="w-20 p-1 border rounded text-right dark:bg-gray-700"
-                                            value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} disabled={isSaving} />
+                                            value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border bg-gray-50 dark:bg-gray-900 text-right font-bold">
                                         {parseFloat(item.amount).toFixed(2)}
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.purchaseDocNum} onChange={(e) => handleItemChange(item.id, 'purchaseDocNum', e.target.value)} disabled={isSaving} />
+                                            value={item.purchaseDocNum} onChange={(e) => handleItemChange(item.id, 'purchaseDocNum', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.provider} onChange={(e) => handleItemChange(item.id, 'provider', e.target.value)} disabled={isSaving} />
+                                            value={item.provider} onChange={(e) => handleItemChange(item.id, 'provider', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.observation} onChange={(e) => handleItemChange(item.id, 'observation', e.target.value)} disabled={isSaving} />
+                                            value={item.observation} onChange={(e) => handleItemChange(item.id, 'observation', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border text-center">
-                                        <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 disabled:text-red-300 disabled:opacity-50" disabled={isSaving}>
+                                        {canEdit && (
+<button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 disabled:text-red-300 disabled:opacity-50" disabled={isSaving || !canEdit}>
                                             <FaTrash />
                                         </button>
+)}
                                     </td>
                                 </tr>
                             ))}
@@ -748,9 +758,11 @@ function DetalleVenta() {
                     )}
                 </div>
 
-                <button onClick={addItem} className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm font-bold py-1 px-3 rounded flex items-center mb-6 disabled:bg-gray-200 disabled:text-gray-500" disabled={isSaving}>
+                {canEdit && (
+<button onClick={addItem} className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm font-bold py-1 px-3 rounded flex items-center mb-6 disabled:bg-gray-200 disabled:text-gray-500" disabled={isSaving || !canEdit}>
                     <FaPlus className="mr-1" /> Agregar Fila
                 </button>
+)}
 
                 {/* Totals */}
                 <div className="flex justify-end">
@@ -775,17 +787,19 @@ function DetalleVenta() {
                 <button
                     onClick={() => navigate('/ventas')}
                     className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-400"
-                    disabled={isSaving}
+                    disabled={isSaving || !canEdit}
                 >
                     Cancelar
                 </button>
-                <button
+                {canEdit && (
+<button
                     onClick={triggerSave}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg flex items-center text-lg disabled:bg-blue-400"
-                    disabled={isSaving}
+                    disabled={isSaving || !canEdit}
                 >
                     <FaSave className="mr-2" /> {isSaving ? 'Guardando...' : 'Guardar Venta'}
                 </button>
+)}
             </div>
 
             {/* Custom Modal for Confirmation */}

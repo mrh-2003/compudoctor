@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getPurchases, deletePurchase } from '../services/comprasService';
+import { useAuth } from '../context/AuthContext';
 import { FaPlus, FaTrash, FaSpinner, FaSearch, FaFileExcel } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx-js-style';
@@ -11,6 +12,9 @@ const TIPOS_COMPROBANTE = [
 ];
 
 function Compras() {
+    const { currentUser } = useAuth();
+    const canEdit = currentUser && (currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN');
+
     const [purchases, setPurchases] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterTipo, setFilterTipo] = useState('TODOS');
@@ -311,7 +315,9 @@ function Compras() {
                 <div className="flex gap-2 min-w-max">
                     <button onClick={clearFilters} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow">Limpiar</button>
                     <button onClick={handleExportExcel} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow flex items-center"><FaFileExcel className="mr-2" /> Excel</button>
-                    <Link to="/compras/nueva" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow flex items-center"><FaPlus className="mr-2" /> Nueva</Link>
+                    {canEdit && (
+                        <Link to="/compras/nueva" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow flex items-center"><FaPlus className="mr-2" /> Nueva</Link>
+                    )}
                 </div>
             </div>
 
@@ -396,8 +402,10 @@ function Compras() {
                                         ))}
                                     </td>
                                     <td className="px-3 py-2 text-center flex justify-center gap-2 items-start pt-2">
-                                        <button onClick={() => navigate(`/compras/${p.id}`)} className="text-blue-500 hover:text-blue-700 p-1 border border-blue-500 rounded" title="Ver/Editar Detalle"><FaPlus size={12} /></button>
-                                        <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-700 p-1" title="Eliminar"><FaTrash size={12} /></button>
+                                        <button onClick={() => navigate(`/compras/${p.id}`)} className="text-blue-500 hover:text-blue-700 p-1 border border-blue-500 rounded" title={canEdit ? "Ver/Editar Detalle" : "Ver Detalle"}><FaPlus size={12} /></button>
+                                        {canEdit && (
+                                            <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-700 p-1" title="Eliminar"><FaTrash size={12} /></button>
+                                        )}
                                     </td>
                                 </tr>
                             )) : (

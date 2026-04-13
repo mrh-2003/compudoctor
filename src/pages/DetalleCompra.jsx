@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from "../context/AuthContext";
 import { useParams, useNavigate } from 'react-router-dom';
 import { createPurchase, getPurchaseById, updatePurchase } from '../services/comprasService';
 import { FaPlus, FaTrash, FaSave, FaArrowLeft } from 'react-icons/fa';
@@ -13,6 +14,8 @@ function DetalleCompra() {
     const { id } = useParams();
     const isEditMode = id && id !== 'nueva';
     const navigate = useNavigate();
+    const { currentUser } = useAuth();
+    const canEdit = currentUser && (currentUser.rol === "SUPERADMIN" || currentUser.rol === "ADMIN");
 
     const [loading, setLoading] = useState(isEditMode);
     const [isSaving, setIsSaving] = useState(false);
@@ -40,6 +43,11 @@ function DetalleCompra() {
     ]);
 
     useEffect(() => {
+        if (!canEdit && !isEditMode) {
+            toast.error("No tienes permisos para crear.");
+            navigate(-1);
+            return;
+        }
         if (isEditMode) {
             loadPurchase();
         }
@@ -164,7 +172,7 @@ function DetalleCompra() {
     return (
         <div className="container mx-auto p-4 md:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
             <div className="flex items-center mb-6 gap-4">
-                <button onClick={() => navigate('/compras')} className="text-gray-600 dark:text-gray-300 hover:text-blue-500" disabled={isSaving}>
+                <button onClick={() => navigate('/compras')} className="text-gray-600 dark:text-gray-300 hover:text-blue-500" disabled={isSaving || !canEdit}>
                     <FaArrowLeft size={20} />
                 </button>
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -183,7 +191,7 @@ function DetalleCompra() {
                             value={header.date}
                             onChange={e => setHeader({ ...header, date: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         />
                     </div>
                     <div>
@@ -194,7 +202,7 @@ function DetalleCompra() {
                             onChange={e => setHeader({ ...header, provider: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
                             placeholder="Nombre del Proveedor"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         />
                     </div>
                     <div>
@@ -203,7 +211,7 @@ function DetalleCompra() {
                             value={header.tipoComprobante}
                             onChange={e => setHeader({ ...header, tipoComprobante: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         >
                             {TIPOS_COMPROBANTE.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -216,7 +224,7 @@ function DetalleCompra() {
                             onChange={e => setHeader({ ...header, purchaseCompNum: e.target.value })}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm font-bold"
                             placeholder="Ej. F001-123"
-                            disabled={isSaving}
+                            disabled={isSaving || !canEdit}
                         />
                     </div>
                 </div>
@@ -247,45 +255,47 @@ function DetalleCompra() {
                                 <tr key={item.id}>
                                     <td className="p-1 border text-center">
                                         <input type="number" min="1" className="w-full p-1 border rounded text-center dark:bg-gray-700"
-                                            value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} disabled={isSaving} />
+                                            value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
                                             value={item.description}
                                             onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
-                                            disabled={isSaving} />
+                                            disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="number" min="0" step="0.01" className="w-full p-1 border rounded text-right dark:bg-gray-700"
-                                            value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} disabled={isSaving} />
+                                            value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border bg-gray-50 dark:bg-gray-900 text-right font-bold">
                                         {parseFloat(item.amount).toFixed(2)}
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700 text-center"
-                                            value={item.techReportNum} onChange={(e) => handleItemChange(item.id, 'techReportNum', e.target.value)} disabled={isSaving} />
+                                            value={item.techReportNum} onChange={(e) => handleItemChange(item.id, 'techReportNum', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.boletaFisica} onChange={(e) => handleItemChange(item.id, 'boletaFisica', e.target.value)} disabled={isSaving} />
+                                            value={item.boletaFisica} onChange={(e) => handleItemChange(item.id, 'boletaFisica', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.facturaElect} onChange={(e) => handleItemChange(item.id, 'facturaElect', e.target.value)} disabled={isSaving} />
+                                            value={item.facturaElect} onChange={(e) => handleItemChange(item.id, 'facturaElect', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.boletaElect} onChange={(e) => handleItemChange(item.id, 'boletaElect', e.target.value)} disabled={isSaving} />
+                                            value={item.boletaElect} onChange={(e) => handleItemChange(item.id, 'boletaElect', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border">
                                         <input type="text" className="w-full p-1 border rounded dark:bg-gray-700"
-                                            value={item.observation} onChange={(e) => handleItemChange(item.id, 'observation', e.target.value)} disabled={isSaving} />
+                                            value={item.observation} onChange={(e) => handleItemChange(item.id, 'observation', e.target.value)} disabled={isSaving || !canEdit} />
                                     </td>
                                     <td className="p-1 border text-center">
-                                        <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 disabled:text-red-300" disabled={isSaving}>
+                                        {canEdit && (
+<button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 disabled:text-red-300" disabled={isSaving || !canEdit}>
                                             <FaTrash />
                                         </button>
+)}
                                     </td>
                                 </tr>
                             ))}
@@ -293,9 +303,11 @@ function DetalleCompra() {
                     </table>
                 </div>
 
-                <button onClick={addItem} className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm font-bold py-1 px-3 rounded flex items-center disabled:bg-gray-200 disabled:text-gray-500" disabled={isSaving}>
+                {canEdit && (
+<button onClick={addItem} className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm font-bold py-1 px-3 rounded flex items-center disabled:bg-gray-200 disabled:text-gray-500" disabled={isSaving || !canEdit}>
                     <FaPlus className="mr-1" /> Agregar Fila
                 </button>
+)}
 
                 {/* Totals */}
                 <div className="flex justify-end">
@@ -312,17 +324,19 @@ function DetalleCompra() {
                 <button
                     onClick={() => navigate('/compras')}
                     className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-400"
-                    disabled={isSaving}
+                    disabled={isSaving || !canEdit}
                 >
                     Cancelar
                 </button>
-                <button
+                {canEdit && (
+<button
                     onClick={handleSave}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg flex items-center text-lg disabled:bg-blue-400"
-                    disabled={isSaving}
+                    disabled={isSaving || !canEdit}
                 >
                     <FaSave className="mr-2" /> {isSaving ? 'Guardando...' : 'Guardar Compra'}
                 </button>
+)}
             </div>
         </div >
     );

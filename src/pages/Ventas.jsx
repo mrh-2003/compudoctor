@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getSales, deleteSale } from '../services/salesService';
+import { useAuth } from '../context/AuthContext';
 import { FaPlus, FaTrash, FaSpinner, FaSearch, FaFileExcel, FaFilter } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx-js-style';
@@ -12,6 +13,9 @@ const TIPOS_COMPROBANTE = [
 ];
 
 function Ventas() {
+    const { currentUser } = useAuth();
+    const canEdit = currentUser && (currentUser.rol === 'SUPERADMIN' || currentUser.rol === 'ADMIN');
+    
     const [sales, setSales] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterTipo, setFilterTipo] = useState('TODOS');
@@ -309,12 +313,14 @@ function Ventas() {
                     >
                         <FaFileExcel className="mr-2" /> Excel
                     </button>
-                    <Link
-                        to="/ventas/nueva"
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center shadow"
-                    >
-                        <FaPlus className="mr-2" /> Nueva
-                    </Link>
+                    {canEdit && (
+                        <Link
+                            to="/ventas/nueva"
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center shadow"
+                        >
+                            <FaPlus className="mr-2" /> Nueva
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -392,17 +398,19 @@ function Ventas() {
                                         <button
                                             onClick={() => navigate(`/ventas/${sale.id}`)}
                                             className="text-blue-500 hover:text-blue-700 p-1 border border-blue-500 rounded"
-                                            title="Ver/Editar Detalle"
+                                            title={canEdit ? "Ver/Editar Detalle" : "Ver Detalle"}
                                         >
                                             <FaPlus size={12} />
                                         </button>
-                                        <button
-                                            onClick={() => handleDelete(sale.id)}
-                                            className="text-red-500 hover:text-red-700 p-1"
-                                            title="Eliminar Comprobante Completo"
-                                        >
-                                            <FaTrash size={12} />
-                                        </button>
+                                        {canEdit && (
+                                            <button
+                                                onClick={() => handleDelete(sale.id)}
+                                                className="text-red-500 hover:text-red-700 p-1"
+                                                title="Eliminar Comprobante Completo"
+                                            >
+                                                <FaTrash size={12} />
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             )) : (
