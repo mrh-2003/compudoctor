@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getSales, deleteSale } from '../services/salesService';
 import { useAuth } from '../context/AuthContext';
-import { FaPlus, FaTrash, FaSpinner, FaSearch, FaFileExcel, FaFilter } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaSpinner, FaSearch, FaFileExcel, FaFilter, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx-js-style';
 
@@ -21,6 +21,8 @@ function Ventas() {
     const [filterTipo, setFilterTipo] = useState('TODOS');
     const [searchTerm, setSearchTerm] = useState('');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -226,6 +228,22 @@ function Ventas() {
         setDateRange({ start: '', end: '' });
         setSearchTerm('');
         setFilterTipo('TODOS');
+        setCurrentPage(1);
+    };
+
+    const totalPages = Math.ceil(filteredSales.length / pageSize);
+
+    const paginatedSales = useMemo(() => {
+        const startIndex = (currentPage - 1) * pageSize;
+        return filteredSales.slice(startIndex, startIndex + pageSize);
+    }, [filteredSales, currentPage, pageSize]);
+
+    const handlePreviousPage = () => {
+        setCurrentPage(prev => Math.max(prev - 1, 1));
+    };
+
+    const handleNextPage = () => {
+        setCurrentPage(prev => Math.min(prev + 1, totalPages));
     };
 
     return (
@@ -253,7 +271,10 @@ function Ventas() {
                         <input
                             type="date"
                             value={dateRange.start}
-                            onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                            onChange={(e) => {
+                                setDateRange({ ...dateRange, start: e.target.value });
+                                setCurrentPage(1);
+                            }}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
                         />
                     </div>
@@ -262,7 +283,10 @@ function Ventas() {
                         <input
                             type="date"
                             value={dateRange.end}
-                            onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                            onChange={(e) => {
+                                setDateRange({ ...dateRange, end: e.target.value });
+                                setCurrentPage(1);
+                            }}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
                         />
                     </div>
@@ -275,7 +299,10 @@ function Ventas() {
                                 type="text"
                                 placeholder="Cliente, N° Doc, Descripción..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
                                 className="w-full p-2 pl-8 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
                             />
                             <FaSearch className="absolute left-2.5 top-2.5 text-gray-400" />
@@ -287,7 +314,10 @@ function Ventas() {
                         <label className="block text-xs font-bold mb-1 dark:text-gray-300">Tipo de Comprobante</label>
                         <select
                             value={filterTipo}
-                            onChange={(e) => setFilterTipo(e.target.value)}
+                            onChange={(e) => {
+                                setFilterTipo(e.target.value);
+                                setCurrentPage(1);
+                            }}
                             className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
                         >
                             <option value="TODOS">TODOS</option>
@@ -349,9 +379,9 @@ function Ventas() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                            {filteredSales.length > 0 ? filteredSales.map((sale, index) => (
+                            {paginatedSales.length > 0 ? paginatedSales.map((sale, index) => (
                                 <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition group align-top">
-                                    <td className="px-3 py-2">{index + 1}</td>
+                                    <td className="px-3 py-2">{(currentPage - 1) * pageSize + index + 1}</td>
                                     <td className="px-3 py-2 whitespace-nowrap">{sale.date}</td>
                                     <td className="px-3 py-2 font-medium">{sale.clientName}</td>
                                     <td className="px-3 py-2 hidden md:table-cell">{sale.clientDocType}</td>
@@ -424,6 +454,28 @@ function Ventas() {
                     </table>
                 </div>
             )}
+
+            <div className="flex justify-between items-center mt-4">
+                <span className="text-sm text-gray-700 dark:text-gray-400">
+                    Página {currentPage} de {totalPages} ({filteredSales.length} resultados)
+                </span>
+                <div className="flex items-center space-x-2">
+                    <button
+                        onClick={handlePreviousPage}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                        <FaChevronLeft />
+                    </button>
+                    <button
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        className="px-3 py-1 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                        <FaChevronRight />
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
