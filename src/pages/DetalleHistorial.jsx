@@ -72,6 +72,10 @@ function DetalleHistorial() {
     const [relatedPurchases, setRelatedPurchases] = useState([]);
     const [relatedSales, setRelatedSales] = useState([]);
 
+    const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
+    const [testeoServicioFinal, setTesteoServicioFinal] = useState('');
+    const [obsFinal, setObsFinal] = useState('');
+
     useEffect(() => {
         if (report?.reportNumber) {
             const loadPurchases = async () => {
@@ -156,6 +160,56 @@ function DetalleHistorial() {
             fetchReport();
         } catch (error) {
             toast.error('Error al marcar el equipo como entregado.');
+            console.error(error);
+        }
+    };
+
+    const handleOpenFinishModal = () => {
+        setIsFinishModalOpen(true);
+    };
+
+    const handleCloseFinishModal = () => {
+        setIsFinishModalOpen(false);
+        setTesteoServicioFinal('');
+        setObsFinal('');
+    };
+
+    const handleFinishReport = async (e) => {
+        e.preventDefault();
+        try {
+            const now = new Date();
+            const formattedDate = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
+            const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+            const newTesteoEntry = {
+                estado: 'TERMINADO',
+                fecha_inicio: formattedDate,
+                hora_inicio: formattedTime,
+                fecha_fin: formattedDate,
+                hora_fin: formattedTime,
+                tecnico: currentUser?.nombre || 'N/A',
+                testeo_servicio_final: testeoServicioFinal,
+                reparacion: obsFinal
+            };
+
+            const currentDiagnostico = report.diagnosticoPorArea || {};
+            const currentTesteoHistory = currentDiagnostico.TESTEO || [];
+
+            const updatedData = {
+                estado: 'TERMINADO',
+                tecnicoTesteo: currentUser?.nombre || 'N/A',
+                diagnosticoPorArea: {
+                    ...currentDiagnostico,
+                    TESTEO: [...currentTesteoHistory, newTesteoEntry]
+                }
+            };
+
+            await updateDiagnosticReport(reportId, updatedData);
+            toast.success('Informe marcado como terminado exitosamente.');
+            handleCloseFinishModal();
+            fetchReport();
+        } catch (error) {
+            toast.error('Error al marcar el informe como terminado.');
             console.error(error);
         }
     };
@@ -1204,6 +1258,15 @@ function DetalleHistorial() {
                             <FaCheckCircle className="mr-2" /> Marcar como Entregado
                         </button>
                     )}
+
+                    {report.estado !== 'TERMINADO' && report.estado !== 'ENTREGADO' && currentUser && (currentUser.rol === 'ADMIN' || currentUser.rol === 'SUPERADMIN') && (
+                        <button
+                            onClick={handleOpenFinishModal}
+                            className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"
+                        >
+                            <FaCheckCircle className="mr-2" /> Marcar como Terminado
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1361,6 +1424,56 @@ function DetalleHistorial() {
                         </div>
                     </form >
                 </Modal >
+            )}
+
+            {isFinishModalOpen && (
+                <Modal onClose={handleCloseFinishModal}>
+                    <form onSubmit={handleFinishReport} className="space-y-4 p-4">
+                        <h2 className="text-xl font-bold">Marcar Informe como Terminado</h2>
+                        <div className="bg-orange-50 dark:bg-orange-900 border border-orange-300 dark:border-orange-700 p-3 rounded-md text-sm">
+                            <p><strong>Informe N°:</strong> {report.reportNumber}</p>
+                            <p><strong>Cliente:</strong> {report.clientName}</p>
+                            <p className="font-bold text-orange-600 mt-2">Esta acción marcará el informe como **TERMINADO**.</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1">TRABAJO FINAL (Testeo Final)</label>
+                            <textarea
+                                value={testeoServicioFinal}
+                                onChange={(e) => setTesteoServicioFinal(e.target.value)}
+                                rows="3"
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                placeholder="Escribe el trabajo final realizado..."
+                                required
+                            ></textarea>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1">OBSERVACIONES FINAL (Se mostrará en la ficha)</label>
+                            <textarea
+                                value={obsFinal}
+                                onChange={(e) => setObsFinal(e.target.value)}
+                                rows="3"
+                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                placeholder="Ingresa las observaciones finales..."
+                            ></textarea>
+                        </div>
+
+                        <div className="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 p-3 rounded-md text-sm">
+                            <p className="font-semibold mb-2">Información de Finalización:</p>
+                            <ul className="space-y-1">
+                                <li><strong>Fecha:</strong> {formattedDate}</li>
+                                <li><strong>Hora:</strong> {formattedTime}</li>
+                                <li><strong>Técnico de Testeo:</strong> {currentUser?.nombre || 'N/A'}</li>
+                            </ul>
+                        </div>
+
+                        <div className="flex justify-end space-x-2">
+                            <button type="button" onClick={handleCloseFinishModal} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                            <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg">Confirmar Terminado</button>
+                        </div>
+                    </form>
+                </Modal>
             )}
         </div >
     );
